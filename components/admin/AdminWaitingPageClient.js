@@ -5,6 +5,7 @@ import { Archive, Check, Copy, Loader2, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { AgeChip } from '@/components/admin/ui/AgeChip';
 import { logCommunicationCopy } from '@/lib/admin/log-communication-copy.js';
+import { WELCOME_CALL_PROMPTS } from '@/lib/admin/onboarding-message-helpers.mjs';
 import {
   getWaitingRestoreStatus,
   getWaitingStatusLabel,
@@ -374,6 +375,20 @@ export default function AdminWaitingPageClient({
                   </button>
                 </div>
               </div>
+
+              <details
+                open={student.waitingStatus === 'welcome_call_booked'}
+                className="mt-4 rounded-xl border border-violet-200 bg-violet-50/60 px-4 py-3"
+              >
+                <summary className="cursor-pointer text-sm font-semibold text-violet-950">
+                  Welcome call prompts
+                </summary>
+                <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-700">
+                  {WELCOME_CALL_PROMPTS.map((prompt) => (
+                    <li key={prompt}>{prompt}</li>
+                  ))}
+                </ol>
+              </details>
 
               <div className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_1.2fr_0.9fr]">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">

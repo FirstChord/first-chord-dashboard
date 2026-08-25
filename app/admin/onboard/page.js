@@ -95,6 +95,10 @@ export default async function AdminOnboardPage({ searchParams }) {
               : '1',
         interests: [parsed.genres, parsed.songs].filter(Boolean).join(' / '),
         rawNote: details.note || '',
+        humanChecks: {
+          paymentTermsExplained: false,
+          lessonWhatsappGroupReady: false,
+        },
       }
     : null;
 

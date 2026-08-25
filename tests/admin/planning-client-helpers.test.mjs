@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  FIRST_LESSON_CHECKIN_CHECKLIST,
   shortPreview,
   formatTargetDate,
   firstName,
@@ -14,6 +15,8 @@ import {
   buildPaymentPausePrefillUrl,
   buildPauseConfirmationMessage,
   isPausePlanningItem,
+  isFirstLessonCheckinChecklistComplete,
+  isFirstLessonCheckinPlanningItem,
   isTutorAbsenceCapturePlanningItem,
   requiresTutorAbsencePaymentTool,
   isDueNowPlanningItem,
@@ -45,6 +48,22 @@ import {
   filterPlanningItems,
   EMPTY_FORM,
 } from '../../lib/admin/planning-client-helpers.mjs';
+
+test('first-lesson check-in cards expose three required local checks', () => {
+  assert.deepEqual(FIRST_LESSON_CHECKIN_CHECKLIST.map((step) => step.key), [
+    'lesson_payment',
+    'whatsapp_groups',
+    'student_access',
+  ]);
+  assert.equal(isFirstLessonCheckinPlanningItem({ planningId: 'planning_first_lesson_checkin_sdt_123' }), true);
+  assert.equal(isFirstLessonCheckinPlanningItem({ planningId: 'planning_early_stripe_timing_sdt_123' }), false);
+  assert.equal(isFirstLessonCheckinChecklistComplete({}), false);
+  assert.equal(isFirstLessonCheckinChecklistComplete({
+    lesson_payment: true,
+    whatsapp_groups: true,
+    student_access: true,
+  }), true);
+});
 
 test('incoming planning reply extraction keeps the reviewed multiline draft attached to the plan', () => {
   const reply = extractIncomingPlanningReply({

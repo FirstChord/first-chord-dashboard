@@ -30,15 +30,36 @@ A student is operationally onboarded only when:
 - when onboarding started from a suggested MMS `Free` event, that exact source
   event has been cleared after the lesson was confirmed
 
-Stripe linkage is a separate payment-setup workflow and may complete after the
-first lesson. A Stripe-managed setup becomes overdue for review seven days after
-the first lesson.
+Before any onboarding write begins, the admin must also confirm that the welcome
+call covered the weekly payment terms and that the lesson WhatsApp group contains
+the parent/student contact, assigned tutor, Finn, Tom, and Nelly (Fennella). One
+person may satisfy more than one role. These confirmations are human assertions,
+not WhatsApp delivery evidence.
+
+The family receives the weekly Stripe subscription link during onboarding even
+when lesson one is some time away. The first payment pays for lesson one. Before
+lesson two, the family decides whether to continue: continuing leaves the weekly
+subscription running; stopping means cancelling future weekly payments, not
+promising a refund. If lesson one is at least seven days from onboarding, create
+an idempotent Planning review for the next Monday, Wednesday, or Friday so a
+human checks the subscription timing before the first renewal. That review must
+not read as evidence that Stripe was checked and must never mutate Stripe.
+
+Stripe linkage remains a separate provider-reconciliation workflow and may
+complete after the first lesson. A Stripe-managed setup becomes overdue for
+review seven days after the first lesson.
 
 Onboarding crosses Sheets, registry/GitHub, and MMS and can partially succeed.
 Show every step result and recovery action; never collapse warnings into
 unconditional success. Keep the waiting record open, and do not create
 post-onboarding check-ins or notes-access follow-ups, until the canonical record
 and all applicable MMS conditions above are complete.
+
+The first-lesson Planning check-in covers three visible checks: lesson outcome
+and payment decision, membership of both the lesson and community WhatsApp
+groups, and receipt of the student portal link plus notes-privacy instructions.
+The per-check ticks are local UI guidance; only the final Planning `done` status
+is persisted, and it remains unavailable until all three are ticked.
 
 ## Lessons, Cancellation, And Leaving
 

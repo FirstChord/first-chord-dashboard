@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   attachPlanningProgress,
+  buildEarlyStripeTimingReviewPlanningId,
+  buildEarlyStripeTimingReviewPlanningItem,
   buildDateInputRange,
   flagNearbyPauses,
   normalisePauseFlag,
@@ -18,6 +20,7 @@ import {
   calculateMondayScheduleDate,
   calculateMonthEndDate,
   calculateNextMeetingDate,
+  requiresEarlyStripeTimingReview,
   buildMondaySchedulePlanningItem,
   buildMonthEndExpensesPlanningItem,
   shouldRefreshMonthEndExpensesPlanningItem,
@@ -288,9 +291,39 @@ test('buildFirstLessonCheckinPlanningItem is Unassigned, parent-area, and studen
   assert.equal(item.status, 'active');
   assert.equal(item.itemType, 'action');
   assert.equal(item.linkedStudentId, 'sdt_abc123');
+  assert.equal(item.linkedWorkflowId, 'onboarding');
   assert.equal(item.targetDate, '2026-06-17');
   assert.match(item.title, /Ada Lovelace/);
   assert.match(item.nextAction, /Finn & Tom/);
+});
+
+test('early Stripe timing review is required from seven days before lesson one', () => {
+  const now = new Date('2026-06-03T12:00:00.000Z');
+  assert.equal(requiresEarlyStripeTimingReview('2026-06-09', { now }), false);
+  assert.equal(requiresEarlyStripeTimingReview('2026-06-10', { now }), true);
+  assert.equal(requiresEarlyStripeTimingReview('2026-06-20', { now }), true);
+  assert.equal(requiresEarlyStripeTimingReview('', { now }), false);
+  assert.equal(requiresEarlyStripeTimingReview('not-a-date', { now }), false);
+});
+
+test('early Stripe timing review is deterministic and due on the next planning day', () => {
+  const item = buildEarlyStripeTimingReviewPlanningItem({
+    mmsId: 'sdt_abc123',
+    studentName: 'Ada Lovelace',
+    lessonDate: '2026-06-20',
+    now: new Date('2026-06-06T12:00:00.000Z'),
+  });
+
+  assert.equal(item.targetDate, '2026-06-08');
+  assert.equal(item.area, 'finance');
+  assert.equal(item.owner, 'Unassigned');
+  assert.equal(item.linkedWorkflowId, 'onboarding');
+  assert.equal(item.linkedStudentId, 'sdt_abc123');
+  assert.match(item.nextAction, /before the first renewal/u);
+  assert.equal(
+    buildEarlyStripeTimingReviewPlanningId('sdt_abc123'),
+    'planning_early_stripe_timing_sdt_abc123',
+  );
 });
 
 test('first-lesson check-in planning id is deterministic per student', () => {

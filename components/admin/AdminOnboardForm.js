@@ -10,11 +10,20 @@ import {
   addDaysToCalendarDate,
   resolveFreeSlotWeekOffset,
 } from '@/lib/admin/mms-helpers.mjs';
+import { ONBOARDING_PAYMENT_EXPLANATION } from '@/lib/admin/onboarding-message-helpers.mjs';
+import { requiresEarlyStripeTimingReview } from '@/lib/admin/planning-helpers.mjs';
 
 // Onboarding without a Soundslice URL looks finished but leaves the student with
 // no practice link, and it is only noticed later when someone goes looking for
 // it. Blocking at the point of the mistake is cheaper than the follow-up.
 const SOUNDSLICE_FIELD_ID = 'onboard-soundslice-url';
+const PAYMENT_TERMS_CHECK_ID = 'onboard-payment-terms-explained';
+const WHATSAPP_GROUP_CHECK_ID = 'onboard-lesson-whatsapp-group-ready';
+const BLOCKER_FIELD_IDS = {
+  soundsliceUrl: SOUNDSLICE_FIELD_ID,
+  paymentTermsExplained: PAYMENT_TERMS_CHECK_ID,
+  lessonWhatsappGroupReady: WHATSAPP_GROUP_CHECK_ID,
+};
 
 function deriveWeekday(dateValue) {
   if (!dateValue) return '';
@@ -106,9 +115,10 @@ function Select(props) {
   );
 }
 
-function Checkbox({ checked, onChange }) {
+function Checkbox({ checked, onChange, ...props }) {
   return (
     <input
+      {...props}
       type="checkbox"
       checked={checked}
       onChange={onChange}
@@ -156,6 +166,7 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
   const [result, setResult] = useState(null);
   const [errorState, setErrorState] = useState(null);
   const [validationError, setValidationError] = useState('');
+  const [validationField, setValidationField] = useState('');
   const [isPending, startTransition] = useTransition();
 
   const filteredTutors = useMemo(() => {
@@ -177,6 +188,19 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
     () => siblingCandidates.find((student) => student.mmsId === form.secondStudentMmsId) || null,
     [form.secondStudentMmsId, siblingCandidates],
   );
+  const selectedTutor = useMemo(
+    () => tutorOptions.find((tutor) => tutor.shortName === form.tutorShortName) || null,
+    [form.tutorShortName, tutorOptions],
+  );
+  const completionBlockers = useMemo(() => findOnboardingCompletionBlockers(form), [form]);
+  const needsEarlyStripeReview = useMemo(
+    () => requiresEarlyStripeTimingReview(form.lessonDate),
+    [form.lessonDate],
+  );
+  const contactLabel = form.isAdult
+    ? `${form.studentFirstName || ''} ${form.studentLastName || ''}`.trim() || 'the student'
+    : `${form.parentFirstName || ''} ${form.parentLastName || ''}`.trim() || 'the parent/student contact';
+  const tutorLabel = selectedTutor?.fullName || 'the assigned tutor';
 
   const derivedWeekday = useMemo(() => deriveWeekday(form.lessonDate), [form.lessonDate]);
   const freeSlotBump = useMemo(() => {
@@ -220,6 +244,11 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
       title: 'Add the first-lesson check-in',
       detail: 'The Planning reminder could not be added automatically.',
     } : null,
+    result.earlyStripeTimingReviewWarning ? {
+      key: 'stripe-timing',
+      title: 'Add the early Stripe timing check',
+      detail: 'The Planning review could not be added automatically.',
+    } : null,
     result.notesPrivacyFollowUpWarning ? {
       key: 'notes-privacy',
       title: 'Queue the notes-privacy follow-up',
@@ -232,6 +261,31 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
     setForm((current) => ({
       ...current,
       [key]: key === 'lessonTime' ? normalizeTimeValue(value) : value,
+      humanChecks: {
+        ...current.humanChecks,
+        ...([
+          'studentFirstName',
+          'studentLastName',
+          'parentFirstName',
+          'parentLastName',
+          'isAdult',
+          'secondStudentMmsId',
+          'tutorShortName',
+        ].includes(key) ? { lessonWhatsappGroupReady: false } : {}),
+        ...(key === 'lessonDate' ? { paymentTermsExplained: false } : {}),
+      },
+    }));
+  }
+
+  function updateHumanCheck(key, checked) {
+    setValidationError('');
+    setValidationField('');
+    setForm((current) => ({
+      ...current,
+      humanChecks: {
+        ...current.humanChecks,
+        [key]: checked,
+      },
     }));
   }
 
@@ -267,6 +321,10 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
       lessonType: value,
       lessonLength: value === 'sibling_group' ? '45' : current.lessonLength,
       secondStudentMmsId: value === 'sibling_group' ? current.secondStudentMmsId : '',
+      humanChecks: {
+        ...current.humanChecks,
+        lessonWhatsappGroupReady: false,
+      },
     }));
   }
 
@@ -274,11 +332,13 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
     event.preventDefault();
     setErrorState(null);
     setValidationError('');
+    setValidationField('');
 
     const blockers = findOnboardingCompletionBlockers(form);
     if (blockers.length) {
       setValidationError(blockers[0].message);
-      const field = document.getElementById(SOUNDSLICE_FIELD_ID);
+      setValidationField(blockers[0].field);
+      const field = document.getElementById(BLOCKER_FIELD_IDS[blockers[0].field]);
       field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       field?.focus({ preventScroll: true });
       return;
@@ -490,10 +550,13 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
               <Field label="Soundslice URL" hint="Required to complete onboarding.">
                 <Input
                   id={SOUNDSLICE_FIELD_ID}
-                  invalid={Boolean(validationError)}
+                  invalid={validationField === 'soundsliceUrl'}
                   value={form.soundsliceUrl}
                   onChange={(e) => {
-                    if (validationError) setValidationError('');
+                    if (validationField === 'soundsliceUrl') {
+                      setValidationError('');
+                      setValidationField('');
+                    }
                     updateField('soundsliceUrl', e.target.value);
                   }}
                 />
@@ -525,14 +588,62 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
           </pre>
         </section>
 
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-emerald-950">Ready to onboard?</h3>
+          <p className="mt-1 text-sm text-emerald-900">
+            Two quick human checks before the system writes begin.
+          </p>
+          <div className="mt-4 space-y-3">
+            <label htmlFor={PAYMENT_TERMS_CHECK_ID} className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-white p-3 text-sm text-slate-800">
+              <Checkbox
+                id={PAYMENT_TERMS_CHECK_ID}
+                checked={form.humanChecks?.paymentTermsExplained === true}
+                onChange={(event) => updateHumanCheck('paymentTermsExplained', event.target.checked)}
+              />
+              <span>
+                <span className="font-semibold">Payment terms explained on the welcome call</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-600">{ONBOARDING_PAYMENT_EXPLANATION}</span>
+              </span>
+            </label>
+            <label htmlFor={WHATSAPP_GROUP_CHECK_ID} className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-white p-3 text-sm text-slate-800">
+              <Checkbox
+                id={WHATSAPP_GROUP_CHECK_ID}
+                checked={form.humanChecks?.lessonWhatsappGroupReady === true}
+                onChange={(event) => updateHumanCheck('lessonWhatsappGroupReady', event.target.checked)}
+              />
+              <span>
+                <span className="font-semibold">Lesson WhatsApp group is ready</span>
+                <span className="mt-1 block text-xs leading-5 text-slate-600">
+                  Includes {contactLabel}, assigned tutor {tutorLabel}, Finn, Tom and Nelly (Fennella). One person may cover two roles.
+                </span>
+              </span>
+            </label>
+          </div>
+          {needsEarlyStripeReview ? (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              This first lesson is at least a week away. The Stripe link starts weekly billing when it is used, so an early-timing check will be added to Planning before the first renewal.
+            </p>
+          ) : null}
+        </section>
+
         <div className="flex items-center gap-4">
           <button
             type="submit"
-            disabled={isPending}
+            disabled={isPending || completionBlockers.length > 0}
+            title={completionBlockers.map((blocker) => blocker.message).join(' ')}
             className="rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
           >
-            {isPending ? 'Onboarding…' : 'Complete onboarding'}
+            {isPending
+              ? 'Onboarding…'
+              : completionBlockers.length > 0
+                ? 'Finish setup checks first'
+                : 'Complete onboarding'}
           </button>
+          {!isPending && completionBlockers.length > 0 ? (
+            <p className="text-sm text-slate-600">
+              {completionBlockers.length} item{completionBlockers.length === 1 ? '' : 's'} left.
+            </p>
+          ) : null}
           {validationError ? (
             <p role="alert" className="text-sm font-medium text-red-700">{validationError}</p>
           ) : null}
@@ -594,14 +705,14 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
                 {resultCoreIsComplete ? '✓' : '!'}
               </span>
               <h3 className={`text-xl font-semibold ${resultCoreIsComplete ? 'text-emerald-950' : 'text-amber-950'}`}>
-                {resultCoreIsComplete ? 'Onboarding complete' : 'Onboarding needs attention'}
+                {resultCoreIsComplete ? 'System setup complete' : 'Onboarding needs attention'}
               </h3>
             </div>
             <p className="mt-3 text-sm text-slate-700">
               {resultCoreIsComplete
                 ? resultHasAttention
-                  ? 'The student is set up. There is just a follow-up to check below.'
-                  : 'Everything important is in place.'
+                  ? 'The student is set up. Check the follow-up below, then send the two messages.'
+                  : 'The student is set up. Send the two messages below.'
                 : 'The finished steps have been saved. Complete the item below rather than starting again.'}
             </p>
           </div>
@@ -640,6 +751,11 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
               {result.firstLessonCheckin ? (
                 <OutcomeTick detail={result.firstLessonCheckin.targetDate ? `Added to Planning for ${formatHumanDate(result.firstLessonCheckin.targetDate)}.` : 'Added to Planning.'}>
                   First-lesson check-in added
+                </OutcomeTick>
+              ) : null}
+              {result.earlyStripeTimingReview ? (
+                <OutcomeTick detail={result.earlyStripeTimingReview.targetDate ? `Added to Planning for ${formatHumanDate(result.earlyStripeTimingReview.targetDate)}.` : 'Added to Planning.'}>
+                  Early Stripe timing check added
                 </OutcomeTick>
               ) : null}
               {result.notesPrivacyFollowUp?.length ? (
@@ -749,6 +865,7 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
                     {result.freeSlotWarning ? <li>{result.freeSlotWarning}</li> : null}
                     {result.waitingCloseoutWarning ? <li>{result.waitingCloseoutWarning}</li> : null}
                     {result.firstLessonCheckinWarning ? <li>{result.firstLessonCheckinWarning}</li> : null}
+                    {result.earlyStripeTimingReviewWarning ? <li>{result.earlyStripeTimingReviewWarning}</li> : null}
                     {result.notesPrivacyFollowUpWarning ? <li>{result.notesPrivacyFollowUpWarning}</li> : null}
                   </ul>
                 </div>
@@ -765,6 +882,10 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
               ) : null}
             </div>
           </details>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-emerald-900">Send these now</p>
+            <p className="mt-1 text-sm text-slate-700">Copy each message into the lesson WhatsApp group.</p>
+          </div>
           <div className="rounded-xl border border-emerald-200 bg-white p-4">
             <div className="flex items-start justify-between gap-4">
               <p className="text-sm font-semibold text-slate-900">Welcome message</p>

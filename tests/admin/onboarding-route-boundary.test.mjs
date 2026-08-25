@@ -21,6 +21,17 @@ test('onboarding verifies the registry write path before the first canonical wri
   assert.match(routeSource, /No Students row was written because registry preflight failed/);
 });
 
+test('human completion checks fail before any onboarding write path begins', () => {
+  const humanGate = routeSource.indexOf('const completionBlockers = findOnboardingCompletionBlockers(payload)');
+  const registryPreflight = routeSource.indexOf('await assertRegistryWriteAvailable()');
+
+  assert.notEqual(humanGate, -1);
+  assert.ok(humanGate < registryPreflight);
+  assert.match(routeSource, /blockers: completionBlockers/);
+  assert.match(formSource, /Payment terms explained on the welcome call/);
+  assert.match(formSource, /Lesson WhatsApp group is ready/);
+});
+
 test('onboarding preserves an explicit registry-after-Sheets partial failure', () => {
   assert.match(routeSource, /registryError\.onboardingStage = 'registryWrite'/);
   assert.match(routeSource, /error\.onboardingStage === 'registryWrite'/);
@@ -32,6 +43,7 @@ test('post-onboarding closeout waits for core readiness, not ancillary cleanup',
   assert.match(routeSource, /const postOnboardingReady = isOnboardingCoreOperationallyComplete\(\{ steps \}\)/);
   assert.match(routeSource, /Waiting status remains open because the canonical record or core MMS lesson setup is incomplete/);
   assert.match(routeSource, /First-lesson check-in was not queued because the canonical record or core MMS lesson setup is incomplete/);
+  assert.match(routeSource, /Early Stripe timing review was not queued because the canonical record or core MMS lesson setup is incomplete/);
   assert.match(routeSource, /Student notes privacy follow-up was not queued because the canonical record or core MMS lesson setup is incomplete/);
 });
 

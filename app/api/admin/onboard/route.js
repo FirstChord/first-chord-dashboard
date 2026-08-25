@@ -7,6 +7,7 @@ import {
   buildOnboardingCompletionStatus,
   buildOnboardingRecoveryGuidance,
   createOnboardingSteps,
+  findOnboardingCompletionBlockers,
   getOnboardingDuplicateState,
   isOnboardingCoreOperationallyComplete,
   markOnboardingStep,
@@ -27,8 +28,16 @@ import {
 import { generateFcStudentId, generateFriendlyUrl, normaliseExperienceLevel, normaliseInstrument } from '@/lib/admin/fc';
 import { ADMIN_TUTORS } from '@/lib/admin/tutors';
 import { markWaitingWorkflowStudentsOnboarded } from '@/lib/admin/waiting-workflow';
-import { createFirstLessonCheckinPlanningItem } from '@/lib/admin/planning';
+import {
+  createEarlyStripeTimingReviewPlanningItem,
+  createFirstLessonCheckinPlanningItem,
+} from '@/lib/admin/planning';
+import { requiresEarlyStripeTimingReview } from '@/lib/admin/planning-helpers.mjs';
 import { ensureStudentNotesAccessFollowUp } from '@/lib/admin/student-notes-access';
+import {
+  buildOnboardingWelcomeMessage,
+  buildSoundsliceFollowup,
+} from '@/lib/admin/onboarding-message-helpers.mjs';
 
 function formatLessonDateForMessage(value) {
   const parsed = new Date(`${value}T12:00:00`);
@@ -93,58 +102,12 @@ function buildWelcomeMessage(data) {
   const paymentLink = process.env.STRIPE_PAYMENT_LINK || process.env.PAYMENT_LINK || '[ADD PAYMENT LINK]';
   const groupPaymentLink = process.env.GROUP_LESSON_PAYMENT_LINK || 'https://buy.stripe.com/14AdRab7C1b28N79ZM5J60D';
   const handbookUrl = process.env.HANDBOOK_URL || 'https://firstchord.co.uk/handbook';
-  const recipientFirstName = data.isAdult
-    ? firstNameOnly(data.studentName, data.studentName)
-    : firstNameOnly(data.parentName, data.parentName);
-  const tutorFirstName = firstNameOnly(data.tutorFullName, data.tutorFullName);
-  const resolvedPaymentLink = data.lessonType === 'sibling_group' ? groupPaymentLink : paymentLink;
-  const learnerLabel = data.lessonType === 'sibling_group'
-    ? data.studentFirstNamesLabel
-    : firstNameOnly(data.studentName, data.studentName);
-
-  if (data.isAdult) {
-    return `Hey ${recipientFirstName}, we've got you down for ${data.lessonTime} on ${data.lessonDay} ${data.lessonDate} with ${tutorFirstName}. ✨🎶
-
-To give ${tutorFirstName} some context, you're ${data.experienceLevel} and love ${data.interests}!
-
-📍The school is inside CC Music Shop at 33 Otago Street G12 8JJ. Just take a seat on the couch by the door when you arrive and ${tutorFirstName} will come meet you.
-
-Below is the payment link for your lessons, please note that your first payment confirms the lesson slot, for next week.🚨Please let us know when you have done this!
-
-I'll also include a link to our welcome handbook which has more details about our teaching approach, homework, cancellation policies and more. 📖
-
-Feel free to pop down any questions you have and one of us will be sure to get back to you!
-
-Cheers! 😃
-
-Payment Link 🔗: ${resolvedPaymentLink}
-
-School Handbook 📖: ${handbookUrl}`;
-  }
-
-  return `Hey ${recipientFirstName}, we've got ${learnerLabel} down for ${data.lessonTime} on ${data.lessonDay} ${data.lessonDate} with ${tutorFirstName}. ✨🎶
-
-To give ${tutorFirstName} some context, ${learnerLabel} ${data.lessonType === 'sibling_group' ? 'are' : 'is'} ${data.age || '—'} and ${data.experienceLevel}. They love ${data.interests}!
-
-📍The school is inside CC Music Shop at 33 Otago Street G12 8JJ. Just take a seat on the couch by the door when you arrive and ${tutorFirstName} will come meet you.
-
-Below is the payment link for your lessons, please note that your first payment confirms the lesson slot, for next week.🚨Please let us know when you have done this!
-
-I'll also include a link to our welcome handbook which has more details about our teaching approach, homework, cancellation policies and more. 📖
-
-Feel free to pop down any questions you have and one of us will be sure to get back to you!
-
-Cheers! 😃
-
-Payment Link 🔗: ${resolvedPaymentLink}
-
-School Handbook 📖: ${handbookUrl}`;
-}
-
-function buildSoundsliceFollowup({ soundsliceCode, studentName, tutorFullName }) {
-  const tutorFirstName = firstNameOnly(tutorFullName, tutorFullName);
-  const learnerLabel = firstNameList(studentName.split(' and '));
-  return `Oo one last important thing to do. If you could head to soundslice.com and make a free account, then head to soundslice.com/coursecode and pop in this code *${soundsliceCode}* that will make a folder that ${learnerLabel} can access and ${tutorFirstName} can put in all the songs they are learning 💥`;
+  return buildOnboardingWelcomeMessage({
+    ...data,
+    paymentLink,
+    groupPaymentLink,
+    handbookUrl,
+  });
 }
 
 function generateBillingGroupId(mmsIds = []) {
@@ -238,6 +201,14 @@ export async function POST(request) {
   }
 
   const payload = await request.json();
+  const completionBlockers = findOnboardingCompletionBlockers(payload);
+  if (completionBlockers.length > 0) {
+    return Response.json({
+      error: completionBlockers[0].message,
+      blockers: completionBlockers,
+    }, { status: 400 });
+  }
+
   const tutor = ADMIN_TUTORS[payload.tutorShortName];
 
   if (!tutor) {
@@ -674,6 +645,50 @@ export async function POST(request) {
       }
     }
 
+    let earlyStripeTimingReview = null;
+    let earlyStripeTimingReviewWarning = '';
+    const needsEarlyStripeTimingReview = requiresEarlyStripeTimingReview(payload.lessonDate);
+
+    if (needsEarlyStripeTimingReview && !postOnboardingReady) {
+      earlyStripeTimingReviewWarning = 'Early Stripe timing review was not queued because the canonical record or core MMS lesson setup is incomplete.';
+    } else if (needsEarlyStripeTimingReview) {
+      try {
+        const review = await createEarlyStripeTimingReviewPlanningItem({
+          mmsId: payload.mmsId,
+          studentName,
+          lessonDate: payload.lessonDate,
+          actorEmail: session.user.email || '',
+        });
+        earlyStripeTimingReview = {
+          planningId: review.planningId,
+          title: review.title,
+          targetDate: review.targetDate,
+        };
+
+        await appendEventLogRows([
+          {
+            eventId: crypto.randomUUID(),
+            occurredAt: new Date().toISOString(),
+            actorEmail: session.user.email || '',
+            entityType: 'planning',
+            entityId: review.planningId,
+            eventType: 'early_stripe_timing_review_created',
+            mmsId: payload.mmsId,
+            studentName,
+            issueId: '',
+            payloadJson: JSON.stringify({
+              planning_id: review.planningId,
+              target_date: review.targetDate,
+              owner: 'Unassigned',
+              first_lesson_date: payload.lessonDate,
+            }),
+          },
+        ]);
+      } catch (error) {
+        earlyStripeTimingReviewWarning = error.message || 'Early Stripe timing review task creation failed';
+      }
+    }
+
     let notesPrivacyFollowUp = [];
     let notesPrivacyFollowUpWarning = '';
     if (!postOnboardingReady) {
@@ -720,6 +735,8 @@ export async function POST(request) {
       waitingCloseoutWarning,
       firstLessonCheckin,
       firstLessonCheckinWarning,
+      earlyStripeTimingReview,
+      earlyStripeTimingReviewWarning,
       notesPrivacyFollowUp,
       notesPrivacyFollowUpWarning,
       duplicateWarnings,

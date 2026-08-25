@@ -251,21 +251,42 @@ test('post-onboarding work waits for the lesson but not ancillary Free-slot clea
   assert.equal(isOnboardingCoreOperationallyComplete({ steps }), true);
 });
 
+const readyCompletionForm = {
+  soundsliceUrl: 'https://www.soundslice.com/courses/16914/',
+  humanChecks: {
+    paymentTermsExplained: true,
+    lessonWhatsappGroupReady: true,
+  },
+};
+
 test('completion is blocked until a Soundslice URL is present', () => {
-  const blockers = findOnboardingCompletionBlockers({ soundsliceUrl: '' });
+  const blockers = findOnboardingCompletionBlockers({
+    ...readyCompletionForm,
+    soundsliceUrl: '',
+  });
   assert.equal(blockers.length, 1);
   assert.equal(blockers[0].field, 'soundsliceUrl');
   assert.match(blockers[0].message, /Soundslice URL/u);
 
   // Whitespace is the realistic miss: the field looks filled in the form.
-  assert.equal(findOnboardingCompletionBlockers({ soundsliceUrl: '   ' }).length, 1);
-  assert.equal(findOnboardingCompletionBlockers({}).length, 1);
-  assert.equal(findOnboardingCompletionBlockers().length, 1);
+  assert.equal(findOnboardingCompletionBlockers({ ...readyCompletionForm, soundsliceUrl: '   ' }).length, 1);
 });
 
-test('a Soundslice URL clears the only completion blocker', () => {
-  assert.deepEqual(
-    findOnboardingCompletionBlockers({ soundsliceUrl: 'https://www.soundslice.com/courses/16914/' }),
-    [],
-  );
+test('completion requires both human payment and WhatsApp confirmations', () => {
+  const missingBoth = findOnboardingCompletionBlockers({
+    ...readyCompletionForm,
+    humanChecks: {},
+  });
+  assert.deepEqual(missingBoth.map((blocker) => blocker.field), [
+    'paymentTermsExplained',
+    'lessonWhatsappGroupReady',
+  ]);
+  assert.match(missingBoth[0].message, /weekly Stripe subscription/u);
+  assert.match(missingBoth[1].message, /assigned tutor, Finn, Tom and Nelly/u);
+  assert.equal(findOnboardingCompletionBlockers({}).length, 3);
+  assert.equal(findOnboardingCompletionBlockers().length, 3);
+});
+
+test('Soundslice and both human confirmations clear every completion blocker', () => {
+  assert.deepEqual(findOnboardingCompletionBlockers(readyCompletionForm), []);
 });
