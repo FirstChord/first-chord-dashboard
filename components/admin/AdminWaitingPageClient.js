@@ -3,9 +3,13 @@
 import Link from 'next/link';
 import { Archive, Check, Copy, Loader2, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { AgeChip } from '@/components/admin/ui/AgeChip';
 import { logCommunicationCopy } from '@/lib/admin/log-communication-copy.js';
 import { WELCOME_CALL_PROMPTS } from '@/lib/admin/onboarding-message-helpers.mjs';
+import { isStudentOwnContact } from '@/lib/admin/planning-client-helpers.mjs';
+import {
+  buildWaitingLearnerSummary,
+  formatWaitingDuration,
+} from '@/lib/admin/waiting-card-helpers.mjs';
 import {
   getWaitingRestoreStatus,
   getWaitingStatusLabel,
@@ -15,18 +19,18 @@ import {
 
 function getAgeBadge(ageInDays) {
   if (ageInDays == null) {
-    return { label: 'Unknown age', className: 'bg-slate-100 text-slate-700' };
+    return { label: formatWaitingDuration(ageInDays), className: 'bg-slate-100 text-slate-700' };
   }
 
   if (ageInDays >= 90) {
-    return { label: `${ageInDays} days`, className: 'bg-red-100 text-red-900' };
+    return { label: formatWaitingDuration(ageInDays), className: 'bg-red-100 text-red-900' };
   }
 
   if (ageInDays >= 60) {
-    return { label: `${ageInDays} days`, className: 'bg-amber-100 text-amber-900' };
+    return { label: formatWaitingDuration(ageInDays), className: 'bg-amber-100 text-amber-900' };
   }
 
-  return { label: `${ageInDays} days`, className: 'bg-emerald-100 text-emerald-900' };
+  return { label: formatWaitingDuration(ageInDays), className: 'bg-emerald-100 text-emerald-900' };
 }
 
 function formatDate(dateString) {
@@ -48,22 +52,8 @@ function formatDateTime(dateString) {
   });
 }
 
-function formatInstrumentList(instruments = []) {
-  return instruments.length ? instruments.join(', ') : 'Unknown';
-}
-
 function formatMatchedInstruments(instruments = []) {
   return instruments.map((instrument) => instrument.charAt(0).toUpperCase() + instrument.slice(1)).join(', ');
-}
-
-function buildMmsNoteFacts(student) {
-  const parsed = student.parsedNote || {};
-  return [
-    parsed.age ? { label: 'Age', value: parsed.age } : null,
-    parsed.experience ? { label: 'Experience', value: parsed.experience } : null,
-    parsed.genres ? { label: 'Genres', value: parsed.genres } : null,
-    parsed.songs ? { label: 'Songs', value: parsed.songs } : null,
-  ].filter(Boolean);
 }
 
 function buildParkedWaitingNote(existingNote = '', now = new Date()) {
@@ -106,6 +96,56 @@ function buildOnboardSlotHref(student, tutor, slot) {
   return `/admin/onboard?${params.toString()}`;
 }
 
+function TutorDayRows({ student, days = [] }) {
+  return (
+    <div className="divide-y divide-sky-100">
+      {days.map((day) => (
+        <div
+          key={`${student.mmsId}-${day.weekday}`}
+          className="grid gap-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-[7rem_minmax(0,1fr)]"
+        >
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{day.weekday}</p>
+            {day.dayFits ? (
+              <span className="mt-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                Preferred day
+              </span>
+            ) : null}
+          </div>
+          <div className="space-y-2.5">
+            {day.tutors.map((tutor) => (
+              <div key={`${day.weekday}-${tutor.teacherId || tutor.teacherName}`}>
+                <p className="text-sm text-slate-700">
+                  <span className="font-medium text-slate-900">{tutor.teacherName}</span>
+                  {tutor.matchedInstruments?.length ? (
+                    <span className="text-xs text-slate-500"> · {formatMatchedInstruments(tutor.matchedInstruments)}</span>
+                  ) : null}
+                  {tutor.fitsAvailability ? (
+                    <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                      Fits stated availability
+                    </span>
+                  ) : null}
+                </p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {tutor.slots.map((slot) => (
+                    <Link
+                      key={`${slot.startTime}-${slot.durationMinutes}-${slot.nextDate || 'no-date'}`}
+                      href={buildOnboardSlotHref(student, tutor, slot)}
+                      className="inline-flex rounded-md border border-sky-200 bg-white px-2 py-1 text-xs font-medium text-sky-900 transition hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                    >
+                      {slot.startTime} · {slot.durationMinutes} mins
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function prepareStudents(activeStudents = [], inactiveStudents = []) {
   return [...activeStudents, ...inactiveStudents].map((student) => ({
     ...student,
@@ -119,7 +159,7 @@ export default function AdminWaitingPageClient({
   initialCapacityContext = null,
 }) {
   const [students, setStudents] = useState(() => prepareStudents(initialStudents, initialInactiveStudents));
-  const [actionState, setActionState] = useState({ pendingId: '', error: '' });
+  const [actionState, setActionState] = useState({ pendingId: '', savedId: '', error: '' });
   const [refreshState, setRefreshState] = useState({
     pending: false,
     error: '',
@@ -164,7 +204,7 @@ export default function AdminWaitingPageClient({
   async function handleSave(student, updates = {}) {
     const nextStatus = updates.status ?? student.waitingStatus;
     const nextNote = updates.note ?? student.waitingNote;
-    setActionState({ pendingId: student.mmsId, error: '' });
+    setActionState({ pendingId: student.mmsId, savedId: '', error: '' });
 
     try {
       const response = await fetch('/api/admin/waiting/state', {
@@ -183,7 +223,7 @@ export default function AdminWaitingPageClient({
 
       const payload = await response.json();
       if (!response.ok) {
-        setActionState({ pendingId: '', error: payload.error || 'Waiting update failed' });
+        setActionState({ pendingId: '', savedId: '', error: payload.error || 'Waiting update failed' });
         return;
       }
 
@@ -206,9 +246,9 @@ export default function AdminWaitingPageClient({
           } : {}),
         };
       }));
-      setActionState({ pendingId: '', error: '' });
+      setActionState({ pendingId: '', savedId: student.mmsId, error: '' });
     } catch (error) {
-      setActionState({ pendingId: '', error: error.message || 'Waiting update failed' });
+      setActionState({ pendingId: '', savedId: '', error: error.message || 'Waiting update failed' });
     }
   }
 
@@ -261,6 +301,10 @@ export default function AdminWaitingPageClient({
   }
 
   function updateLocalStudent(mmsId, updates) {
+    setActionState((current) => ({
+      ...current,
+      savedId: current.savedId === mmsId ? '' : current.savedId,
+    }));
     setStudents((current) => current.map((entry) => (
       entry.mmsId === mmsId
         ? { ...entry, ...updates }
@@ -329,20 +373,26 @@ export default function AdminWaitingPageClient({
         {activeStudents.map((student) => {
           const ageBadge = getAgeBadge(student.ageInDays);
           const pending = actionState.pendingId === student.mmsId;
-          const mmsNoteFacts = buildMmsNoteFacts(student);
+          const saved = actionState.savedId === student.mmsId;
+          const learnerSummary = buildWaitingLearnerSummary(student);
+          const studentIsContact = isStudentOwnContact(student);
+          const contactName = studentIsContact
+            ? student.fullName || student.parentName
+            : student.parentName;
+          const primaryMatchDays = student.capacityMatchDays?.slice(0, 3) || [];
+          const additionalMatchDays = student.capacityMatchDays?.slice(3) || [];
 
           return (
             <div key={student.mmsId} className="rounded-[1.6rem] border border-blue-100 bg-white/90 p-5 shadow-[0_12px_36px_rgba(15,23,42,0.06)] backdrop-blur-sm">
               <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
                 <div className="min-w-0">
-                  <div className="font-medium text-slate-900">{student.fullName || student.mmsId}</div>
-                  <div className="text-xs text-slate-500">{student.mmsId}</div>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <h3 className="text-lg font-semibold text-slate-900">{student.fullName || student.mmsId}</h3>
+                  <p className="mt-1 text-sm font-medium text-slate-700">{learnerSummary.headline}</p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 font-medium text-slate-700">
+                      {getWaitingStatusLabel(student.savedWaitingStatus)}
+                    </span>
                     <span className={`rounded-full px-2.5 py-1 font-medium ${ageBadge.className}`}>{ageBadge.label}</span>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">Instrument: {formatInstrumentList(student.instruments)}</span>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">Added: {formatDate(student.dateStarted)}</span>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-700">Updated: {formatDateTime(student.waitingUpdatedAt)}</span>
-                    <AgeChip updatedAt={student.waitingUpdatedAt} className="px-2.5 py-1" />
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
@@ -356,7 +406,7 @@ export default function AdminWaitingPageClient({
                     }`}
                   >
                     {copiedId === student.mmsId ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copiedId === student.mmsId ? 'Copied' : 'Copy welcome group message'}
+                    {copiedId === student.mmsId ? 'Copied ✓' : 'Copy welcome message'}
                   </button>
                   <Link
                     href={`/admin/onboard?mmsId=${encodeURIComponent(student.mmsId)}`}
@@ -376,44 +426,120 @@ export default function AdminWaitingPageClient({
                 </div>
               </div>
 
+              <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.25fr)]">
+                <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                  <h4 className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">At a glance</h4>
+                  <div className="mt-2 divide-y divide-slate-200">
+                    {learnerSummary.facts.map((fact) => (
+                      <div key={fact.key} className="grid gap-1 py-3 first:pt-1 sm:grid-cols-[8.5rem_minmax(0,1fr)]">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{fact.label}</p>
+                        <p className="text-sm leading-5 text-slate-800">{fact.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-slate-200 pt-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      {studentIsContact ? 'Student contact' : 'Parent contact'}
+                    </p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                      <span className="font-medium text-slate-900">{contactName || 'Name not provided'}</span>
+                      {student.contactNumber ? (
+                        <a className="text-blue-700 hover:underline" href={`tel:${student.contactNumber}`}>
+                          {student.contactNumber}
+                        </a>
+                      ) : null}
+                      {student.parentEmail ? (
+                        <a className="break-all text-blue-700 hover:underline" href={`mailto:${student.parentEmail}`}>
+                          {student.parentEmail}
+                        </a>
+                      ) : null}
+                      {!student.contactNumber && !student.parentEmail ? (
+                        <span className="text-slate-600">No phone or email provided</span>
+                      ) : null}
+                    </div>
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-sky-200 bg-sky-50/70 p-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-[0.12em] text-sky-800">
+                        Tutors with matching free slots
+                      </h4>
+                      <p className="mt-1 text-xs leading-5 text-sky-900">{student.capacityMatchReason}</p>
+                    </div>
+                    {primaryMatchDays.length ? (
+                      <span className="shrink-0 text-xs text-sky-800">Times open onboarding</span>
+                    ) : null}
+                  </div>
+                  {student.uncoveredInstruments?.length ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {student.coveredInstruments?.map((instrument) => (
+                        <span key={`covered-${instrument}`} className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                          {instrument} ✓
+                        </span>
+                      ))}
+                      {student.uncoveredInstruments.map((entry) => (
+                        <span key={`uncovered-${entry.instrument}`} className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
+                          {entry.instrument}: {entry.reason === 'not_taught' ? 'not taught here' : 'no free slot'}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {primaryMatchDays.length ? (
+                    <div className="mt-3">
+                      <TutorDayRows student={student} days={primaryMatchDays} />
+                      {additionalMatchDays.length ? (
+                        <details className="mt-3 border-t border-sky-100 pt-3">
+                          <summary className="cursor-pointer text-sm font-medium text-sky-900 hover:text-sky-700">
+                            Show {additionalMatchDays.length} more {additionalMatchDays.length === 1 ? 'day' : 'days'}
+                          </summary>
+                          <div className="mt-3">
+                            <TutorDayRows student={student} days={additionalMatchDays} />
+                          </div>
+                        </details>
+                      ) : null}
+                    </div>
+                  ) : student.capacityMatchStatus === 'instrument_unknown' ? (
+                    <p className="mt-3 text-sm text-slate-700">
+                      Add or clarify the instrument in the MMS sign-up note before trusting slot suggestions.
+                    </p>
+                  ) : null}
+                </section>
+              </div>
+
               <details
                 open={student.waitingStatus === 'welcome_call_booked'}
                 className="mt-4 rounded-xl border border-violet-200 bg-violet-50/60 px-4 py-3"
               >
                 <summary className="cursor-pointer text-sm font-semibold text-violet-950">
-                  Welcome call prompts
+                  Welcome call pointers
+                  <span className="ml-2 font-normal text-violet-800">Goals · lesson details · payment · WhatsApp and access</span>
                 </summary>
-                <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-6 text-slate-700">
-                  {WELCOME_CALL_PROMPTS.map((prompt) => (
-                    <li key={prompt}>{prompt}</li>
+                <ol className="mt-3 grid gap-2 md:grid-cols-2">
+                  {WELCOME_CALL_PROMPTS.map((prompt, index) => (
+                    <li key={prompt} className="flex gap-2 rounded-lg bg-white/60 px-3 py-2 text-sm leading-5 text-slate-700">
+                      <span className="font-semibold text-violet-800">{index + 1}.</span>
+                      <span>{prompt}</span>
+                    </li>
                   ))}
                 </ol>
               </details>
 
-              <div className="mt-5 grid gap-4 xl:grid-cols-[1.1fr_1.2fr_0.9fr]">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs uppercase tracking-wide text-slate-500">Parent contact</p>
-                  <p className="mt-2 text-sm text-slate-900">{student.parentName || '—'}</p>
-                  <p className="mt-1 text-sm text-slate-700">{student.parentEmail || '—'}</p>
-                  <p className="mt-1 text-sm text-slate-700">{student.contactNumber || '—'}</p>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-white/80 p-4">
+                <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_14rem_auto] xl:items-end">
                   <label className="block">
-                    <span className="text-xs uppercase tracking-wide text-slate-500">Waiting note</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Waiting note</span>
                     <textarea
                       value={student.waitingNote}
                       onChange={(event) => updateLocalStudent(student.mmsId, { waitingNote: event.target.value })}
-                      rows={4}
+                      rows={2}
                       className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
                       placeholder="Called, left voicemail. Asked for Friday. Added to welcome group..."
                     />
                   </label>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <label className="block">
-                    <span className="text-xs uppercase tracking-wide text-slate-500">Status</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</span>
                     <select
                       value={student.waitingStatus}
                       onChange={(event) => updateLocalStudent(student.mmsId, { waitingStatus: event.target.value })}
@@ -430,119 +556,36 @@ export default function AdminWaitingPageClient({
                     type="button"
                     onClick={() => handleSave(student)}
                     disabled={pending}
-                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                      saved
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-100'
+                    }`}
                   >
                     {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    {pending ? 'Saving…' : 'Save waiting state'}
+                    {pending ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}
                   </button>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-white/80 p-4">
-                <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-500">MMS sign-up context</p>
-                    <p className="mt-2 text-sm text-slate-700">
-                      Instrument source: {student.instrumentRaw || 'No instrument found in MMS note'}
-                    </p>
-                  </div>
-                  {student.note ? (
-                    <details className="md:max-w-xl">
-                      <summary className="cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900">
-                        Full MMS note
-                      </summary>
-                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
-                        {student.note}
-                      </pre>
-                    </details>
-                  ) : null}
+              <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 px-4 py-3">
+                <summary className="cursor-pointer text-sm font-medium text-slate-700 hover:text-slate-900">
+                  Original MMS sign-up
+                </summary>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                  <span>MMS ID: {student.mmsId}</span>
+                  <span>Added: {formatDate(student.dateStarted)}</span>
+                  <span>Waiting state updated: {formatDateTime(student.waitingUpdatedAt)}</span>
+                  <span>Instrument source: {student.instrumentRaw || 'Not found in MMS note'}</span>
                 </div>
-                {mmsNoteFacts.length ? (
-                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                    {mmsNoteFacts.map((fact) => (
-                      <div key={fact.label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                        <p className="text-[0.65rem] font-semibold uppercase tracking-wide text-slate-500">{fact.label}</p>
-                        <p className="mt-1 text-sm text-slate-700">{fact.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 p-4">
-                <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-xs uppercase tracking-wide text-sky-700">Possible slots</p>
-                  <p className="text-xs text-sky-800">{student.capacityMatchReason}</p>
-                </div>
-                {student.uncoveredInstruments?.length ? (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {student.coveredInstruments?.map((instrument) => (
-                      <span key={`covered-${instrument}`} className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
-                        {instrument} ✓
-                      </span>
-                    ))}
-                    {student.uncoveredInstruments.map((entry) => (
-                      <span key={`uncovered-${entry.instrument}`} className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800">
-                        {entry.instrument}: {entry.reason === 'not_taught' ? 'not taught here' : 'no free slot'}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-                {student.availabilityDays?.length || student.availabilityTimes?.length ? (
-                  <p className="mt-2 text-xs text-sky-800">
-                    Prefers: {[
-                      student.availabilityDays?.length ? student.availabilityDays.join(', ') : '',
-                      student.availabilityTimes?.length
-                        ? student.availabilityTimes.map((bucket) => (bucket === 'evening' ? 'evenings' : 'earlier')).join(' / ')
-                        : '',
-                    ].filter(Boolean).join(' · ')} — matching slots ranked first.
-                  </p>
-                ) : null}
-                {student.capacityMatchDays?.length ? (
-                  <div className="mt-3 grid gap-2 md:grid-cols-3 xl:grid-cols-5">
-                    {student.capacityMatchDays.map((day) => (
-                      <div
-                        key={`${student.mmsId}-${day.weekday}`}
-                        className={`rounded-lg border bg-white/80 px-3 py-2 ${day.dayFits ? 'border-emerald-300 ring-1 ring-emerald-100' : 'border-sky-200'}`}
-                      >
-                        <p className="text-sm font-semibold text-slate-900">{day.weekday}</p>
-                        <div className="mt-1.5 space-y-1.5">
-                          {day.tutors.map((tutor) => (
-                            <div key={`${day.weekday}-${tutor.teacherId || tutor.teacherName}`} className="text-sm text-slate-700">
-                              <p>
-                                <span className="font-medium text-slate-900">{tutor.teacherName}</span>
-                                {tutor.matchedInstruments?.length ? (
-                                  <span className="text-xs text-slate-500"> ({formatMatchedInstruments(tutor.matchedInstruments)})</span>
-                                ) : null}
-                                {tutor.fitsAvailability ? (
-                                  <span className="ml-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">fits availability</span>
-                                ) : null}
-                              </p>
-                              <div className="mt-1 flex flex-wrap gap-1.5">
-                                {tutor.slots.map((slot) => (
-                                  <Link
-                                    key={`${slot.startTime}-${slot.durationMinutes}-${slot.nextDate || 'no-date'}`}
-                                    href={buildOnboardSlotHref(student, tutor, slot)}
-                                    className="inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-xs font-medium text-sky-900 transition hover:border-sky-300 hover:bg-sky-100"
-                                  >
-                                    {slot.startTime} ({slot.durationMinutes} mins)
-                                  </Link>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                {student.note ? (
+                  <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-700">
+                    {student.note}
+                  </pre>
                 ) : (
-                  <p className="mt-3 text-sm text-slate-700">
-                    {student.capacityMatchStatus === 'instrument_unknown'
-                      ? 'Add or clarify the instrument in the MMS sign-up note before trusting slot suggestions.'
-                      : student.capacityMatchReason}
-                  </p>
+                  <p className="mt-3 text-sm text-slate-600">No MMS sign-up note is available.</p>
                 )}
-              </div>
+              </details>
             </div>
           );
         })}
