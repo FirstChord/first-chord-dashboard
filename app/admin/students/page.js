@@ -1,5 +1,12 @@
 import Link from 'next/link';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
+import {
+  buildStripeCustomerDashboardUrl,
+  DEFAULT_STRIPE_DASHBOARD_BASE_URL,
+} from '@/lib/admin/stripe-dashboard-helpers.mjs';
+
+const STRIPE_DASHBOARD_BASE = process.env.NEXT_PUBLIC_STRIPE_DASHBOARD_BASE_URL
+  || DEFAULT_STRIPE_DASHBOARD_BASE_URL;
 
 function normaliseSearch(value = '') {
   return value.toString().trim().toLowerCase();
@@ -52,6 +59,10 @@ function getPaymentExpectationLabel(value = '') {
 function StripeLinkageSummary({ student }) {
   const hasCustomer = Boolean(student.stripeCustomerId);
   const hasSubscription = Boolean(student.stripeSubscriptionId);
+  const stripeCustomerUrl = buildStripeCustomerDashboardUrl(
+    student.stripeCustomerId,
+    STRIPE_DASHBOARD_BASE,
+  );
 
   return (
     <div className="space-y-1 text-xs text-slate-600">
@@ -59,6 +70,17 @@ function StripeLinkageSummary({ student }) {
       <p>
         Customer {hasCustomer ? 'linked' : 'missing'} · Subscription {hasSubscription ? 'linked' : 'missing'}
       </p>
+      {stripeCustomerUrl ? (
+        <a
+          href={stripeCustomerUrl}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Open ${student.fullName || student.mmsId}'s Stripe customer page`}
+          className="inline-flex font-medium text-blue-700 underline-offset-2 hover:text-blue-900 hover:underline"
+        >
+          Stripe customer ↗
+        </a>
+      ) : null}
     </div>
   );
 }

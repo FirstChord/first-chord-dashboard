@@ -26,8 +26,13 @@ import {
   shouldShowPaymentValueContext,
   summariseStripeSnapshot,
 } from '@/lib/admin/issues-client-helpers.mjs';
+import {
+  buildStripeCustomerDashboardUrl,
+  DEFAULT_STRIPE_DASHBOARD_BASE_URL,
+} from '@/lib/admin/stripe-dashboard-helpers.mjs';
 
-const STRIPE_DASHBOARD_BASE = process.env.NEXT_PUBLIC_STRIPE_DASHBOARD_BASE_URL || 'https://dashboard.stripe.com';
+const STRIPE_DASHBOARD_BASE = process.env.NEXT_PUBLIC_STRIPE_DASHBOARD_BASE_URL
+  || DEFAULT_STRIPE_DASHBOARD_BASE_URL;
 
 // One issue card: the "sorted ✓" fade state, a single obvious primary action,
 // and everything else under Details. Pure view — all state and mutations live
@@ -116,7 +121,7 @@ function IssueCardBody({
   const recommendedActionText = getRecommendedActionText(issue);
   const evidence = buildIssueEvidenceSummary(issue, freshness);
   const stripeCustomerUrl = issue.stripeCustomerId && issue.systemsAffected?.includes('Stripe')
-    ? `${STRIPE_DASHBOARD_BASE}/customers/${encodeURIComponent(issue.stripeCustomerId)}`
+    ? buildStripeCustomerDashboardUrl(issue.stripeCustomerId, STRIPE_DASHBOARD_BASE)
     : '';
   const pauseWorkflow = isPauseIssue(issue)
     ? buildPauseWorkflowSummary({
