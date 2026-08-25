@@ -32,7 +32,7 @@ A student is operationally onboarded only when:
 
 Before any onboarding write begins, the admin must also confirm that the welcome
 call covered the weekly payment terms and that the lesson WhatsApp group contains
-the parent/student contact, assigned tutor, Finn, Tom, and Nelly (Fennella). One
+the parent/student contact, assigned tutor, Finn, Tom, and Fennella. One
 person may satisfy more than one role. These confirmations are human assertions,
 not WhatsApp delivery evidence.
 

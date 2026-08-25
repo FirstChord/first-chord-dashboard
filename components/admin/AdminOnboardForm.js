@@ -614,7 +614,7 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
               <span>
                 <span className="font-semibold">Lesson WhatsApp group is ready</span>
                 <span className="mt-1 block text-xs leading-5 text-slate-600">
-                  Includes {contactLabel}, assigned tutor {tutorLabel}, Finn, Tom and Nelly (Fennella). One person may cover two roles.
+                  Includes {contactLabel}, assigned tutor {tutorLabel}, Finn, Tom and Fennella. One person may cover two roles.
                 </span>
               </span>
             </label>

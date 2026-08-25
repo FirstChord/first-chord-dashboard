@@ -282,7 +282,7 @@ test('completion requires both human payment and WhatsApp confirmations', () => 
     'lessonWhatsappGroupReady',
   ]);
   assert.match(missingBoth[0].message, /weekly Stripe subscription/u);
-  assert.match(missingBoth[1].message, /assigned tutor, Finn, Tom and Nelly/u);
+  assert.match(missingBoth[1].message, /assigned tutor, Finn, Tom and Fennella/u);
   assert.equal(findOnboardingCompletionBlockers({}).length, 3);
   assert.equal(findOnboardingCompletionBlockers().length, 3);
 });
