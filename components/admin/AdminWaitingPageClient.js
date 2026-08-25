@@ -1,8 +1,11 @@
 'use client';
 
-import Link from 'next/link';
-import { Archive, Check, Copy, Loader2, RotateCcw } from 'lucide-react';
+import { Archive, RotateCcw } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { ActionButton } from '@/components/admin/ui/ActionButton';
+import { ButtonLink } from '@/components/admin/ui/ButtonLink';
+import { ConfirmButton } from '@/components/admin/ui/ConfirmButton';
+import CopyButton from '@/components/admin/ui/CopyButton';
 import { logCommunicationCopy } from '@/lib/admin/log-communication-copy.js';
 import { WELCOME_CALL_PROMPTS } from '@/lib/admin/onboarding-message-helpers.mjs';
 import { isStudentOwnContact } from '@/lib/admin/planning-client-helpers.mjs';
@@ -128,13 +131,14 @@ function TutorDayRows({ student, days = [] }) {
                 </p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {tutor.slots.map((slot) => (
-                    <Link
+                    <ButtonLink
                       key={`${slot.startTime}-${slot.durationMinutes}-${slot.nextDate || 'no-date'}`}
                       href={buildOnboardSlotHref(student, tutor, slot)}
-                      className="inline-flex rounded-md border border-sky-200 bg-white px-2 py-1 text-xs font-medium text-sky-900 transition hover:border-sky-300 hover:bg-sky-100 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                      variant="blue"
+                      size="compact"
                     >
                       {slot.startTime} · {slot.durationMinutes} mins
-                    </Link>
+                    </ButtonLink>
                   ))}
                 </div>
               </div>
@@ -165,7 +169,6 @@ export default function AdminWaitingPageClient({
     error: '',
     capacityContext: initialCapacityContext,
   });
-  const [copiedId, setCopiedId] = useState('');
 
   useEffect(() => {
     setStudents(prepareStudents(initialStudents, initialInactiveStudents));
@@ -177,21 +180,7 @@ export default function AdminWaitingPageClient({
       capacityContext: initialCapacityContext,
     }));
   }, [initialCapacityContext]);
-
-  async function handleCopy(student) {
-    try {
-      await navigator.clipboard.writeText(student.welcomeGroupMessage);
-    } catch {
-      const textArea = document.createElement('textarea');
-      textArea.value = student.welcomeGroupMessage;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-    }
-
-    setCopiedId(student.mmsId);
-    window.setTimeout(() => setCopiedId((current) => (current === student.mmsId ? '' : current)), 1800);
+  function handleWelcomeMessageCopied(student) {
     logCommunicationCopy({
       category: 'waiting',
       mmsId: student.mmsId,
@@ -253,11 +242,6 @@ export default function AdminWaitingPageClient({
   }
 
   async function handlePark(student) {
-    const confirmed = window.confirm(
-      `Park ${student.fullName || student.mmsId} from the active waiting list? (Nothing is deleted from MMS.)`,
-    );
-    if (!confirmed) return;
-
     await handleSave(student, {
       status: 'closed',
       note: buildParkedWaitingNote(student.waitingNote),
@@ -343,15 +327,14 @@ export default function AdminWaitingPageClient({
                     : ''}
                 </p>
               </div>
-              <button
-                type="button"
+              <ActionButton
                 onClick={handleRefreshCapacity}
-                disabled={refreshState.pending}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                pending={refreshState.pending}
+                pendingLabel="Refreshing…"
+                variant="secondary"
               >
-                {refreshState.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {refreshState.pending ? 'Refreshing…' : 'Refresh free slots'}
-              </button>
+                Refresh free slots
+              </ActionButton>
             </div>
             {refreshState.error ? (
               <p className="mt-2 text-sm text-red-700">{refreshState.error}</p>
@@ -396,33 +379,27 @@ export default function AdminWaitingPageClient({
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(student)}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition ${
-                      copiedId === student.mmsId
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                        : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-100'
-                    }`}
-                  >
-                    {copiedId === student.mmsId ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copiedId === student.mmsId ? 'Copied ✓' : 'Copy welcome message'}
-                  </button>
-                  <Link
+                  <CopyButton
+                    text={student.welcomeGroupMessage}
+                    label="Copy welcome message"
+                    size="default"
+                    onCopied={() => handleWelcomeMessageCopied(student)}
+                  />
+                  <ButtonLink
                     href={`/admin/onboard?mmsId=${encodeURIComponent(student.mmsId)}`}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
                   >
                     Onboard
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handlePark(student)}
-                    disabled={pending}
-                    className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  </ButtonLink>
+                  <ConfirmButton
+                    confirmMessage={`Park ${student.fullName || student.mmsId} from the active waiting list? (Nothing is deleted from MMS.)`}
+                    onConfirm={() => handlePark(student)}
+                    pending={pending}
+                    pendingLabel="Parking…"
+                    variant="warning"
+                    icon={<Archive aria-hidden="true" className="h-4 w-4" />}
                   >
-                    {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />}
                     Park
-                  </button>
+                  </ConfirmButton>
                 </div>
               </div>
 
@@ -552,19 +529,16 @@ export default function AdminWaitingPageClient({
                       ))}
                     </select>
                   </label>
-                  <button
-                    type="button"
+                  <ActionButton
                     onClick={() => handleSave(student)}
-                    disabled={pending}
-                    className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                      saved
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                        : 'border-slate-300 bg-white text-slate-900 hover:border-slate-400 hover:bg-slate-100'
-                    }`}
+                    pending={pending}
+                    success={saved}
+                    pendingLabel="Saving…"
+                    successLabel="Saved ✓"
+                    variant="secondary"
                   >
-                    {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    {pending ? 'Saving…' : saved ? 'Saved ✓' : 'Save changes'}
-                  </button>
+                    Save changes
+                  </ActionButton>
                 </div>
               </div>
 
@@ -632,15 +606,16 @@ export default function AdminWaitingPageClient({
                     ) : null}
                   </div>
                   {restoreStatus ? (
-                    <button
-                      type="button"
+                    <ActionButton
                       onClick={() => handleSave(student, { status: restoreStatus })}
-                      disabled={pending}
-                      className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      pending={pending}
+                      pendingLabel="Restoring…"
+                      variant="secondary"
+                      className="shrink-0"
+                      icon={<RotateCcw aria-hidden="true" className="h-4 w-4" />}
                     >
-                      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                      {pending ? 'Restoring…' : 'Return to contacted'}
-                    </button>
+                      Return to contacted
+                    </ActionButton>
                   ) : null}
                 </div>
               );

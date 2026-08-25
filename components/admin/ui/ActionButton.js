@@ -1,14 +1,7 @@
 'use client';
 
 import { Check, Loader2 } from 'lucide-react';
-
-const VARIANT_CLASSES = {
-  primary: 'border-slate-900 bg-slate-900 text-white hover:bg-slate-700',
-  blue: 'border-blue-200 bg-blue-50 text-blue-900 hover:bg-blue-100',
-  green: 'border-emerald-200 bg-emerald-50 text-emerald-900 hover:bg-emerald-100',
-  red: 'border-red-200 bg-white text-red-800 hover:bg-red-50',
-  subtle: 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50',
-};
+import { getButtonClassName } from '@/lib/admin/button-styles.mjs';
 
 export function ActionButton({
   children,
@@ -16,6 +9,7 @@ export function ActionButton({
   success = false,
   disabled = false,
   variant = 'primary',
+  size = 'default',
   className = '',
   pendingLabel,
   successLabel,
@@ -28,16 +22,16 @@ export function ActionButton({
     : success
       ? (successLabel || children)
       : children;
-  const variantClass = VARIANT_CLASSES[variant] || VARIANT_CLASSES.primary;
-
   return (
     <button
       type={type}
       disabled={disabled || pending}
-      className={`inline-flex items-center justify-center gap-2 rounded-full border px-5 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${variantClass} ${className}`}
+      aria-busy={pending || undefined}
+      data-state={pending ? 'pending' : success ? 'success' : 'idle'}
+      className={getButtonClassName({ variant: success ? 'success' : variant, size, className })}
       {...props}
     >
-      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : success ? <Check className="h-4 w-4" /> : icon}
+      {pending ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : success ? <Check aria-hidden="true" className="h-4 w-4" /> : icon}
       {label}
     </button>
   );

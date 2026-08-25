@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: null
+last_verified: 2026-08-25
 ---
 # Admin UI Conventions
 
@@ -18,6 +18,24 @@ Admin UI should reduce cognitive load:
 
 ## Async Actions
 
+Every button-like control must acknowledge activation immediately. This is the
+shared physical interaction language even when the controls have different
+visual prominence:
+
+1. **Pressed:** on pointer or touch down, visibly depress and change surface
+   colour. This must be CSS-driven so it does not wait for JavaScript or a
+   network response. Keyboard focus remains clearly visible.
+2. **Working:** if the action is asynchronous, disable duplicate submission and
+   show a spinner plus a specific `…` label.
+3. **Outcome:** show a short `✓` confirmation or a visible nearby error. A
+   navigation link instead confirms its outcome by opening the destination.
+
+The shared pressed and focus treatment lives in
+`lib/admin/button-styles.mjs`. Use it through `ActionButton`, `ButtonLink`,
+`ConfirmButton`, or `CopyButton`; do not reproduce those state classes on each
+page. Motion is supplementary: the surface-colour change remains when reduced
+motion is enabled.
+
 Any new button that triggers async work should give feedback:
 
 - pending: disable the action and show a spinner or saving label
@@ -27,11 +45,28 @@ Any new button that triggers async work should give feedback:
 Use the shared primitives when practical:
 
 - `components/admin/ui/ActionButton.js`
+- `components/admin/ui/ButtonLink.js`
 - `components/admin/ui/ConfirmButton.js`
 - `components/admin/ui/StatusBanner.js`
 - `components/admin/ui/useAsyncAction.js`
 
 Plain raw buttons are still fine for local UI state, such as toggles, tabs, expanding sections, or selecting a filter.
+
+## Button Roles
+
+Choose the role by the action's job, not by whichever colour looks attractive:
+
+- `primary`: the one clearest next action in a local decision area
+- `secondary`: an ordinary supporting action
+- `quiet`: low-emphasis local controls
+- `warning`: a reversible action that deserves caution, such as parking work
+- `danger`: destructive or difficult-to-reverse work
+
+Persistent toggles and disclosure controls keep their own selected/open state
+and accessible state (`aria-pressed` or `aria-expanded`). Success is a temporary
+outcome state, not a permanent green action hierarchy. Ordinary actions use a
+44px target; compact 32px controls are reserved for repeated, low-priority
+choices with clear spacing, such as a row of available lesson times.
 
 ## Destructive Actions
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getButtonClassName } from '@/lib/admin/button-styles.mjs';
 
 // One copy-to-clipboard control for the admin surfaces. The clipboard call and
 // its "Copied ✓" confirmation were written out by hand in ten different page
@@ -40,6 +41,7 @@ export default function CopyButton({
   label = '',
   title = 'Copy to clipboard',
   className = '',
+  size = 'compact',
   onCopied,
 }) {
   const [copied, setCopied] = useState(false);
@@ -74,13 +76,16 @@ export default function CopyButton({
     <button
       type="button"
       onClick={handleCopy}
+      disabled={!`${text ?? ''}`}
       title={title}
       aria-label={label ? undefined : title}
-      className={className || `inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-xs font-medium shadow-sm transition ${
-        copied
-          ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50 active:scale-[0.98]'
-      }`}
+      aria-live="polite"
+      data-state={copied ? 'success' : 'idle'}
+      className={getButtonClassName({
+        variant: copied ? 'success' : 'subtle',
+        size,
+        className: `gap-1.5 ${className}`,
+      })}
     >
       <ClipboardIcon done={copied} />
       {label || copied ? <span>{copied ? 'Copied' : label}</span> : null}
