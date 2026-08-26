@@ -1,8 +1,9 @@
 import AdminOnboardForm from '@/components/admin/AdminOnboardForm';
-import { normaliseExperienceLevel, normaliseInstrument } from '@/lib/admin/fc';
+import { normaliseExperienceLevel, parseInstrumentList } from '@/lib/admin/fc';
+import { resolveOnboardingInstrument, tutorTeachesInstrument } from '@/lib/admin/onboarding-helpers.mjs';
 import { getStudentDetails, getWaitingStudents } from '@/lib/admin/mms';
 import { getOnboardingDuplicateState } from '@/lib/admin/onboarding';
-import { getActiveTutorsForInstrument } from '@/lib/admin/tutors';
+import { getActiveTutorOptions } from '@/lib/admin/tutors';
 
 const VALID_LESSON_LENGTHS = new Set(['30', '45', '60']);
 
@@ -42,16 +43,24 @@ export default async function AdminOnboardPage({ searchParams }) {
   const requestedLessonLength = normaliseQueryValue(resolvedSearchParams?.lessonLength);
   const requestedTeacherId = normaliseQueryValue(resolvedSearchParams?.teacherId);
   const requestedTutorName = normaliseQueryValue(resolvedSearchParams?.tutorName);
+  const requestedInstrument = normaliseQueryValue(resolvedSearchParams?.instrument);
   const waitingStudents = await getWaitingStudents();
   const selectedStudent = waitingStudents.find((student) => student.mmsId === mmsId) || null;
   const details = mmsId ? await getStudentDetails(mmsId) : null;
   const parsed = details?.parsed || {};
-  const instrument = normaliseInstrument(parsed.instrument || '');
-  const tutorOptions = await getActiveTutorsForInstrument(instrument.toLowerCase());
-  const initialTutor = getRequestedTutor(tutorOptions, {
+  const noteInstruments = parseInstrumentList(parsed.instrument || '');
+  // The whole active roster, not the slice for one instrument: the form's
+  // instrument dropdown re-filters it, so pre-filtering here would leave the
+  // tutor list empty the moment the instrument is corrected.
+  const tutorOptions = await getActiveTutorOptions();
+  const requestedTutor = getRequestedTutor(tutorOptions, {
     teacherId: requestedTeacherId,
     tutorName: requestedTutorName,
-  }) || tutorOptions[0] || null;
+  });
+  const instrument = resolveOnboardingInstrument({ requestedInstrument, noteInstruments, requestedTutor });
+  const initialTutor = requestedTutor
+    || tutorOptions.find((tutor) => tutorTeachesInstrument(tutor, instrument))
+    || null;
   const duplicateState = mmsId && initialTutor
     ? await getOnboardingDuplicateState({
         mmsId,
@@ -72,6 +81,9 @@ export default async function AdminOnboardPage({ searchParams }) {
         isAdult: Number(parsed.age || 0) >= 19,
         age: parsed.age || '',
         instrument,
+        // What the sign-up note actually asked for, so a multi-instrument note is
+        // visible at the point the instrument is chosen.
+        noteInstruments,
         lessonLength: getInitialLessonLength(requestedLessonLength),
         lessonType: 'individual',
         secondStudentMmsId: '',

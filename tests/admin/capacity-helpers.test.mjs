@@ -11,6 +11,7 @@ import {
   normaliseFreeCalendarSlot,
   parseAvailabilityDays,
   parseAvailabilityTimes,
+  pickMatchedInstrumentLabel,
   slotTimeBucket,
 } from '../../lib/admin/capacity-helpers.mjs';
 import { ADMIN_TUTORS } from '../../lib/admin/tutors-data.js';
@@ -512,4 +513,18 @@ test('buildWaitingCapacityMatches ranks availability-fitting slots first without
   assert.equal(student.capacityMatchDays[1].dayFits, false);
   assert.equal(student.capacityMatchDays[1].tutors[0].fitsAvailability, false);
   assert.deepEqual(student.availabilityDays, ['Tuesday']);
+});
+
+test('pickMatchedInstrumentLabel names the instrument a suggested tutor was matched on', () => {
+  const student = { instruments: ['Guitar', 'Ukulele'] };
+
+  // A guitar-only tutor was suggested, so onboarding must open on Guitar even
+  // though Ukulele is the label the whole note collapses to.
+  assert.equal(pickMatchedInstrumentLabel(student, ['guitar']), 'Guitar');
+  assert.equal(pickMatchedInstrumentLabel(student, ['ukulele']), 'Ukulele');
+  // Electric guitar shares the guitar teaching lane.
+  assert.equal(pickMatchedInstrumentLabel({ instruments: ['Electric Guitar'] }, ['guitar']), 'Electric Guitar');
+  // No match reported: fall back to the first instrument asked for.
+  assert.equal(pickMatchedInstrumentLabel(student, []), 'Guitar');
+  assert.equal(pickMatchedInstrumentLabel({}, ['guitar']), '');
 });

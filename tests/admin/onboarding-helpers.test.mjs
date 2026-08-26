@@ -9,7 +9,11 @@ import {
   findOnboardingCompletionBlockers,
   isOnboardingCoreOperationallyComplete,
   markOnboardingStep,
+  resolveOnboardingInstrument,
+  tutorTeachesInstrument,
 } from '../../lib/admin/onboarding-helpers.mjs';
+import { ADMIN_TUTORS } from '../../lib/admin/tutors-data.js';
+import { parseInstrumentList } from '../../lib/admin/fc-helpers.mjs';
 
 test('blocks an exact duplicate when the same MMS ID already exists for the same tutor', () => {
   const state = evaluateOnboardingDuplicateState({
@@ -289,4 +293,38 @@ test('completion requires both human payment and WhatsApp confirmations', () => 
 
 test('Soundslice and both human confirmations clear every completion blocker', () => {
   assert.deepEqual(findOnboardingCompletionBlockers(readyCompletionForm), []);
+});
+
+test('onboarding opens on the instrument the waiting-list suggestion was made for', () => {
+  // The reported failure: a note asking for both puts a guitar-only tutor on the
+  // waiting list, then onboarding collapsed the whole note to Ukulele and offered
+  // only the ukulele tutors — so the suggested tutor could not be selected.
+  const noteInstruments = parseInstrumentList('Guitar and Ukulele');
+  const hamish = { shortName: 'Hamish', ...ADMIN_TUTORS.Hamish };
+
+  assert.equal(
+    resolveOnboardingInstrument({ requestedInstrument: 'Guitar', noteInstruments, requestedTutor: hamish }),
+    'Guitar',
+  );
+  // No instrument on the link (an older bookmark): the requested tutor still
+  // settles which of the two instruments this is.
+  assert.equal(
+    resolveOnboardingInstrument({ noteInstruments, requestedTutor: hamish }),
+    'Guitar',
+  );
+  // Nothing requested at all: first instrument the note asks for.
+  assert.equal(resolveOnboardingInstrument({ noteInstruments }), 'Guitar');
+  assert.equal(resolveOnboardingInstrument({}), '');
+});
+
+test('tutorTeachesInstrument matches on the teaching lane, not the portal label', () => {
+  const hamish = ADMIN_TUTORS.Hamish;
+  const finn = ADMIN_TUTORS.Finn;
+
+  assert.equal(tutorTeachesInstrument(hamish, 'Guitar'), true);
+  assert.equal(tutorTeachesInstrument(hamish, 'Electric Guitar'), true);
+  assert.equal(tutorTeachesInstrument(hamish, 'Ukulele'), false);
+  assert.equal(tutorTeachesInstrument(finn, 'Ukulele'), true);
+  // No instrument chosen yet: everyone stays selectable.
+  assert.equal(tutorTeachesInstrument(hamish, ''), true);
 });

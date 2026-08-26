@@ -6,6 +6,7 @@ import { ActionButton } from '@/components/admin/ui/ActionButton';
 import { ButtonLink } from '@/components/admin/ui/ButtonLink';
 import { ConfirmButton } from '@/components/admin/ui/ConfirmButton';
 import CopyButton from '@/components/admin/ui/CopyButton';
+import { pickMatchedInstrumentLabel } from '@/lib/admin/capacity-helpers.mjs';
 import { logCommunicationCopy } from '@/lib/admin/log-communication-copy.js';
 import { WELCOME_CALL_PROMPTS } from '@/lib/admin/onboarding-message-helpers.mjs';
 import { isStudentOwnContact } from '@/lib/admin/planning-client-helpers.mjs';
@@ -95,6 +96,12 @@ function buildOnboardSlotHref(student, tutor, slot) {
   if (slot.durationMinutes) params.set('lessonLength', slot.durationMinutes);
   if (tutor.teacherId) params.set('teacherId', tutor.teacherId);
   if (tutor.teacherName) params.set('tutorName', tutor.teacherName);
+
+  // Which of the student's instruments this suggestion is for. Without it,
+  // onboarding re-parses the note and can land on a different instrument than
+  // the one that put this tutor on screen.
+  const instrument = pickMatchedInstrumentLabel(student, tutor.matchedInstruments || []);
+  if (instrument) params.set('instrument', instrument);
 
   return `/admin/onboard?${params.toString()}`;
 }

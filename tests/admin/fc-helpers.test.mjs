@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { generateFcStudentId } from '../../lib/admin/fc-id.mjs';
 import {
-  generateFcStudentId,
   normaliseExperienceLevel,
   normaliseInstrument,
   normaliseTeachingInstrument,
+  parseInstrumentList,
 } from '../../lib/admin/fc-helpers.mjs';
 
 test('normaliseInstrument maps common aliases into canonical labels', () => {
@@ -36,4 +37,16 @@ test('generateFcStudentId is deterministic for trimmed, case-insensitive inputs'
 
   assert.equal(a, b);
   assert.match(a, /^fc_std_[a-f0-9]{8}$/);
+});
+
+test('parseInstrumentList keeps every instrument a sign-up note asks for', () => {
+  // The bug this exists for: normaliseInstrument checks ukulele before guitar,
+  // so the whole string collapses to Ukulele and the guitar tutor the waiting
+  // list suggested is not offered at onboarding.
+  assert.equal(normaliseInstrument('Guitar and Ukulele'), 'Ukulele');
+  assert.deepEqual(parseInstrumentList('Guitar and Ukulele'), ['Guitar', 'Ukulele']);
+  assert.deepEqual(parseInstrumentList('Piano / Guitar'), ['Piano', 'Guitar']);
+  assert.deepEqual(parseInstrumentList('Voice, keyboard & bass'), ['Singing', 'Piano', 'Bass']);
+  assert.deepEqual(parseInstrumentList('Guitar, guitar'), ['Guitar']);
+  assert.deepEqual(parseInstrumentList(''), []);
 });

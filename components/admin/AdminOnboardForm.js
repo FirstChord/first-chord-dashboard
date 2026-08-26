@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import Link from 'next/link';
 
 import CopyButton from '@/components/admin/ui/CopyButton';
-import { findOnboardingCompletionBlockers } from '@/lib/admin/onboarding-helpers.mjs';
+import { findOnboardingCompletionBlockers, tutorTeachesInstrument } from '@/lib/admin/onboarding-helpers.mjs';
 import {
   MAX_FREE_SLOT_WEEK_OFFSET,
   addDaysToCalendarDate,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/admin/mms-helpers.mjs';
 import { ONBOARDING_PAYMENT_EXPLANATION } from '@/lib/admin/onboarding-message-helpers.mjs';
 import { requiresEarlyStripeTimingReview } from '@/lib/admin/planning-helpers.mjs';
+import { STUDENT_INSTRUMENT_OPTIONS } from '@/lib/admin/student-detail-helpers.mjs';
 
 // Onboarding without a Soundslice URL looks finished but leaves the student with
 // no practice link, and it is only noticed later when someone goes looking for
@@ -170,9 +171,19 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
   const [isPending, startTransition] = useTransition();
 
   const filteredTutors = useMemo(() => {
-    const instrument = (form.instrument || '').toLowerCase();
-    return tutorOptions.filter((tutor) => !instrument || tutor.instruments.includes(instrument));
+    const matching = tutorOptions.filter((tutor) => tutorTeachesInstrument(tutor, form.instrument));
+    // An instrument nobody is rostered for (Ukulele Orchestra) would otherwise
+    // leave no tutor selectable at all, which is worse than an unfiltered list.
+    return matching.length ? matching : tutorOptions;
   }, [form.instrument, tutorOptions]);
+  const instrumentHint = form.noteInstruments?.length > 1
+    ? `Sign-up note asked for ${form.noteInstruments.join(', ')}. This choice sets which tutors are offered.`
+    : 'Sets which tutors are offered.';
+  const instrumentOptions = useMemo(() => (
+    STUDENT_INSTRUMENT_OPTIONS.includes(form.instrument) || !form.instrument
+      ? STUDENT_INSTRUMENT_OPTIONS
+      : [form.instrument, ...STUDENT_INSTRUMENT_OPTIONS]
+  ), [form.instrument]);
   const siblingCandidates = useMemo(() => {
     const primaryEmail = `${form.parentEmail || ''}`.trim().toLowerCase();
     return waitingStudents
@@ -258,23 +269,36 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
   const resultHasAttention = resultAttentionItems.length > 0 || Boolean(result?.duplicateWarnings?.length);
 
   function updateField(key, value) {
-    setForm((current) => ({
-      ...current,
-      [key]: key === 'lessonTime' ? normalizeTimeValue(value) : value,
-      humanChecks: {
-        ...current.humanChecks,
-        ...([
-          'studentFirstName',
-          'studentLastName',
-          'parentFirstName',
-          'parentLastName',
-          'isAdult',
-          'secondStudentMmsId',
-          'tutorShortName',
-        ].includes(key) ? { lessonWhatsappGroupReady: false } : {}),
-        ...(key === 'lessonDate' ? { paymentTermsExplained: false } : {}),
-      },
-    }));
+    setForm((current) => {
+      // A tutor who does not teach the newly chosen instrument is about to
+      // disappear from the list; clearing the selection makes that visible
+      // instead of leaving a stale name submitted against the wrong lane.
+      const eligibleTutors = key === 'instrument'
+        ? tutorOptions.filter((tutor) => tutorTeachesInstrument(tutor, value))
+        : [];
+      const tutorNoLongerFits = Boolean(current.tutorShortName)
+        && eligibleTutors.length > 0
+        && !eligibleTutors.some((tutor) => tutor.shortName === current.tutorShortName);
+
+      return {
+        ...current,
+        [key]: key === 'lessonTime' ? normalizeTimeValue(value) : value,
+        ...(tutorNoLongerFits ? { tutorShortName: '' } : {}),
+        humanChecks: {
+          ...current.humanChecks,
+          ...([
+            'studentFirstName',
+            'studentLastName',
+            'parentFirstName',
+            'parentLastName',
+            'isAdult',
+            'secondStudentMmsId',
+            'tutorShortName',
+          ].includes(key) || tutorNoLongerFits ? { lessonWhatsappGroupReady: false } : {}),
+          ...(key === 'lessonDate' ? { paymentTermsExplained: false } : {}),
+        },
+      };
+    });
   }
 
   function updateHumanCheck(key, checked) {
@@ -503,8 +527,13 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
           <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900">Lesson + portal setup</h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Instrument">
-                <Input value={form.instrument} onChange={(e) => updateField('instrument', e.target.value)} />
+              <Field label="Instrument" hint={instrumentHint}>
+                <Select required value={form.instrument} onChange={(e) => updateField('instrument', e.target.value)}>
+                  <option value="">Select instrument</option>
+                  {instrumentOptions.map((instrument) => (
+                    <option key={instrument} value={instrument}>{instrument}</option>
+                  ))}
+                </Select>
               </Field>
               <Field label="Lesson length">
                 <Select value={form.lessonLength} onChange={(e) => updateField('lessonLength', e.target.value)}>
