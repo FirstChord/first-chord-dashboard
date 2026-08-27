@@ -305,9 +305,14 @@ test('the Wise batch total equals the sum of its emitted CSV amounts, exactly', 
     const batch = buildWiseBatch({ rows, wiseByKey });
 
     const csvSum = batch.csvRows.reduce((sum, row) => sum + Number(row.amount), 0);
+    const displayedTutorSum = batch.includedTutors.reduce((sum, row) => sum + row.owedAmount, 0);
     assert.equal(batch.totalAmount, Math.round(csvSum * 100) / 100,
       'batch total must equal the sum of what the CSV actually pays');
     assert.equal(batch.includedCount, batch.csvRows.length);
+    assert.equal(batch.includedTutors.length, batch.csvRows.length,
+      'the visible ready-to-pay tutor list must name every CSV payment exactly once');
+    assert.equal(Math.round(displayedTutorSum * 100) / 100, batch.totalAmount,
+      'the visible tutor amounts must add up to the Wise batch total');
     // Nothing non-positive or unreviewed is ever paid.
     for (const row of batch.csvRows) {
       assert.ok(Number(row.amount) > 0, 'CSV must never contain a zero/negative payment');

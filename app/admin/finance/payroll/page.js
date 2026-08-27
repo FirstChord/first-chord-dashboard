@@ -774,6 +774,7 @@ async function PayrollWorkspace({ payDate, tutor, start, end }) {
         <div className="mt-4">
           <WisePayoutPanel
             includedCount={wiseBatch.includedCount}
+            includedTutors={wiseBatch.includedTutors}
             totalLabel={formatMoney(wiseBatch.totalAmount)}
             missingNames={wiseBatch.missing.map((entry) => entry.tutor).filter(Boolean)}
             payDate={payDate}

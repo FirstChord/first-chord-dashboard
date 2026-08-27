@@ -7,6 +7,7 @@ import { useState } from 'react';
 // disabled until the CSV is downloaded this session, and confirms before firing.
 export default function WisePayoutPanel({
   includedCount = 0,
+  includedTutors = [],
   totalLabel = '',
   missingNames = [],
   amountConflicts = [],
@@ -134,6 +135,32 @@ export default function WisePayoutPanel({
           </ul>
         </div>
       ) : null}
+
+      <div className="mt-4 border-t border-slate-200 pt-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          Currently in Ready to pay
+        </p>
+        {includedTutors.length ? (
+          <>
+            <p className="mt-1 text-xs text-slate-500">These tutors are included in the Wise CSV.</p>
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+              {includedTutors.map((entry) => (
+                <li
+                  key={entry.tutor}
+                  className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm"
+                >
+                  <span className="font-semibold text-slate-900">{entry.tutor}</span>
+                  <span className="font-semibold tabular-nums text-emerald-800">
+                    {entry.owedAmount.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-slate-500">No tutors are ready to pay yet.</p>
+        )}
+      </div>
     </section>
   );
 }

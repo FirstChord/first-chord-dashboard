@@ -86,7 +86,9 @@ not a replacement for any invoice the freelancer is required to issue.
 1. Open Payroll and check the date. If Wednesday is already selected, there is
    no need to click **Load**.
 2. Read the top line and open **Ready to pay**. Check the tutor count and amount,
-   not only the headline total.
+   not only the headline total. The bottom of the section names every tutor in
+   the current Wise CSV and shows their amount, so the batch can be checked at a
+   glance before downloading it.
    - `£X ready` is the total of all eligible saved reviewed-but-unpaid rows.
    - `N lessons need review` is a separate school-wide attendance count. It does
      not block a tutor whose own run is already reviewed and confirmed.

@@ -75,6 +75,7 @@ test('buildWiseBatch includes only reviewed rows with positive owed amount', () 
   assert.equal(result.csvRows[0].amount, '280.00');
   assert.equal(result.csvRows[0].paymentReference, 'FC pay 2026-07-01');
   assert.equal(result.csvRows[0].recipientId, '12345');
+  assert.deepEqual(result.includedTutors, [{ tutor: 'Kenny Bates', owedAmount: 280 }]);
   assert.equal(result.missing.length, 0);
   assert.deepEqual(result.includedPayrollIds, ['payroll_kenny_2026-06-24_2026-06-30']);
 });
@@ -88,6 +89,7 @@ test('buildWiseBatch excludes missing-recipient rows from includedPayrollIds', (
   const result = buildWiseBatch({ rows, wiseByKey });
   assert.deepEqual(result.includedPayrollIds, ['payroll_kenny_2026-06-24_2026-06-30']);
   assert.equal(result.missing.length, 1);
+  assert.deepEqual(result.includedTutors, [{ tutor: 'Kenny Bates', owedAmount: 280 }]);
 });
 
 test('buildWiseBatch surfaces reviewed rows with no Wise recipient instead of dropping them', () => {
@@ -99,6 +101,7 @@ test('buildWiseBatch surfaces reviewed rows with no Wise recipient instead of dr
   assert.equal(result.includedCount, 0);
   assert.equal(result.missing.length, 1);
   assert.equal(result.missing[0].tutor, 'Lucy Smith');
+  assert.deepEqual(result.includedTutors, []);
 });
 
 test('buildWiseBatch matches by full tutor name when short name misses', () => {
