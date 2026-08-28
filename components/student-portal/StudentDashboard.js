@@ -7,6 +7,7 @@ import StudentSongs from './StudentSongs';
 import HeaderGreenery from '@/components/tutor-dashboard/HeaderGreenery';
 import TimeOfDaySky from '@/components/shared/TimeOfDaySky';
 import { getStudentDashboardSwitch } from '@/lib/student-dashboard-switches.mjs';
+import { getStudentDashboardFirstName } from '@/lib/student-portal-display.mjs';
 
 function possessive(name = '') {
   return name.endsWith('s') ? `${name}’` : `${name}’s`;
@@ -51,6 +52,7 @@ export default function StudentDashboard({ student, assignedSongs = [] }) {
   }
 
   const dashboardSwitch = getStudentDashboardSwitch(student.id);
+  const dashboardFirstName = getStudentDashboardFirstName(student);
 
   return (
     <TimeOfDaySky className="min-h-screen relative overflow-hidden">
@@ -73,7 +75,7 @@ export default function StudentDashboard({ student, assignedSongs = [] }) {
         <HeaderGreenery />
         <div className="relative px-4 sm:px-6 py-4 sm:py-5 text-center">
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900">
-            {possessive(student.name.split(' ')[0])} Dashboard
+            {possessive(dashboardFirstName)} Dashboard
           </h1>
           <p className="mt-1 text-sm sm:text-base text-gray-600">Welcome back!</p>
           {dashboardSwitch ? (
