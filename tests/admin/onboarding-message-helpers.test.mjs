@@ -33,11 +33,24 @@ test('welcome-call prompts keep the agreed payment explanation at the point of u
 test('parent welcome message explains weekly continuation without promising a refund', () => {
   const message = buildOnboardingWelcomeMessage(baseInput);
   assert.match(message, /Hey Grace/u);
+  assert.match(message, /4:30pm on Monday 15th of June with Finn/u);
   assert.match(message, /weekly Stripe subscription/u);
   assert.match(message, /first payment pays for lesson one/u);
   assert.match(message, /if not, we’ll cancel it so no further weekly payments are taken/u);
   assert.match(message, /Payment Link 🔗: https:\/\/example\.test\/individual/u);
   assert.doesNotMatch(message, /refund/iu);
+});
+
+test('welcome message does not repeat a weekday already included in the formatted date', () => {
+  const message = buildOnboardingWelcomeMessage({
+    ...baseInput,
+    studentName: 'Nina Simone',
+    lessonDay: 'Monday',
+    lessonDate: 'Monday 31st of August',
+  });
+
+  assert.match(message, /we've got Nina down for 4:30pm on Monday 31st of August with Finn/u);
+  assert.doesNotMatch(message, /Monday Monday/u);
 });
 
 test('adult and sibling welcome messages retain the correct recipient and payment link', () => {
