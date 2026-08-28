@@ -295,7 +295,7 @@ This is the first place to look when something is down. The detailed docs linked
 | Incoming WhatsApp bridge | Captures live messages from confirmed lesson groups into a review inbox. Owner: Finn/Tom for local operation. | Bridge is connected; heartbeat is fresh; confirmed-group count is non-zero; one live confirmed-group message appears once in `Incoming_Message_Inbox`. | Use Quick capture for urgent misses; restart/re-link the single bridge; signal a live group sync when mappings are stale. | Do not expect star or cache replay, run two sockets on one auth directory, or let captured evidence auto-act. | `docs/operations/integrations/whatsapp-incoming-bridge.md`; `tools/whatsapp-incoming-bridge/README.md`; `/admin/incoming-messages`. |
 | Tutor absence and pause bridge | Turns tutor-away decisions into cover/cancel communication and structured pause plans. Owner: Finn/Tom. | Tutor absence record shows the chosen outcome; cancelled dates produce grouped structured pause planning items; superseded single-day plans are parked; finance pause forecast reads the grouped item. | Repair/merge structured pause dates from the planning card if capture was messy; park duplicate plans instead of deleting history unless they are test records. | Do not run Stripe pauses automatically from tutor absence. Do not message parents before cover/cancel decision is confirmed. | `docs/workflows/tutors/absence-to-pause.md`; `/admin/workflows/tutor-absence`; `/admin/planning`; tests around tutor absence pause planning. |
 | Finance snapshots and payroll context | Read-only finance estimate, blind Stripe forecast/reveal, expenses, payroll review, and Wise preparation. Owner: Finn/Tom. | `/admin` shows healthy Finance Snapshot, Stripe Amounts, and Finance Data cards; the current month has one `Finance_Snapshot` baseline and one immutable `Stripe_Forecast_Monthly` row; the previous month has a `Stripe_Collected_Monthly` reveal; `/admin/finance` shows net and student-level forecast error; `Payroll_Runs` reflects review/payment state. | Re-run the Stripe Amounts workflow with its normal secret: it first finds/locks the current forecast and only then reads Stripe. A failed forecast lock makes the endpoint fail before provider reads. Monthly finance snapshots retry on days 1–7. Correct roster, pricing, schedule, expectation, or structured-pause inputs for future forecasts; do not rewrite a locked month to improve its score. | Never backdate/fabricate a forecast or baseline, edit/delete a locked forecast after seeing Stripe, treat forecasts/caches as Stripe or accounting truth, or mark payroll paid unless Tom has actually paid it. An unmatched invoice must stay unmatched until an authoritative identifier resolves it. | `/admin`; `/admin/finance`; `/admin/payroll`; `.github/workflows/finance-snapshot.yml`; `.github/workflows/stripe-amounts.yml`; `docs/policies/payments.md`; finance/payroll tests. |
-| Backups and restore | Local recovery copy of operational Sheets tabs. Owner: Finn, with Tom able to follow runbook. | `npm run backup:sheets` creates dated CSV/JSON files plus `manifest.json`; no failed tabs; planning reminder moves 14 days forward. | Re-run after fixing auth/network; restore into a duplicate/temp Sheet tab first. | Do not commit backups. Do not overwrite live tabs without comparing headers and taking a current backup. | Backup section below; `scripts/backup-sheets-tabs.mjs`; `backups/sheets/` ignored directory. |
+| Backups and restore | Local recovery copy of operational Sheets tabs. Owner: Finn, with Tom able to follow runbook. | `npm run backup:sheets` creates dated CSV/JSON files plus `manifest.json`; no failed tabs; planning reminder moves 17 days forward; `launchctl print gui/$(id -u)/com.firstchord.sheets-backup` shows a non-zero `runs` and `last exit code = 0`. | Re-run after fixing auth/network; restore into a duplicate/temp Sheet tab first. | Do not commit backups. Do not overwrite live tabs without comparing headers and taking a current backup. | Backup section below; `scripts/backup-sheets-tabs.mjs`; `backups/sheets/` ignored directory. |
 
 ## If MMS API Is Failing
 
@@ -550,7 +550,7 @@ backups/sheets/
 
 This directory is ignored by git and must not be committed because it contains student and parent data.
 
-Manual weekly backup command:
+Manual backup command (the schedule below runs the same thing):
 
 ```bash
 npm run backup:sheets
@@ -574,7 +574,32 @@ This installs a macOS LaunchAgent:
 ~/Library/LaunchAgents/com.firstchord.sheets-backup.plist
 ```
 
-It runs `npm run backup:sheets` every 14 days from the dashboard repo. Logs are written to:
+It runs the backup on the **1st and 15th of each month at 10:00** from the
+dashboard repo, invoking `node scripts/backup-sheets-tabs.mjs` directly. Two
+details are deliberate and should not be "simplified" back:
+
+- The schedule is `StartCalendarInterval`, not `StartInterval`. An interval is
+  counted from when launchd loads the job, so every reboot restarts it and a
+  fortnightly job on a machine that reboots never fires — this agent sat at
+  `runs = 0` from June to August 2026 for exactly that reason. A calendar time
+  is absolute and launchd runs a missed one on the next wake.
+- launchd is given an absolute `node` path and the script path rather than
+  `npm run backup:sheets`. `npm` is a symlink to a `.js` file with a
+  `#!/usr/bin/env node` shebang, and launchd's default `PATH`
+  (`/usr/bin:/bin:/usr/sbin:/sbin`) does not contain node, so the job could not
+  have launched even with a correct schedule.
+
+Confirm it is genuinely scheduled — not merely installed — with:
+
+```bash
+launchctl print gui/$(id -u)/com.firstchord.sheets-backup
+```
+
+`runs` counts executions since load and `last exit code` should be 0. A long-installed
+agent still reporting `runs = 0` has never fired. Force a real run with
+`launchctl kickstart -p gui/$(id -u)/com.firstchord.sheets-backup`.
+
+Logs are written to:
 
 ```text
 backups/sheets/launchd.out.log
@@ -587,7 +612,13 @@ The backup script also updates the existing Planning layer with a recurring acti
 Run operational Sheets backup
 ```
 
-After each successful backup, its target date is moved 14 days forward. If a backup is missed, it appears through the existing dated planning/overview flow as due or overdue.
+After each successful backup, its target date is moved 17 days forward, and if a
+backup is missed it appears through the existing dated planning/overview flow as
+due or overdue. The threshold is 17 rather than 14 because the widest legitimate
+gap the 1st/15th schedule can leave is 17 days (the 15th of a 31-day month to the
+1st); a 14-day threshold would show the card overdue most months and train the
+reader to ignore it. Since the run is now scheduled, treat that card as an alarm
+that the automation has stopped, not as a routine chore.
 
 Backup coverage is pinned against the managed state-tab contract by tests. If
 `docs/architecture/data/state-tabs.md` gains a dashboard-owned tab, update

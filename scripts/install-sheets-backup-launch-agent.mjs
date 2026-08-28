@@ -11,7 +11,17 @@ const label = 'com.firstchord.sheets-backup';
 const launchAgentsDir = path.join(homedir(), 'Library', 'LaunchAgents');
 const plistPath = path.join(launchAgentsDir, `${label}.plist`);
 const backupLogDir = path.join(repoRoot, 'backups', 'sheets');
-const intervalSeconds = 14 * 24 * 60 * 60;
+const backupScript = path.join(repoRoot, 'scripts', 'backup-sheets-tabs.mjs');
+
+// Days of the month the backup runs. The first version of this agent used
+// `StartInterval` of 14 days, which counts from when launchd *loads* the job —
+// so every reboot or login put the clock back to zero and it never once fired
+// in two and a half months (`launchctl print` reported `runs = 0`). A calendar
+// schedule is absolute, and launchd runs a missed calendar time on the next
+// wake, which an interval never does. Fortnightly is not expressible as a
+// calendar rule, so the 1st and 15th is the usual stand-in.
+const RUN_DAYS = [1, 15];
+const RUN_HOUR = 10;
 
 function escapeXml(value) {
   return String(value)
@@ -22,11 +32,34 @@ function escapeXml(value) {
     .replace(/'/g, '&apos;');
 }
 
-function resolveNpmPath() {
-  return execFileSync('/bin/zsh', ['-lc', 'command -v npm'], { encoding: 'utf8' }).trim();
+// Resolved through a login shell because launchd has neither the user's PATH
+// nor their shell profile.
+function resolveNodePath() {
+  return execFileSync('/bin/zsh', ['-lc', 'command -v node'], { encoding: 'utf8' }).trim();
 }
 
-const npmPath = resolveNpmPath();
+const nodePath = resolveNodePath();
+if (!nodePath) {
+  throw new Error('Could not find node on the login shell PATH.');
+}
+
+// launchd is given node and the script directly rather than `npm run
+// backup:sheets`. `npm` is a symlink to a .js file whose shebang is
+// `#!/usr/bin/env node`, and launchd's default PATH is
+// /usr/bin:/bin:/usr/sbin:/sbin — which does not contain node, so the job would
+// have failed to launch even once the schedule was fixed. There is no
+// `prebackup:sheets` hook, so this runs exactly what the npm script runs.
+const agentPath = [path.dirname(nodePath), '/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(':');
+
+const calendarEntries = RUN_DAYS.map((day) => `    <dict>
+      <key>Day</key>
+      <integer>${day}</integer>
+      <key>Hour</key>
+      <integer>${RUN_HOUR}</integer>
+      <key>Minute</key>
+      <integer>0</integer>
+    </dict>`).join('\n');
+
 await mkdir(launchAgentsDir, { recursive: true });
 await mkdir(backupLogDir, { recursive: true });
 
@@ -38,14 +71,20 @@ const plist = `<?xml version="1.0" encoding="UTF-8"?>
   <string>${label}</string>
   <key>ProgramArguments</key>
   <array>
-    <string>${escapeXml(npmPath)}</string>
-    <string>run</string>
-    <string>backup:sheets</string>
+    <string>${escapeXml(nodePath)}</string>
+    <string>${escapeXml(backupScript)}</string>
   </array>
   <key>WorkingDirectory</key>
   <string>${escapeXml(repoRoot)}</string>
-  <key>StartInterval</key>
-  <integer>${intervalSeconds}</integer>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>${escapeXml(agentPath)}</string>
+  </dict>
+  <key>StartCalendarInterval</key>
+  <array>
+${calendarEntries}
+  </array>
   <key>StandardOutPath</key>
   <string>${escapeXml(path.join(backupLogDir, 'launchd.out.log'))}</string>
   <key>StandardErrorPath</key>
@@ -71,6 +110,8 @@ execFileSync('launchctl', ['bootstrap', `gui/${uid}`, plistPath], { stdio: 'inhe
 execFileSync('launchctl', ['enable', `gui/${uid}/${label}`], { stdio: 'inherit' });
 
 console.log(`Installed ${label}`);
-console.log(`Schedule: every 14 days`);
+console.log(`Schedule: ${RUN_DAYS.map((day) => `day ${day}`).join(' and ')} of each month at ${String(RUN_HOUR).padStart(2, '0')}:00`);
+console.log(`Runs: ${nodePath} ${backupScript}`);
 console.log(`Plist: ${plistPath}`);
 console.log(`Logs: ${backupLogDir}/launchd.out.log and launchd.err.log`);
+console.log('Verify with: launchctl print gui/$(id -u)/com.firstchord.sheets-backup');
