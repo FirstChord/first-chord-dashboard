@@ -2,11 +2,17 @@
 
 const fs = require('fs');
 const path = require('path');
+const { createHash } = require('crypto');
 const { execFileSync } = require('child_process');
 
 const dashboardRoot = path.join(__dirname, '..');
 const brainRoot = path.join(dashboardRoot, '..', 'first-chord-brain');
 const outputPath = path.join(dashboardRoot, 'lib', 'admin', 'tutors-data.js');
+
+function makeFcTutorId(teacherId = '') {
+  const hash = createHash('sha256').update(`${teacherId}`.trim()).digest('hex').slice(0, 8);
+  return `fc_tut_${hash}`;
+}
 
 function validateTutors(tutors) {
   if (!Array.isArray(tutors) || tutors.length === 0) {
@@ -70,10 +76,10 @@ function buildOutput(tutors) {
     .sort((a, b) => a.short_name.localeCompare(b.short_name, 'en'))
     .map((tutor) => {
       const instruments = tutor.instruments.map(quote).join(', ');
-      return `  ${quote(tutor.short_name)}: {\n    fullName: ${quote(tutor.full_name)},\n    teacherId: ${quote(tutor.mms_teacher_id)},\n    instruments: [${instruments}],\n  },`;
+      return `  ${quote(tutor.short_name)}: {\n    fullName: ${quote(tutor.full_name)},\n    fcTutorId: ${quote(makeFcTutorId(tutor.mms_teacher_id))},\n    teacherId: ${quote(tutor.mms_teacher_id)},\n    instruments: [${instruments}],\n  },`;
     });
 
-  return `// GENERATED — do not edit directly. Run: npm run sync-admin-tutors to regenerate.\n// Source: ../first-chord-brain/tutors.py TUTORS list\n\nexport const ADMIN_TUTORS = {\n${rows.join('\n')}\n};\n`;
+  return `/** @fileoverview Generated canonical tutor roster keyed by short name; regenerate with npm run sync-admin-tutors rather than editing. */\n// GENERATED — do not edit directly. Run: npm run sync-admin-tutors to regenerate.\n// Source: ../first-chord-brain/tutors.py TUTORS list\n\nexport const ADMIN_TUTORS = {\n${rows.join('\n')}\n};\n`;
 }
 
 function main({ check = process.argv.includes('--check') } = {}) {
@@ -102,4 +108,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { buildOutput, main, readTutorsFromBrain, validateTutors };
+module.exports = { buildOutput, main, makeFcTutorId, readTutorsFromBrain, validateTutors };

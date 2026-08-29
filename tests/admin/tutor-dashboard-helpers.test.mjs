@@ -29,14 +29,20 @@ test('canonical tutor identities keep unique MMS IDs and include registered arri
   assert.equal(new Set(teacherIds).size, teacherIds.length);
   assert.deepEqual(ADMIN_TUTORS.Matthew, {
     fullName: 'Matthew Leung',
+    fcTutorId: 'fc_tut_c5f0ea5e',
     teacherId: 'tch_zLY8Jn',
     instruments: ['piano'],
   });
   assert.deepEqual(ADMIN_TUTORS.Hamish, {
     fullName: 'Hamish Roberts',
+    fcTutorId: 'fc_tut_ec272a25',
     teacherId: 'tch_zLnnJw',
     instruments: ['guitar'],
   });
+
+  const fcTutorIds = Object.values(ADMIN_TUTORS).map((tutor) => tutor.fcTutorId);
+  assert.equal(new Set(fcTutorIds).size, fcTutorIds.length);
+  assert.ok(fcTutorIds.every((fcTutorId) => /^fc_tut_[a-f0-9]{8}$/u.test(fcTutorId)));
 });
 
 test('getTutorDashboardOptions exposes stable short-name tutor options', () => {

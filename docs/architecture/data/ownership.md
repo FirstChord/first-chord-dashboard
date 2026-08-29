@@ -118,6 +118,32 @@ fields, and Sheet/registry conflicts.
   future assistant read must use a separate redacted projection defined in
   `docs/architecture/ai/tool-contracts.md`.
 
+## Teaching Relationship Context Read Model
+
+`lib/admin/teaching-relationship-helpers.mjs` is the provider-neutral,
+deterministic boundary for the current student–tutor relationship. It joins the
+existing student context, canonical tutor identity, cached schedule evidence and
+practice-note delivery metadata without becoming a new owner or writer.
+
+- A relationship is identified by `fc_student_id + fc_tutor_id`. Within this
+  read model, MMS student and teacher IDs remain provider aliases used only by
+  adapters and existing routes.
+- The phase is recalculated on read. There is deliberately no
+  `Teaching_Relationships` Sheet and no manually advanced lifecycle status.
+- `Students` / registry assignment, `Tutor_Lifecycle`, `Schedule_Context`, and
+  `Practice_Notes_Log` retain their existing ownership and freshness rules.
+- Pauses, tutor departures, stale schedules and note follow-up are conditions on
+  the relationship; they do not overwrite the underlying student or tutor state.
+- Missing, stale or conflicting evidence produces `uncertain` / **Needs review**.
+  The resolver never treats an absent practice note or cache row as proof that a
+  relationship ended.
+- Practice-note text and recipient data do not enter this context. Only bounded
+  delivery metadata is projected.
+- A later lesson-provider cutover must add an adapter that emits the same
+  observation contract and prove dual-read parity before changing the preferred
+  source. The current SQL lesson mirror remains parity evidence and is not made
+  operational truth by this view.
+
 ## Future Direction
 
 - Keep the admin dashboard as the main human write surface.
