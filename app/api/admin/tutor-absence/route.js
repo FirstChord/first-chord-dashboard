@@ -52,7 +52,10 @@ export async function POST(request) {
 
     return Response.json({ success: true, state });
   } catch (error) {
-    return Response.json({ error: error.message || 'Tutor absence save failed' }, { status: 500 });
+    return Response.json(
+      { error: error.message || 'Tutor absence save failed' },
+      { status: error.code === 'TUTOR_ABSENCE_NOT_READY' ? 409 : 500 },
+    );
   }
 }
 

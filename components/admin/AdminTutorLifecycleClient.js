@@ -75,6 +75,62 @@ function AttentionItem({ item }) {
   );
 }
 
+function coverStateTone(state = '') {
+  if (state === 'ready') return 'bg-emerald-100 text-emerald-800';
+  if (state === 'awaiting_calendar' || state === 'awaiting_parent_message') return 'bg-amber-100 text-amber-900';
+  return 'bg-blue-100 text-blue-800';
+}
+
+function CoverEpisodeCard({ episode }) {
+  const attention = episode.attentionItems?.[0] || null;
+  const completedMilestones = (episode.milestones || []).filter((item) => item.status === 'complete').length;
+  const totalMilestones = episode.milestones?.length || 0;
+
+  return (
+    <article className={`rounded-xl border p-4 ${attention?.severity === 'urgent' ? 'border-rose-200 bg-rose-50/70' : 'border-blue-100 bg-white'}`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          {episode.adminStudentHref ? (
+            <a href={episode.adminStudentHref} className="font-semibold text-slate-900 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500">
+              {episode.student.displayName}
+            </a>
+          ) : <p className="font-semibold text-slate-900">{episode.student.displayName}</p>}
+          <p className="mt-1 text-sm text-slate-700">
+            {episode.absentTutor.displayName || 'Usual tutor'} away → {episode.coverTutor.displayName || 'Cover tutor not chosen'}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {formatDate(episode.lesson.date)}{episode.lesson.time ? ` · ${episode.lesson.time}` : ''}{episode.lesson.instrument ? ` · ${episode.lesson.instrument}` : ''}
+          </p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${coverStateTone(episode.state.code)}`}>{episode.state.label}</span>
+      </div>
+
+      {attention ? (
+        <div className="mt-3">
+          <p className={`text-sm font-semibold ${attention.severity === 'urgent' ? 'text-rose-800' : 'text-amber-900'}`}>{attention.title}</p>
+          <p className="mt-1 text-sm leading-5 text-slate-700">{attention.detail}</p>
+        </div>
+      ) : <p className="mt-3 text-sm text-emerald-800">Everything needed before this cover lesson is recorded.</p>}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <ButtonLink href={episode.workflowHref} variant={attention?.severity === 'urgent' ? 'danger' : 'blue'} size="compact">
+          Open cover workflow
+        </ButtonLink>
+        <details className="text-xs text-slate-600">
+          <summary className="min-h-8 cursor-pointer rounded-lg px-2 py-1.5 font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
+            {completedMilestones}/{totalMilestones} checks complete
+          </summary>
+          <ul className="mt-1 space-y-1 pl-2">
+            {(episode.milestones || []).map((item) => (
+              <li key={item.code}>{item.status === 'complete' ? '✓' : '○'} {item.label}</li>
+            ))}
+          </ul>
+        </details>
+      </div>
+    </article>
+  );
+}
+
 function RelationshipCard({ relationship }) {
   const schedule = relationship.schedule || {};
   const note = relationship.latestPracticeNote;
@@ -145,7 +201,7 @@ function hasReachedFinalTeachingDate(value = '') {
   return Boolean(value) && value <= new Date().toISOString().slice(0, 10);
 }
 
-export default function AdminTutorLifecycleClient({ initialTutors = [], relationshipSummary = {}, derivedAt = '' }) {
+export default function AdminTutorLifecycleClient({ initialTutors = [], initialCoverEpisodes = [], relationshipSummary = {}, derivedAt = '' }) {
   const router = useRouter();
   const [tutors, setTutors] = useState(initialTutors);
   const [drafts, setDrafts] = useState(() => Object.fromEntries(initialTutors.map((tutor) => [tutor.teacherId, {
@@ -248,6 +304,7 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], relation
           {relationshipSummary.paused ? <span className="rounded-full bg-slate-200 px-3 py-1.5 text-slate-700">{relationshipSummary.paused} paused</span> : null}
           {relationshipSummary.handoversOpen ? <span className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900">{relationshipSummary.handoversOpen} handover{relationshipSummary.handoversOpen === 1 ? '' : 's'} open</span> : null}
           {relationshipSummary.urgentAttention ? <span className="rounded-full bg-rose-100 px-3 py-1.5 text-rose-800">{relationshipSummary.urgentAttention} urgent</span> : null}
+          {relationshipSummary.coverEpisodes ? <span className="rounded-full bg-blue-100 px-3 py-1.5 text-blue-800">{relationshipSummary.coverEpisodes} cover lesson{relationshipSummary.coverEpisodes === 1 ? '' : 's'}</span> : null}
           {relationshipSummary.needsReview ? <span className="rounded-full bg-rose-100 px-3 py-1.5 text-rose-800">{relationshipSummary.needsReview} need review</span> : null}
         </div>
         {relationshipSummary.unmatchedAssignments?.length ? (
@@ -255,7 +312,34 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], relation
             {relationshipSummary.unmatchedAssignments.length} student assignment{relationshipSummary.unmatchedAssignments.length === 1 ? '' : 's'} use a tutor name that is not in the canonical roster.
           </p>
         ) : null}
+        {relationshipSummary.unmatchedCoverLessons ? (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {relationshipSummary.unmatchedCoverLessons} cover lesson{relationshipSummary.unmatchedCoverLessons === 1 ? '' : 's'} could not be linked to a current student record, so its cover context is not shown here.
+          </p>
+        ) : null}
+        {!relationshipSummary.coverSourceAvailable && relationshipSummary.coverSourceWarning ? (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{relationshipSummary.coverSourceWarning} This view is not claiming that no cover exists.</p>
+        ) : null}
       </section>
+
+      {initialCoverEpisodes.length ? (
+        <section className="rounded-[1.3rem] border border-blue-100 bg-blue-50/50 p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="font-semibold text-slate-900">Temporary cover</h3>
+              <p className="mt-1 text-sm text-slate-600">One-off teaching cover stays separate from each student’s permanent tutor assignment.</p>
+            </div>
+            {relationshipSummary.coverAttention ? (
+              <span className={`rounded-full px-3 py-1 text-xs font-semibold ${relationshipSummary.coverUrgent ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-900'}`}>
+                {relationshipSummary.coverAttention} need attention
+              </span>
+            ) : <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">All prepared</span>}
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {initialCoverEpisodes.map((episode) => <CoverEpisodeCard key={episode.episodeId || `${episode.student.fcStudentId}:${episode.lesson.date}:${episode.lesson.time}`} episode={episode} />)}
+          </div>
+        </section>
+      ) : null}
 
       {context ? (
         <section className="rounded-[1.3rem] border border-amber-200 bg-amber-50/70 p-5">

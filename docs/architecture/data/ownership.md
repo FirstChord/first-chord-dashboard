@@ -147,6 +147,12 @@ practice-note delivery metadata without becoming a new owner or writer.
   existing student-assignment review workflow. It cannot perform the reassignment
   or change MMS. A missing or stale schedule remains uncertainty, not proof of a
   completed handover.
+- Temporary cover is a separate dated episode derived from
+  `Tutor_Absence_State`; it never rewrites the permanent student assignment.
+  The episode connects the student, usual tutor, cover tutor, lesson date and
+  five existing preparation checks, promoting only the next incomplete check.
+  It disappears when the source absence is resolved and creates no new state
+  tab or manual lifecycle.
 - Practice-note text and recipient data do not enter this context. Only bounded
   delivery metadata is projected.
 - A later lesson-provider cutover must add an adapter that emits the same

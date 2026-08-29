@@ -66,17 +66,8 @@ function paymentSummary(lesson = {}) {
   return `${mode} · ${expectation}`;
 }
 
-function resolveHint({ decision = '', summary = {}, selectedCoverTutor = null } = {}) {
-  if (!decision) return 'Choose cancel or cover before resolving.';
-  if (!summary.allMessaged) return 'Resolve unlocks once all affected parents are marked messaged.';
-  if (decision === 'cover') {
-    if (!selectedCoverTutor) return 'Choose a cover tutor before resolving.';
-    if (!summary.coverReady) return 'Confirm the cover tutor and notes/context before resolving.';
-  }
-  if (decision === 'cancel_day' && !summary.paymentComplete) {
-    return 'Resolve unlocks once every affected lesson has payment handled or explicitly skipped.';
-  }
-  return '';
+function resolveHint({ summary = {} } = {}) {
+  return summary.resolutionHint || '';
 }
 
 function MessageButton({ body, copiedId, copyId, onCopy, context = null, label = 'Copy message' }) {

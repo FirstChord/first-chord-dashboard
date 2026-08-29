@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  assertTutorAbsenceResolutionReady,
   buildTutorAbsenceCancellationMessageGroups,
   buildTutorAbsenceEarlyNoticePlanningBundle,
   buildTutorAbsenceFinalConfirmationPlanningItems,
@@ -177,7 +178,7 @@ test('summariseTutorAbsenceState counts parent messages left', () => {
   assert.equal(summary.canResolve, false);
 });
 
-test('summariseTutorAbsenceState requires cover confirmation and briefing for cover lessons', () => {
+test('summariseTutorAbsenceState requires cover confirmation, briefing and calendar alignment', () => {
   const lessons = [{ eventId: 'evt_1' }, { eventId: 'evt_2' }];
 
   const incomplete = summariseTutorAbsenceState({
@@ -206,8 +207,50 @@ test('summariseTutorAbsenceState requires cover confirmation and briefing for co
     },
   });
 
-  assert.equal(complete.coverReady, true);
-  assert.equal(complete.canResolve, true);
+  assert.equal(complete.coverReady, false);
+  assert.equal(complete.canResolve, false);
+  assert.match(complete.resolutionHint, /MMS\/calendar/);
+
+  const calendarComplete = summariseTutorAbsenceState({
+    lessons,
+    decision: 'cover',
+    coverTutorName: 'Chloe Mak',
+    messageState: {
+      evt_1: { messaged: true },
+      evt_2: { messaged: true },
+      __workflow: { coverTutorConfirmed: true, coverTutorBriefed: true, calendarUpdated: true },
+    },
+  });
+
+  assert.equal(calendarComplete.coverReady, true);
+  assert.equal(calendarComplete.canResolve, true);
+  assert.equal(calendarComplete.resolutionHint, '');
+});
+
+test('the write-path resolution guard rejects cover until the calendar check is recorded', () => {
+  const lessons = [{ eventId: 'evt_1' }];
+  const base = {
+    status: 'resolved',
+    lessons,
+    decision: 'cover',
+    coverTutorName: 'Chloe Mak',
+    messageState: {
+      evt_1: { messaged: true },
+      __workflow: { coverTutorConfirmed: true, coverTutorBriefed: true },
+    },
+  };
+
+  assert.throws(
+    () => assertTutorAbsenceResolutionReady(base),
+    (error) => error.code === 'TUTOR_ABSENCE_NOT_READY' && /MMS\/calendar/.test(error.message),
+  );
+  assert.doesNotThrow(() => assertTutorAbsenceResolutionReady({
+    ...base,
+    messageState: {
+      ...base.messageState,
+      __workflow: { ...base.messageState.__workflow, calendarUpdated: true },
+    },
+  }));
 });
 
 test('summariseTutorAbsenceState requires payment handling for cancelled lessons', () => {

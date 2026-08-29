@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-06
+last_verified: 2026-08-29
 ---
 # Tutor Absence And Pause Contract
 
@@ -35,7 +35,10 @@ capture tutor-away period
   -> around 14 days before: choose cover or cancel
 
 cover
-  -> confirm tutor, briefing, calendar and initial parent message
+  -> choose and confirm tutor
+  -> pass on lesson notes/context
+  -> confirm MMS/calendar was updated or no change was needed
+  -> send the parent message
   -> no payment-pause card
 
 cancel
@@ -49,6 +52,20 @@ cancel
 
 The dashboard never sends the parent message or changes Stripe automatically.
 Copy/send, payment execution, and final confirmation are explicit human actions.
+
+### Temporary cover context
+
+Open cover decisions are projected into the read-only teaching context as dated
+cover episodes. A cover episode says that one tutor is temporarily teaching a
+specific lesson for the usual tutor; it never changes the student's permanent
+assignment or creates a second ongoing teaching relationship.
+
+The episode derives five milestones from the existing `Tutor_Absence_State`
+record: cover chosen, cover confirmed, notes/context passed on, calendar checked,
+and parent informed. Only the next incomplete step is promoted as attention.
+The episode becomes quiet when all five are complete and disappears when the
+absence is resolved. A failed state-tab read is shown as unavailable rather than
+being interpreted as no cover work.
 
 ### Group bookings and who gets a pause card
 
@@ -152,6 +169,10 @@ established. Do not auto-retire it from incoming text or inferred overlap.
    action inline, with an explicit **Mark sent & complete** action. **Park
    notice** is a separate history-preserving choice and must not record the
    notice as sent. Do not replace the message-evidence gate with generic Done.
+10. A covered absence cannot be resolved until the cover tutor, briefing,
+    calendar/no-change check, and every affected parent message are recorded.
+    The same deterministic guard runs in the server write path; the UI checkbox
+    is not the only enforcement.
 
 ## Dated Payment Handoff Correction (2026-07-27)
 
