@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { ActionButton } from '@/components/admin/ui/ActionButton';
+import { ButtonLink } from '@/components/admin/ui/ButtonLink';
 import { ConfirmButton } from '@/components/admin/ui/ConfirmButton';
 
 function formatDate(value = '') {
@@ -42,10 +44,42 @@ function deliveryLabel(status = '') {
   }[status] || status.replaceAll('_', ' ') || 'recorded';
 }
 
+function attentionTone(severity = '') {
+  return severity === 'urgent'
+    ? 'border-rose-200 bg-rose-50 text-rose-950'
+    : 'border-amber-200 bg-amber-50 text-amber-950';
+}
+
+function AttentionItem({ item }) {
+  return (
+    <section className={`mt-3 rounded-xl border p-3 ${attentionTone(item.severity)}`} aria-label={item.severity === 'urgent' ? 'Urgent handover attention' : 'Handover attention'}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="font-semibold">{item.title}</p>
+          <p className="mt-1 text-sm leading-5 opacity-90">{item.detail}</p>
+        </div>
+        {item.dueDate ? <span className="shrink-0 rounded-full bg-white/70 px-2 py-1 text-xs font-semibold">By {formatDate(item.dueDate)}</span> : null}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {item.recommendedWorkflow?.href ? (
+          <ButtonLink href={item.recommendedWorkflow.href} variant={item.severity === 'urgent' ? 'danger' : 'warning'} size="compact">
+            {item.recommendedWorkflow.label}
+          </ButtonLink>
+        ) : null}
+        <details className="text-xs">
+          <summary className="min-h-8 cursor-pointer rounded-lg px-2 py-1.5 font-semibold underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">What clears this?</summary>
+          <p className="mt-1 max-w-xl leading-5 opacity-80">{item.clearsWhen}</p>
+        </details>
+      </div>
+    </section>
+  );
+}
+
 function RelationshipCard({ relationship }) {
   const schedule = relationship.schedule || {};
   const note = relationship.latestPracticeNote;
   const conflicts = relationship.provenance?.conflicts || [];
+  const attentionItems = relationship.attentionItems || [];
 
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -77,6 +111,8 @@ function RelationshipCard({ relationship }) {
             : 'None recorded for this pairing'}
         </p>
       </div>
+
+      {attentionItems.map((item) => <AttentionItem key={item.code} item={item} />)}
 
       {relationship.conditions?.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -110,6 +146,7 @@ function hasReachedFinalTeachingDate(value = '') {
 }
 
 export default function AdminTutorLifecycleClient({ initialTutors = [], relationshipSummary = {}, derivedAt = '' }) {
+  const router = useRouter();
   const [tutors, setTutors] = useState(initialTutors);
   const [drafts, setDrafts] = useState(() => Object.fromEntries(initialTutors.map((tutor) => [tutor.teacherId, {
     finalTeachingDate: tutor.finalTeachingDate || '',
@@ -124,6 +161,15 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], relation
   const listedTutors = useMemo(() => tutors.filter((tutor) => (
     tutor.lifecycleStatus !== 'retired' || tutor.teachingRelationshipSummary?.total > 0
   )), [tutors]);
+
+  useEffect(() => {
+    setTutors(initialTutors);
+    setDrafts(Object.fromEntries(initialTutors.map((tutor) => [tutor.teacherId, {
+      finalTeachingDate: tutor.finalTeachingDate || '',
+      replacementTutorShortName: tutor.replacementTutorShortName || '',
+      note: tutor.lifecycleNote || '',
+    }])));
+  }, [initialTutors]);
 
   function updateDraft(teacherId, key, value) {
     setDrafts((current) => ({ ...current, [teacherId]: { ...current[teacherId], [key]: value } }));
@@ -149,6 +195,7 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], relation
         setTutors((current) => current.map((entry) => entry.teacherId === tutor.teacherId ? { ...entry, ...data.tutor } : entry));
         setContext((current) => current?.tutor?.teacherId === tutor.teacherId ? { ...current, tutor: { ...current.tutor, ...data.tutor } } : current);
         setMessage({ error: '', success: `${data.tutor.fullName} is now ${data.tutor.lifecycleStatus}.` });
+        router.refresh();
       } catch {
         setMessage({ error: 'Could not reach the tutor lifecycle service. Try again.', success: '' });
       } finally {
@@ -199,6 +246,8 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], relation
           <span className="rounded-full bg-blue-100 px-3 py-1.5 text-blue-800">{relationshipSummary.byPhase?.starting || 0} starting</span>
           <span className="rounded-full bg-violet-100 px-3 py-1.5 text-violet-800">{relationshipSummary.byPhase?.planned || 0} planned</span>
           {relationshipSummary.paused ? <span className="rounded-full bg-slate-200 px-3 py-1.5 text-slate-700">{relationshipSummary.paused} paused</span> : null}
+          {relationshipSummary.handoversOpen ? <span className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900">{relationshipSummary.handoversOpen} handover{relationshipSummary.handoversOpen === 1 ? '' : 's'} open</span> : null}
+          {relationshipSummary.urgentAttention ? <span className="rounded-full bg-rose-100 px-3 py-1.5 text-rose-800">{relationshipSummary.urgentAttention} urgent</span> : null}
           {relationshipSummary.needsReview ? <span className="rounded-full bg-rose-100 px-3 py-1.5 text-rose-800">{relationshipSummary.needsReview} need review</span> : null}
         </div>
         {relationshipSummary.unmatchedAssignments?.length ? (
@@ -256,8 +305,13 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], relation
                     {retired ? 'Retired · assignments remain' : leaving ? `Leaving · ${formatDate(tutor.finalTeachingDate)}` : 'Active'}
                   </span>
                 </div>
+                {tutor.teachingRelationshipSummary?.attention ? (
+                  <p className={`mt-3 text-sm font-semibold ${tutor.teachingRelationshipSummary.urgentAttention ? 'text-rose-700' : 'text-amber-800'}`}>
+                    {tutor.teachingRelationshipSummary.attention} relationship{tutor.teachingRelationshipSummary.attention === 1 ? '' : 's'} need{tutor.teachingRelationshipSummary.attention === 1 ? 's' : ''} handover attention
+                  </p>
+                ) : null}
                 {tutor.teachingRelationships?.length ? (
-                  <details className="group mt-4 rounded-xl border border-slate-200 bg-slate-50/70">
+                  <details defaultOpen={Boolean(tutor.teachingRelationshipSummary?.attention)} className="group mt-4 rounded-xl border border-slate-200 bg-slate-50/70">
                     <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 active:bg-slate-200 [&::-webkit-details-marker]:hidden">
                       <span>{tutor.teachingRelationshipSummary.total} current student{tutor.teachingRelationshipSummary.total === 1 ? '' : 's'}</span>
                       <span className="text-xs font-medium text-slate-500 group-open:hidden">Show relationships ↓</span>

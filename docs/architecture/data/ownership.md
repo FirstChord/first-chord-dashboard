@@ -1,11 +1,11 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-10
+last_verified: 2026-08-29
 ---
 # FirstChord Admin Ownership Matrix
 
-Last updated: 2026-08-13
+Last updated: 2026-08-29
 
 This document defines which layer currently owns each major action and field in the admin system.
 
@@ -137,6 +137,16 @@ practice-note delivery metadata without becoming a new owner or writer.
 - Missing, stale or conflicting evidence produces `uncertain` / **Needs review**.
   The resolver never treats an absent practice note or cache row as proof that a
   relationship ended.
+- Tutor handover attention is also recalculated on read. It is not a Planning
+  item or a manually cleared task: it remains open while a leaving tutor still
+  owns the student assignment, and follows the relationship to the replacement
+  tutor when the cached next lesson still names the departing tutor. It clears
+  only when assignment and fresh schedule evidence agree.
+- Each handover item is typed and bounded: severity, due date, explanatory
+  evidence with source/freshness, an observable `clearsWhen` condition, and the
+  existing student-assignment review workflow. It cannot perform the reassignment
+  or change MMS. A missing or stale schedule remains uncertainty, not proof of a
+  completed handover.
 - Practice-note text and recipient data do not enter this context. Only bounded
   delivery metadata is projected.
 - A later lesson-provider cutover must add an adapter that emits the same

@@ -43,6 +43,12 @@ const FRESH_SCHEDULE = {
   warnings: [],
 };
 
+const REPLACEMENT_TUTOR = {
+  fcTutorId: 'fc_tut_87654321',
+  shortName: 'Finn',
+  displayName: 'Finn Le Marinel',
+};
+
 test('a fresh matching assignment resolves to a stable established relationship', () => {
   const relationship = resolveTeachingRelationshipContext({
     student: STUDENT,
@@ -115,6 +121,149 @@ test('student and tutor lifecycle facts stay separate from temporary conditions'
   assert.ok(leaving.conditions.some((item) => item.code === 'tutor_leaving'));
 });
 
+test('a leaving tutor creates a bounded handover expectation with evidence and a clearing condition', () => {
+  const relationship = resolveTeachingRelationshipContext({
+    student: STUDENT,
+    tutor: {
+      ...TUTOR,
+      lifecycleStatus: 'leaving',
+      finalTeachingDate: '2026-09-30',
+      lifecycleUpdatedAt: '2026-08-28T09:00:00.000Z',
+      replacementTutor: REPLACEMENT_TUTOR,
+    },
+    assignment: ASSIGNMENT,
+    schedule: FRESH_SCHEDULE,
+    derivedAt: '2026-08-29T12:00:00.000Z',
+  });
+
+  assert.equal(relationship.schemaVersion, 2);
+  assert.equal(relationship.attentionItems.length, 1);
+  assert.deepEqual(relationship.attentionItems[0], {
+    code: 'handover_assignment_open',
+    severity: 'review',
+    title: 'Move this relationship to Finn Le Marinel',
+    detail: "Eléna Esposito is leaving on 2026-09-30. The current student assignment still points to Eléna Esposito.",
+    dueDate: '2026-09-30',
+    clearsWhen: 'The student assignment no longer points to Eléna Esposito, and the cached next lesson agrees with the new tutor.',
+    evidence: [
+      {
+        code: 'current_assignment',
+        label: 'Current assignment',
+        value: 'Eléna Esposito',
+        sourceSystem: 'students_sheet',
+        observedAt: '',
+        freshness: '',
+      },
+      {
+        code: 'tutor_departure',
+        label: 'Final teaching date',
+        value: '2026-09-30',
+        sourceSystem: 'tutor_lifecycle',
+        observedAt: '2026-08-28T09:00:00.000Z',
+        freshness: '',
+      },
+      {
+        code: 'cached_next_lesson',
+        label: 'Cached next lesson',
+        value: '2026-09-03T16:00:00',
+        sourceSystem: 'mms_calendar',
+        observedAt: '2026-08-29T10:00:00.000Z',
+        freshness: 'fresh',
+      },
+      {
+        code: 'planned_replacement',
+        label: 'Planned handover tutor',
+        value: 'Finn Le Marinel',
+        sourceSystem: 'tutor_lifecycle',
+        observedAt: '2026-08-28T09:00:00.000Z',
+        freshness: '',
+      },
+    ],
+    recommendedWorkflow: {
+      code: 'student_assignment_review',
+      label: 'Review student assignment',
+    },
+  });
+});
+
+test('a lesson after the leaving date makes the handover urgent', () => {
+  const relationship = resolveTeachingRelationshipContext({
+    student: STUDENT,
+    tutor: {
+      ...TUTOR,
+      lifecycleStatus: 'leaving',
+      finalTeachingDate: '2026-09-01',
+      replacementTutor: REPLACEMENT_TUTOR,
+    },
+    assignment: ASSIGNMENT,
+    schedule: FRESH_SCHEDULE,
+    derivedAt: '2026-08-29T12:00:00.000Z',
+  });
+
+  assert.equal(relationship.attentionItems[0].code, 'lesson_after_tutor_final_date');
+  assert.equal(relationship.attentionItems[0].severity, 'urgent');
+});
+
+test('a changed assignment stays visible when the departing tutor still owns the cached lesson', () => {
+  const relationship = resolveTeachingRelationshipContext({
+    student: STUDENT,
+    tutor: TUTOR,
+    assignment: ASSIGNMENT,
+    schedule: {
+      ...FRESH_SCHEDULE,
+      matchesAssignedTutor: false,
+      scheduledTutor: {
+        ...REPLACEMENT_TUTOR,
+        displayName: 'Patrick O’Brien',
+        lifecycleStatus: 'leaving',
+        finalTeachingDate: '2026-09-01',
+      },
+    },
+    derivedAt: '2026-08-29T12:00:00.000Z',
+  });
+
+  assert.equal(relationship.attentionItems.length, 1);
+  assert.equal(relationship.attentionItems[0].code, 'departing_tutor_lesson_after_final_date');
+  assert.equal(relationship.attentionItems[0].severity, 'urgent');
+  assert.equal(relationship.attentionItems[0].recommendedWorkflow.code, 'student_assignment_review');
+});
+
+test('stale schedule evidence requests review but cannot create an urgent handover claim', () => {
+  const relationship = resolveTeachingRelationshipContext({
+    student: STUDENT,
+    tutor: TUTOR,
+    assignment: ASSIGNMENT,
+    schedule: {
+      ...FRESH_SCHEDULE,
+      freshness: 'stale',
+      matchesAssignedTutor: false,
+      scheduledTutor: {
+        ...REPLACEMENT_TUTOR,
+        displayName: 'Patrick O’Brien',
+        lifecycleStatus: 'retired',
+        finalTeachingDate: '2026-09-01',
+      },
+    },
+    derivedAt: '2026-08-29T12:00:00.000Z',
+  });
+
+  assert.equal(relationship.attentionItems[0].code, 'departing_tutor_schedule_needs_refresh');
+  assert.equal(relationship.attentionItems[0].severity, 'review');
+  assert.equal(relationship.attentionItems[0].evidence[1].freshness, 'stale');
+});
+
+test('handover attention clears automatically when current assignment and schedule agree', () => {
+  const relationship = resolveTeachingRelationshipContext({
+    student: STUDENT,
+    tutor: TUTOR,
+    assignment: ASSIGNMENT,
+    schedule: FRESH_SCHEDULE,
+    derivedAt: '2026-08-29T12:00:00.000Z',
+  });
+
+  assert.deepEqual(relationship.attentionItems, []);
+});
+
 test('a retired tutor with a current assignment is kept visible as a review case', () => {
   const relationship = resolveTeachingRelationshipContext({
     student: STUDENT,
@@ -182,6 +331,8 @@ test('summaries omit ended records and sorting puts handovers and starts first',
   assert.equal(summary.total, 2);
   assert.equal(summary.byPhase.established, 1);
   assert.equal(summary.byPhase.winding_down, 1);
+  assert.equal(summary.handoversOpen, 1);
+  assert.equal(summary.attention, 1);
   assert.deepEqual(sortTeachingRelationships([established, ending]).map((item) => item.phase.code), [
     'winding_down',
     'established',

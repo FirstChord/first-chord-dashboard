@@ -1,11 +1,11 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-04
+last_verified: 2026-08-29
 ---
 # Approved AI Tool Contracts
 
-Last updated: 2026-08-04
+Last updated: 2026-08-29
 
 This is the allowlist and design boundary for AI assistance inside the
 dashboard. The optional issue briefing and the bounded incoming-reply pilot are
@@ -62,6 +62,7 @@ These names reserve narrow contracts; they are not callable tools today.
 | Capability | Problem solved | Deterministic input/context | AI may produce | Must not do | Approval / evaluation / privacy | Readiness |
 |---|---|---|---|---|---|---|
 | `student_context.read` | Give an admin a concise explanation of a student's current operational context | Exact `mmsId`; redacted projection of the shared student context, lifecycle, pause/schedule cache provenance, conflicts and freshness | Summary with source labels, uncertainty, and links to existing screens | Return raw Sheet rows, email, phone, Stripe IDs, credentials, or infer missing facts | Read-only; test that redaction and provenance are complete. Evaluate against manually checked context summaries. Student-scoped and minimum necessary | Server-only strict reader/projection/service implemented; no route, UI, or model |
+| `relationship_attention.read` | Explain which teaching relationships need handover attention and why now | Stable First Chord relationship identities plus the deterministic phase, tutor lifecycle, assignment, cached schedule, typed evidence, due date and clearing condition | A bounded explanation of the open transition and its existing review link | Read raw Sheets/MMS rows, infer completion from an absent or stale cache row, change an assignment or calendar event, clear attention, or invent a replacement tutor | Read-only. Provider IDs, contacts and practice-note text stay outside the projection. Fixtures cover open, overdue, schedule-lag and automatically cleared handovers | Deterministic schema-v2 context and admin UI implemented; no assistant projection, route, model, or action tool |
 | `issue_context.read` | Explain why a named issue exists and what evidence would resolve it | Exact student/source/type plus non-mutating detector inputs and current queue state | Explanation, missing evidence, and relevant workflow link | Call `getAdminIssues()` because that synchronizes `Issue_Queue`; acknowledge/resolve issues; write student truth | Read-only. Golden fixtures cover current, recorded-only, source-absent, unavailable, and conflicting states. Avoid unrelated family context | Admin-only deterministic route and Issues panel live; optional tool-free AI briefing receives only that explanation and remains generated copy, never truth or action |
 | `finance_overview.read` | Explain aggregate finance position without exposing provider accounts | Existing aggregate finance overview, assumptions version, cache age, and coverage counts | Plain-English aggregate explanation and caveats | Fetch live Stripe data, expose per-family payment details, change assumptions, or execute payment | Read-only aggregate. Evaluate calculations against the deterministic response and require explicit cache caveats | Viable now as a future wrapper around the existing aggregate service |
 | `operations_guidance.read` | Find the right policy or recovery step quickly | Fixed allowlist of runbook/policy document IDs and sections | Quoted-short guidance, source link, and whether human escalation is needed | Read arbitrary repository files, use shell, inspect secrets, or invent recovery steps | Read-only. Retrieval tests require citations, bounded results, and abstention when the allowlist has no answer | Pure fixed index/search implemented; no arbitrary file read, route, UI, or model |
