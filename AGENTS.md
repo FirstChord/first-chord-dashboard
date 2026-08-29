@@ -258,6 +258,10 @@ Use the direct `node --test` command during a read-only investigation because
   duplicate-send protection, and that no send occurs without its explicit gate.
 - UI-only change: verify loading, success, error, empty, narrow viewport, and
   keyboard/focus behavior. Do not rely on a full-page reload to mask stale state.
+  For a Playwright/browser pass, record the routes and viewport actually
+  inspected. Tool discovery alone is not a visual check: if no browser instance
+  connects, say the pass was unavailable and do not claim that Playwright saw
+  the interface.
 - Deployment/config change: run the production build only when writes to generated
   local artifacts are acceptable, inspect `git diff`, then use the runbook smoke
   checks for every affected integration.
