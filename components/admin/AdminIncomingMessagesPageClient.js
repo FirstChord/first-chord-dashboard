@@ -8,6 +8,7 @@ import {
   assessBridgeHealth,
   buildIncomingReplyTemplate,
   buildWhatsappShareUrl,
+  clusterIncomingMessages,
   extractIncomingMessageDates,
   INCOMING_MESSAGE_ACTIONABILITY,
   INCOMING_MESSAGE_CATEGORIES,
@@ -715,11 +716,11 @@ function describeReplyEvidence(entry) {
   return `${who} replied later`;
 }
 
-function LaterChoices({ entry, onSnooze, isPending, onClose }) {
+function LaterChoices({ entries, onSnooze, isPending, onClose }) {
   const [customDate, setCustomDate] = useState('');
 
   function choose(snoozedUntil) {
-    onSnooze(entry, snoozedUntil);
+    onSnooze(entries, snoozedUntil);
     onClose();
   }
 
@@ -768,22 +769,37 @@ function LaterChoices({ entry, onSnooze, isPending, onClose }) {
   );
 }
 
-function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, conversion, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply }) {
-  const isPending = pendingId === entry.incomingId;
+// `entry` is the burst's lead message — the one that carries the signal, and
+// the one Reply and Reply + Plan work from. `entries` is the whole burst,
+// oldest first; outcome actions apply to all of it so nothing is left behind.
+function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, conversion, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply }) {
+  const isPending = entries.some((message) => pendingId === message.incomingId);
+  const isBurst = entries.length > 1;
   const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [isReplyOpen, setIsReplyOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isLaterOpen, setIsLaterOpen] = useState(false);
-  const spottedDates = describeSpottedDates(entry);
+  // Date extraction and the plan draft read the whole burst, not just the lead:
+  // "Amy can't come" and "on Thursday" are often two separate messages.
+  const burstEntry = useMemo(
+    () => (entries.length > 1
+      ? { ...entry, messageText: entries.map((message) => message.messageText).join('\n') }
+      : entry),
+    [entry, entries],
+  );
+  const spottedDates = describeSpottedDates(burstEntry);
+  // The stack is stamped with when it finished arriving.
+  const newest = entries[entries.length - 1];
   const isOpen = ['inbox', 'needs_review'].includes(entry.status);
   const planningAction = resolveIncomingPlanningAction(entry);
   const studentNeedsCheck = !entry.matchedMmsId || entry.matchConfidence !== 'high';
-  const needsReviewAccent = isOpen && (
-    entry.status === 'needs_review'
-    || entry.classificationActionability === 'uncertain'
-    || entry.classificationConfidence === 'low'
+  // Any unsure message in the burst makes the whole stack unsure.
+  const needsReviewAccent = isOpen && entries.some((message) => (
+    message.status === 'needs_review'
+    || message.classificationActionability === 'uncertain'
+    || message.classificationConfidence === 'low'
     || studentNeedsCheck
-  );
+  ));
   const canDraftReply = replyDraftingAvailable
     && isOpen
     && !entry.isSnoozed
@@ -847,12 +863,13 @@ function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCo
         </div>
         <div className="shrink-0 text-right">
           <time
-            dateTime={entry.messageAt || entry.capturedAt || undefined}
-            title={formatDateTime(entry.messageAt || entry.capturedAt)}
+            dateTime={newest.messageAt || newest.capturedAt || undefined}
+            title={formatDateTime(newest.messageAt || newest.capturedAt)}
             className="text-[11px] text-slate-400"
           >
-            {formatMessageStamp(entry.messageAt || entry.capturedAt)}
+            {formatMessageStamp(newest.messageAt || newest.capturedAt)}
           </time>
+          {isBurst ? <p className="text-[11px] text-slate-400">{entries.length} messages</p> : null}
           {!isOpen ? <p className="mt-1 text-[11px] font-semibold text-slate-500">{outcomeLabel}</p> : null}
           {entry.isSnoozed ? (
             <p className="mt-1 text-[11px] font-semibold text-blue-700">Back {formatMessageStamp(entry.snoozedUntil)}</p>
@@ -860,11 +877,18 @@ function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCo
         </div>
       </div>
 
-      <p className="mt-3 whitespace-pre-line text-[15px] leading-6 text-slate-700">{entry.messageText}</p>
-
-      {isIncomingPlaceholderText(entry.messageText) ? (
-        <PlaceholderFixPanel entry={entry} onUpdateText={onUpdateText} isPending={isPending} />
-      ) : null}
+      <div className={isBurst ? 'mt-3 space-y-1.5' : 'mt-3'}>
+        {entries.map((message) => (
+          <div key={message.incomingId}>
+            <p className={`whitespace-pre-line text-[15px] leading-6 text-slate-700${isBurst ? ' rounded-xl bg-slate-50 px-3 py-2' : ''}`}>
+              {message.messageText}
+            </p>
+            {isIncomingPlaceholderText(message.messageText) ? (
+              <PlaceholderFixPanel entry={message} onUpdateText={onUpdateText} isPending={isPending} />
+            ) : null}
+          </div>
+        ))}
+      </div>
 
       {entry.schoolRepliedAt ? (
         <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500" title={`School activity seen ${formatDateTime(entry.schoolRepliedAt)}. This shows engagement, not confirmed resolution.`}>
@@ -893,7 +917,7 @@ function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCo
           <button
             type="button"
             disabled={isPending}
-            onClick={() => onSnooze(entry, '')}
+            onClick={() => onSnooze(entries, '')}
             className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
           >
             <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
@@ -949,7 +973,7 @@ function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCo
           <button
             type="button"
             disabled={isPending}
-            onClick={() => onReview(entry, 'converted')}
+            onClick={() => onReview(entries, 'converted')}
             aria-label="Mark handled"
             title="Mark handled"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 disabled:opacity-60"
@@ -975,7 +999,7 @@ function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCo
 
       {isLaterOpen ? (
         <div id={laterId}>
-          <LaterChoices entry={entry} onSnooze={onSnooze} isPending={isPending} onClose={() => setIsLaterOpen(false)} />
+          <LaterChoices entries={entries} onSnooze={onSnooze} isPending={isPending} onClose={() => setIsLaterOpen(false)} />
         </div>
       ) : null}
 
@@ -998,7 +1022,7 @@ function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCo
               <button
                 type="button"
                 disabled={isPending}
-                onClick={() => onReview(entry, 'ignored')}
+                onClick={() => onReview(entries, 'ignored')}
                 className="min-h-10 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 disabled:opacity-60"
               >
                 No action needed
@@ -1016,7 +1040,7 @@ function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCo
             ) : null}
             <ActionButton
               pending={isPending}
-              onClick={() => onDelete(entry)}
+              onClick={() => onDelete(entries)}
               variant="red"
               className="min-h-10 px-3 text-xs"
             >
@@ -1027,11 +1051,11 @@ function MessageCard({ entry, studentOptions, onReview, onSnooze, onDelete, onCo
       ) : null}
 
       <PlanPanel
-        entry={entry}
+        entry={burstEntry}
         studentOptions={studentOptions}
         isPending={isPending}
         onCorrect={onCorrect}
-        onConvert={onConvert}
+        onConvert={(leadEntry, correction) => onConvert(leadEntry, correction, entries)}
         isOpen={isPlanOpen}
         onOpenChange={setIsPlanOpen}
       />
@@ -1185,6 +1209,10 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       || conversions[entry.incomingId]
     ));
   }, [inbox, inboxView, conversions]);
+  // One card per burst: consecutive messages from one sender in one chat are a
+  // single thing to deal with. Clustering after filtering keeps each view's
+  // stack limited to the messages that view is showing.
+  const visibleClusters = useMemo(() => clusterIncomingMessages(visibleInbox), [visibleInbox]);
 
   async function postPayload(payload) {
     const response = await fetch('/api/admin/incoming-messages', {
@@ -1228,18 +1256,28 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     }
   }
 
-  async function handleReview(entry, nextStatus) {
-    setSubmitError('');
-    setPendingId(entry.incomingId);
-    try {
+  // One outcome for a whole burst. Each row still gets its own write — the
+  // sheet stays one row per WhatsApp message — but the admin ticks once and
+  // no sibling message is left open behind the one they handled. Writes run in
+  // sequence because each POST returns the rebuilt inbox.
+  async function reviewBurst(entries, nextStatus) {
+    for (const message of entries) {
       await postPayload({
         mode: 'review',
-        incomingId: entry.incomingId,
+        incomingId: message.incomingId,
         status: nextStatus,
         classificationActionability: nextStatus === 'ignored'
           ? 'no_action'
-          : entry.classificationActionability,
+          : message.classificationActionability,
       });
+    }
+  }
+
+  async function handleReview(entries, nextStatus) {
+    setSubmitError('');
+    setPendingId(entries[0].incomingId);
+    try {
+      await reviewBurst(entries, nextStatus);
     } catch (caught) {
       setSubmitError(caught.message || 'Review update failed');
     } finally {
@@ -1247,15 +1285,17 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     }
   }
 
-  async function handleSnooze(entry, snoozedUntil) {
+  async function handleSnooze(entries, snoozedUntil) {
     setSubmitError('');
-    setPendingId(entry.incomingId);
+    setPendingId(entries[0].incomingId);
     try {
-      await postPayload({
-        mode: 'snooze',
-        incomingId: entry.incomingId,
-        snoozedUntil,
-      });
+      for (const message of entries) {
+        await postPayload({
+          mode: 'snooze',
+          incomingId: message.incomingId,
+          snoozedUntil,
+        });
+      }
     } catch (caught) {
       setSubmitError(caught.message || 'Later update failed');
     } finally {
@@ -1263,18 +1303,22 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     }
   }
 
-  async function handleDelete(entry) {
-    const label = entry.matchedStudentName || entry.senderName || entry.messageText?.slice(0, 40) || 'this message';
-    const confirmed = window.confirm(`Delete ${label} from the incoming message inbox? This is intended for test/noise rows.`);
+  async function handleDelete(entries) {
+    const [first] = entries;
+    const label = first.matchedStudentName || first.senderName || first.messageText?.slice(0, 40) || 'this message';
+    const scope = entries.length > 1 ? ` and the ${entries.length - 1} message(s) sent with it` : '';
+    const confirmed = window.confirm(`Delete ${label}${scope} from the incoming message inbox? This is intended for test/noise rows.`);
     if (!confirmed) return;
 
     setSubmitError('');
-    setPendingId(entry.incomingId);
+    setPendingId(first.incomingId);
     try {
-      await postPayload({
-        mode: 'delete',
-        incomingId: entry.incomingId,
-      });
+      for (const message of entries) {
+        await postPayload({
+          mode: 'delete',
+          incomingId: message.incomingId,
+        });
+      }
     } catch (caught) {
       setSubmitError(caught.message || 'Delete failed');
     } finally {
@@ -1347,7 +1391,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     }
   }
 
-  async function handleConvert(entry, correction) {
+  async function handleConvert(entry, correction, burst = [entry]) {
     setSubmitError('');
     setPendingId(entry.incomingId);
     try {
@@ -1356,8 +1400,14 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         incomingId: entry.incomingId,
         ...correction,
       });
+      // The plan covers the whole burst, so close the rest of it too. They are
+      // marked `secondary` so the open view keeps showing them and the stack
+      // stays intact while the reply is on screen.
+      const siblings = burst.filter((message) => message.incomingId !== entry.incomingId);
+      await reviewBurst(siblings, 'converted');
       setConversions((current) => ({
         ...current,
+        ...Object.fromEntries(siblings.map((message) => [message.incomingId, { secondary: true }])),
         [entry.incomingId]: {
           planningId: data.planningId || '',
           replyTemplate: data.replyTemplate || '',
@@ -1509,21 +1559,22 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         ) : null}
 
         <div className="space-y-3">
-          {visibleInbox.map((entry) => (
+          {visibleClusters.map((cluster) => (
             <MessageCard
-              key={entry.incomingId}
-              entry={entry}
+              key={cluster.clusterId}
+              entry={cluster.lead}
+              entries={cluster.entries}
               studentOptions={studentOptions}
               pendingId={pendingId}
-              conversion={conversions[entry.incomingId]}
+              conversion={conversions[cluster.lead.incomingId]}
               onReview={handleReview}
               onSnooze={handleSnooze}
               onDelete={handleDelete}
               onCorrect={handleCorrect}
               onConvert={handleConvert}
               onUpdateText={handleUpdateText}
-              replyProposal={replyProposals[entry.incomingId]}
-              decidedReply={decidedReplies[entry.incomingId]}
+              replyProposal={replyProposals[cluster.lead.incomingId]}
+              decidedReply={decidedReplies[cluster.lead.incomingId]}
               replyDraftingAvailable={replyDraftingAvailable}
               onDraftReply={handleDraftReply}
               onDecideReply={handleDecideReply}

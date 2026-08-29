@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-04
+last_verified: 2026-08-29
 ---
 # WhatsApp Incoming Bridge
 
@@ -61,6 +61,14 @@ calling untouched guesses knowledge. Neither result authorises a payment,
 pause, attendance, archive, planning, or messaging action.
 
 The daily card leads with student/sender, time and the original message.
+Consecutive messages from the same sender, chat and matched student sent within
+five minutes are one card: the burst is shown oldest-first under a single
+header, and Handled / No action / Later / Delete apply to every message in it.
+Reply and Reply + Plan work from the burst's **lead** — the non-placeholder
+message with the highest actionability — while date extraction and the plan
+draft read the whole burst. Clustering is display and outcome scope only; the
+sheet keeps one row per WhatsApp message and each row is still written
+individually.
 **Reply + Plan** opens one pre-write preview: plan type and student are
 prefilled, extracted first/return dates are visible and editable, and a short
 deterministic parent reply is editable beside them. **Copy reply & open plan**

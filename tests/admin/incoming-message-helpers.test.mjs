@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { parsePauseWindowsFromPlanning } from '../../lib/admin/pause-forecast.mjs';
 import {
   applyIncomingClassificationReview,
+  clusterIncomingMessages,
   applyIncomingMessageSnooze,
   applyIncomingMessageTextUpdate,
   applyIncomingPlanningDateOverrides,
@@ -1004,4 +1005,65 @@ test('groupIncomingMessages sorts newest first and normalises status/category', 
   assert.deepEqual(grouped.map((row) => row.incomingId), ['new', 'old']);
   assert.equal(grouped[1].status, 'inbox');
   assert.equal(grouped[1].suspectedCategory, 'general');
+});
+
+function burstRow(overrides = {}) {
+  return {
+    incomingId: 'incoming_x',
+    chatId: '44700111@g.us',
+    senderPhone: '07700900111',
+    senderName: 'Jo Smith',
+    matchedMmsId: 'mms_1',
+    messageText: 'Hello there',
+    classificationActionability: 'reply_needed',
+    ...overrides,
+  };
+}
+
+test('clusterIncomingMessages stacks one sender rapid-fire run into a single card', () => {
+  // The view hands the helper a newest-first list.
+  const clusters = clusterIncomingMessages([
+    burstRow({ incomingId: 'c', messageText: 'Thanks!', messageAt: '2026-08-20T09:04:00Z', classificationActionability: 'no_action' }),
+    burstRow({ incomingId: 'b', messageText: 'Amy cannot make Thursday sorry', messageAt: '2026-08-20T09:02:00Z', classificationActionability: 'action_needed' }),
+    burstRow({ incomingId: 'a', messageText: 'Hi Finn', messageAt: '2026-08-20T09:01:00Z', classificationActionability: 'no_action' }),
+  ]);
+
+  assert.equal(clusters.length, 1);
+  // Oldest first inside the stack: the order they were written in.
+  assert.deepEqual(clusters[0].entries.map((row) => row.incomingId), ['a', 'b', 'c']);
+  // The lead is the message carrying the signal, not the first or the last.
+  assert.equal(clusters[0].lead.incomingId, 'b');
+});
+
+test('clusterIncomingMessages keeps separate sends, senders, and students apart', () => {
+  const clusters = clusterIncomingMessages([
+    burstRow({ incomingId: 'later_same_day', messageAt: '2026-08-20T15:00:00Z' }),
+    burstRow({ incomingId: 'other_sender', senderPhone: '07700900222', senderName: 'Sam Ray', messageAt: '2026-08-20T09:03:00Z' }),
+    burstRow({ incomingId: 'sibling_student', matchedMmsId: 'mms_2', messageAt: '2026-08-20T09:02:00Z' }),
+    burstRow({ incomingId: 'first', messageAt: '2026-08-20T09:01:00Z' }),
+  ]);
+
+  assert.deepEqual(
+    clusters.map((cluster) => cluster.entries.map((row) => row.incomingId)),
+    [['later_same_day'], ['other_sender'], ['sibling_student'], ['first']],
+  );
+});
+
+test('clusterIncomingMessages only merges adjacent messages and never a placeholder lead', () => {
+  const clusters = clusterIncomingMessages([
+    burstRow({ incomingId: 'b', messageText: '[Message content unavailable - star update arrived before cache]', messageAt: '2026-08-20T09:02:00Z', classificationActionability: 'action_needed' }),
+    burstRow({ incomingId: 'a', messageText: 'Can we move Amy to 5pm?', messageAt: '2026-08-20T09:01:00Z', classificationActionability: 'reply_needed' }),
+  ]);
+
+  assert.equal(clusters.length, 1);
+  assert.equal(clusters[0].lead.incomingId, 'a');
+});
+
+test('clusterIncomingMessages leaves a message with no chat or sender identity on its own', () => {
+  const clusters = clusterIncomingMessages([
+    burstRow({ incomingId: 'anon_b', chatId: '', chatName: '', senderPhone: '', senderName: '', messageAt: '2026-08-20T09:02:00Z' }),
+    burstRow({ incomingId: 'anon_a', chatId: '', chatName: '', senderPhone: '', senderName: '', messageAt: '2026-08-20T09:01:00Z' }),
+  ]);
+
+  assert.equal(clusters.length, 2);
 });
