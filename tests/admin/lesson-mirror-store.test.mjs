@@ -223,6 +223,49 @@ test('lesson occurrence reads reject backwards, oversized, and unbounded request
     getLessonOccurrenceObservations({ startDate: '2026-08-01', endDateExclusive: '2026-08-31', limit: 5001, database }),
     /limit must be between 1 and 5000/u,
   );
+  await assert.rejects(
+    getLessonOccurrenceObservations({
+      startDate: '2026-08-01',
+      endDateExclusive: '2026-08-31',
+      studentExternalIds: Array.from({ length: 101 }, (_, index) => `sdt_${index}`),
+      database,
+    }),
+    /at most 100 identifiers/u,
+  );
+});
+
+test('lesson occurrence reads can narrow the bounded window to named students', async () => {
+  const calls = [];
+  const run = {
+    sync_run_id: '00000000-0000-4000-8000-000000000041',
+    status: 'succeeded',
+    window_start: '2026-08-01',
+    window_end_exclusive: '2026-08-31',
+    started_at: '2026-08-30T05:45:00Z',
+    completed_at: '2026-08-30T05:48:00Z',
+  };
+  const database = {
+    async query(sql, params = []) {
+      const text = `${sql}`;
+      calls.push({ text, params });
+      if (text.includes("WHERE latest.status = 'succeeded'")) return { rows: [run] };
+      if (text.includes('FROM fc_lesson_sync_runs latest')) return { rows: [run] };
+      if (text.includes('WITH verified_run AS')) return { rows: [] };
+      throw new Error('unexpected student-filter query');
+    },
+  };
+  await getLessonOccurrenceObservations({
+    startDate: '2026-08-01',
+    endDateExclusive: '2026-08-31',
+    studentExternalIds: ['sdt_1', 'sdt_1', 'sdt_2'],
+    limit: 20,
+    database,
+    now: new Date('2026-08-30T12:00:00Z'),
+  });
+  const observationQuery = calls.find((call) => call.text.includes('WITH verified_run AS'));
+  assert.match(observationQuery.text, /student_external_id = ANY\(\$4::text\[\]\)/u);
+  assert.match(observationQuery.text, /LIMIT \$5::integer/u);
+  assert.deepEqual(observationQuery.params, [run.sync_run_id, '2026-08-01', '2026-08-31', ['sdt_1', 'sdt_2'], 21]);
 });
 
 test('lesson occurrence reads hide an older successful snapshot after a newer failed run', async () => {

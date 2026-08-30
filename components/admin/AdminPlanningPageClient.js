@@ -618,6 +618,22 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
     }
   }
 
+  async function handleFirstLessonStep(item, { step, value }) {
+    try {
+      await postPlanning({
+        mode: 'first_lesson_step',
+        planningId: item.planningId,
+        step,
+        value,
+      }, item.planningId);
+      return true;
+    } catch (error) {
+      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setPendingId('');
+      return false;
+    }
+  }
+
   async function handleRepairPauseDetails(item, { draft, linkedStudentId }) {
     if (!draft?.isComplete) {
       setSaveState({ pending: false, error: 'Add the missing pause date details before saving.', savedAt: '' });
@@ -975,6 +991,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
                       onArchive={handleArchiveItem}
                       onEdit={startEdit}
                       onProgress={handleProgress}
+                      onFirstLessonStep={handleFirstLessonStep}
                       onPauseCompleted={handlePauseCompleted}
                       sortedEntry={sortedPauses[item.planningId] || null}
                       onRepairPauseDetails={handleRepairPauseDetails}
@@ -1018,6 +1035,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
                         onArchive={handleArchiveItem}
                         onEdit={startEdit}
                         onProgress={handleProgress}
+                        onFirstLessonStep={handleFirstLessonStep}
                         onPauseCompleted={handlePauseCompleted}
                         sortedEntry={sortedPauses[item.planningId] || null}
                         onRepairPauseDetails={handleRepairPauseDetails}

@@ -1,7 +1,7 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-08-10
+last_verified: 2026-08-30
 ---
 # First Chord Lesson Ledger and MMS Exit Path
 
@@ -160,6 +160,22 @@ Rollback is the code deploy only: remove the occurrence reader/composition and
 the Tutor Changes page returns to its existing schedule-cache presentation. No
 provider, Sheets or lesson-ledger data needs reversing.
 
+#### Second Phase 3 consumer — first-lesson loop context (2026-08-30)
+
+Open first-lesson Planning cards now use an exact linked-student/date/time match
+to show whether the planned lesson appears in the fresh verified mirror. The
+projection returns timing and the raw attendance label but removes every MMS
+alias. A missing, ambiguous, stale or unavailable match remains explicit
+uncertainty and never blocks the human follow-up or means the lesson was
+cancelled.
+
+This evidence sits beside recorded Stripe-link booleans, the existing
+`Student_Portal_Access` workflow, and append-only human confirmations. It cannot
+change payment, WhatsApp, attendance or access state. Planning closure is
+server-gated by the due date and deterministic confirmation rules; it does not
+depend on the lesson mirror being available. Rollback removes the composition
+and focused UI only—no provider or workflow state needs reversing.
+
 ### Phase 4 — Own Selected Edits
 
 Make a deliberately narrow class of schedule change in First Chord first, then
@@ -212,10 +228,11 @@ revisions. Integrity checks found no orphaned events or participations and no
 event lacking a calendar observation. Names and free text were not emitted by
 the operator commands.
 
-Phase 2 now schedules the bounded read and exposes aggregate evidence at
-`/admin/lessons`; no operational reader uses the mirror. MMS remains schedule
-and attendance truth, no MMS write is performed, and no existing school workflow
-has changed. This is observed parity work, not a consumer cutover.
+Phase 2 schedules the bounded read and exposes aggregate evidence at
+`/admin/lessons`. Two Phase 3 shadow consumers now read the verified mirror: the
+Tutor Changes lesson timeline and first-lesson Planning context. MMS remains
+schedule and attendance truth, and no MMS write is performed. This is a
+provider-neutral read-model adoption, not a scheduling-authority cutover.
 
 ### Included
 

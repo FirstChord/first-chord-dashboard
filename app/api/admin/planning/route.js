@@ -5,6 +5,7 @@ import {
   addPlanningProgress,
   getPlanningDashboard,
   savePlanningItem,
+  updateFirstLessonLoopStep,
   updatePlanningStatus,
 } from '@/lib/admin/planning';
 import { syncTutorAbsenceHandoffsFromPlanning } from '@/lib/admin/tutor-absence';
@@ -17,7 +18,7 @@ export async function GET() {
   }
 
   try {
-    return Response.json({ success: true, planning: await getPlanningDashboard() });
+    return Response.json({ success: true, planning: await getPlanningDashboard({ includeFirstLessonLoops: true }) });
   } catch (error) {
     return Response.json({ error: error.message || 'Planning load failed' }, { status: 500 });
   }
@@ -35,7 +36,14 @@ export async function POST(request) {
   const actorEmail = session.user.email || '';
 
   try {
-    if (mode === 'progress') {
+    if (mode === 'first_lesson_step') {
+      await updateFirstLessonLoopStep({
+        planningId: `${body?.planningId || ''}`.trim(),
+        step: body?.step || '',
+        value: body?.value,
+        actorEmail,
+      });
+    } else if (mode === 'progress') {
       await addPlanningProgress({
         planningId: `${body?.planningId || ''}`.trim(),
         progressNote: body?.progressNote || '',
@@ -64,8 +72,8 @@ export async function POST(request) {
       });
     }
 
-    return Response.json({ success: true, planning: await getPlanningDashboard() });
+    return Response.json({ success: true, planning: await getPlanningDashboard({ includeFirstLessonLoops: true }) });
   } catch (error) {
-    return Response.json({ error: error.message || 'Planning save failed' }, { status: 500 });
+    return Response.json({ error: error.message || 'Planning save failed' }, { status: error.status || 500 });
   }
 }

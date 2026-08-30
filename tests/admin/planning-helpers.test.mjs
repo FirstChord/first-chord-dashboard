@@ -647,6 +647,13 @@ test('attaches progress rows and builds summary counts', () => {
       progressType: 'note',
       createdAt: '2026-06-02T10:00:00.000Z',
     },
+    {
+      progressId: 'progress_2',
+      planningId: 'planning_1',
+      progressNote: 'First lesson loop v1: whatsapp_groups=true',
+      progressType: 'workflow_step',
+      createdAt: '2026-06-03T10:00:00.000Z',
+    },
   ], NOW);
   const summary = buildPlanningSummary(items);
 

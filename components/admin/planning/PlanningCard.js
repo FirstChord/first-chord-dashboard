@@ -10,8 +10,6 @@ import {
   parseLinkedStudentIds,
 } from '@/lib/admin/planning-helpers.mjs';
 import {
-  FIRST_LESSON_CHECKIN_CHECKLIST,
-  isFirstLessonCheckinChecklistComplete,
   isFirstLessonCheckinPlanningItem,
   isPausePlanningItem,
   isTutorAbsenceCapturePlanningItem,
@@ -39,12 +37,13 @@ import { logCommunicationCopy } from '@/lib/admin/log-communication-copy.js';
 import { ExpandableText, LinkPill } from './fields';
 import { CardButton, CardNotice, MessageToSend, StepLabel } from './CardBlocks';
 import PauseDatesEditor from './PauseDatesEditor';
+import FirstLessonLoopPanel from './FirstLessonLoopPanel';
 
 // The per-planning-item card: status actions, progress logging, link facts, and — for
 // pause items — the full pause toolkit (open the pause tool, copy the parent message,
 // the "Edit dates" repair builder, and the two-checkbox "Mark pause completed" gate).
 // Pure props in (item + studentOptions + handlers); also used inside DueTodayCard.
-export default function PlanningCard({ item, studentOptions = [], paymentExpectationOverrides = {}, onStatus, onArchive, onEdit, onProgress, onPauseCompleted, onRepairPauseDetails, onOpenPauseTool, onConvertSchoolIdea, onCreateProjectAction, onTutorAbsenceDecision, onTutorAbsenceNoticeSent, onTutorAbsenceFinalConfirmationSent, pendingId, compact = false, nearbyPause = null, sortedEntry = null }) {
+export default function PlanningCard({ item, studentOptions = [], paymentExpectationOverrides = {}, onStatus, onArchive, onEdit, onProgress, onFirstLessonStep, onPauseCompleted, onRepairPauseDetails, onOpenPauseTool, onConvertSchoolIdea, onCreateProjectAction, onTutorAbsenceDecision, onTutorAbsenceNoticeSent, onTutorAbsenceFinalConfirmationSent, pendingId, compact = false, nearbyPause = null, sortedEntry = null }) {
   const [progressNote, setProgressNote] = useState('');
   // Starts empty on purpose. The card already states the current next action
   // above; pre-filling the input printed the same sentence twice and made an
@@ -59,12 +58,10 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
   const [pauseToolRan, setPauseToolRan] = useState(false);
   const [pauseMessageConfirmed, setPauseMessageConfirmed] = useState(false);
   const [copyState, setCopyState] = useState('');
-  const [firstLessonChecks, setFirstLessonChecks] = useState({});
   const isPending = pendingId === item.planningId;
   const isPauseReminder = isPausePlanningItem(item);
   const isSchoolNote = isSchoolNotePlanningItem(item);
   const isFirstLessonCheckin = isFirstLessonCheckinPlanningItem(item);
-  const firstLessonChecklistComplete = isFirstLessonCheckinChecklistComplete(firstLessonChecks);
   const isSchoolForwardReview = item.planningId === SCHOOL_FORWARD_PLANNING_ID;
   const isProject = item.itemType === 'initiative' && !isSchoolForwardReview;
   const parentProject = item.parentProject?.itemType === 'initiative' ? item.parentProject : null;
@@ -270,7 +267,7 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
 
       {/* Not on a pause card: the "Complete this pause" panel below is literally
           these steps, so restating them here was the same instruction twice. */}
-      {item.nextAction && item.nextAction !== item.title && !isPauseReminder && !isProject && !isSchoolNote && (
+      {item.nextAction && item.nextAction !== item.title && !isPauseReminder && !isProject && !isSchoolNote && !isFirstLessonCheckin && (
         <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-slate-800">
           <span className="font-semibold">Next action: </span>
           {item.nextAction}
@@ -278,31 +275,13 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
       )}
 
       {isFirstLessonCheckin && !['done', 'parked'].includes(item.status) ? (
-        <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/70 px-3 py-3">
-          <p className="text-sm font-semibold text-slate-900">First-lesson follow-up</p>
-          <div className="mt-2 space-y-2">
-            {FIRST_LESSON_CHECKIN_CHECKLIST.map((step) => (
-              <label key={step.key} className="flex cursor-pointer items-start gap-3 rounded-lg bg-white/80 px-3 py-2">
-                <input
-                  type="checkbox"
-                  checked={firstLessonChecks[step.key] === true}
-                  onChange={(event) => setFirstLessonChecks((current) => ({
-                    ...current,
-                    [step.key]: event.target.checked,
-                  }))}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-700 focus:ring-emerald-500"
-                />
-                <span>
-                  <span className="block text-sm font-semibold text-slate-900">{step.label}</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-slate-600">{step.detail}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          {!firstLessonChecklistComplete ? (
-            <p className="mt-2 text-xs font-medium text-emerald-900">Complete all three before marking this Done.</p>
-          ) : null}
-        </div>
+        <FirstLessonLoopPanel
+          item={item}
+          studentOptions={studentOptions}
+          onStep={onFirstLessonStep}
+          onStatus={onStatus}
+          isPending={isPending}
+        />
       ) : null}
 
       {isProject ? (
@@ -521,11 +500,11 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
 
       {!compact && (
         <div className="mt-4 flex flex-wrap gap-2">
-          {['active', 'waiting', 'done', 'parked'].map((status) => (
+          {['active', 'waiting', 'done', 'parked'].filter((status) => !(isFirstLessonCheckin && status === 'done')).map((status) => (
             <button
               key={status}
               type="button"
-              disabled={isPending || item.status === status || (status === 'done' && (isTutorAbsenceCapture || isTutorAbsenceNotice || isTutorAbsenceFinalConfirmation || (isProject && openProjectActions.length > 0) || (isPauseReminder && !pausePaymentConfirmed) || (isFirstLessonCheckin && !firstLessonChecklistComplete)))}
+              disabled={isPending || item.status === status || (status === 'done' && (isTutorAbsenceCapture || isTutorAbsenceNotice || isTutorAbsenceFinalConfirmation || (isProject && openProjectActions.length > 0) || (isPauseReminder && !pausePaymentConfirmed)))}
               onClick={() => onStatus(item, status)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >

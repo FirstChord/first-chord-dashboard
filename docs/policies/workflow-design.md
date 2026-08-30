@@ -184,6 +184,7 @@ Legacy area values remain readable and editable so existing rows round-trip.
 | Parent understanding | Manual campaign state; copies follow-up text but does not send or edit MMS | AGENTS workflow map |
 | Tutor absence | Per-date decisions remain auditable; repeated cancellations may group parent/pause work without deleting source rows | [Absence bridge](../workflows/tutors/absence-to-pause.md) |
 | Planning | Human work, reflection, ideas, and lightweight multi-action Projects; not a second issue queue or full project-management suite | [State tabs](../architecture/data/state-tabs.md) |
+| First-lesson follow-up | One Planning card composes bounded evidence, persists explicit human confirmations, and server-gates closure; it never interprets attendance or changes Stripe/WhatsApp | [State tabs](../architecture/data/state-tabs.md) |
 | Pause completion | Requires confirmation, logs progress and `Event_Log`, then aligns expectation through the existing route | [Payments](./payments.md) |
 | Payroll | Review and export prepare provider work; a human pays in Wise | [Paying tutors](../workflows/finance/paying-tutors.md) |
 | Incoming messages | Capture, match, classify, and draft are proposals; no automatic school action or send | [WhatsApp bridge](../operations/integrations/whatsapp-incoming-bridge.md) |

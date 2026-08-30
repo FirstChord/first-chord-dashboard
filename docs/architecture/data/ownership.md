@@ -161,6 +161,12 @@ practice-note delivery metadata without becoming a new owner or writer.
   MMS event/student/tutor aliases inside the server join. The relationship phase
   still comes from the existing assignment and `Schedule_Context`; lesson-ledger
   evidence cannot silently become the winner in a disagreement.
+- Open first-lesson Planning cards are a second bounded lesson-ledger consumer.
+  They exact-match the linked student plus planned date/time, show the raw
+  attendance label only as context, and attach nothing when the match is
+  ambiguous, stale or unavailable. Sheets student linkage, Stripe linkage
+  fields, `Student_Portal_Access`, and append-only Planning confirmations retain
+  their existing ownership; the combined card is a read model, not new truth.
 
 ## Lesson Occurrence Context Read Model
 

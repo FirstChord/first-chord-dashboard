@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Archive, Check, Loader2, Pencil, Trash2 } from 'lucide-react';
-import { isPausePlanningItem, isTutorAbsenceNoticePlanningItem, isTutorAbsenceFinalConfirmationPlanningItem, getPlanningStory, getPlanningWhatToDo, dueChipLabel } from '@/lib/admin/planning-client-helpers.mjs';
+import { isFirstLessonCheckinPlanningItem, isPausePlanningItem, isTutorAbsenceNoticePlanningItem, isTutorAbsenceFinalConfirmationPlanningItem, getPlanningStory, getPlanningWhatToDo, dueChipLabel } from '@/lib/admin/planning-client-helpers.mjs';
 import PlanningCard from './PlanningCard';
 
 // Calm, focused card for the "due today" view: a plain-language headline + next step
@@ -17,6 +17,7 @@ export default function DueTodayCard({
   onArchive,
   onEdit,
   onProgress,
+  onFirstLessonStep,
   onPauseCompleted,
   sortedEntry = null,
   onRepairPauseDetails,
@@ -31,6 +32,7 @@ export default function DueTodayCard({
   nearbyPause = null,
 }) {
   const isPause = isPausePlanningItem(item);
+  const isFirstLesson = isFirstLessonCheckinPlanningItem(item);
   const isTutorAbsenceNotice = isTutorAbsenceNoticePlanningItem(item);
   const isTutorAbsenceFinalConfirmation = isTutorAbsenceFinalConfirmationPlanningItem(item);
   const isTutorAbsenceCapture = !isPause && item.linkedWorkflowId === 'tutor-absence' && Boolean(item.linkedTutorId);
@@ -77,7 +79,7 @@ export default function DueTodayCard({
       {!isPause && whatToDo ? <p className="mt-1 text-sm leading-6 text-slate-600">{whatToDo}</p> : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {!isPause && !isTutorAbsenceCapture && !isTutorAbsenceNotice && !isTutorAbsenceFinalConfirmation && (
+        {!isPause && !isFirstLesson && !isTutorAbsenceCapture && !isTutorAbsenceNotice && !isTutorAbsenceFinalConfirmation && (
           <button
             type="button"
             onClick={() => onStatus(item, 'done')}
@@ -96,7 +98,7 @@ export default function DueTodayCard({
         >
           Defer until next meeting
         </button>
-        {!isPause && !isTutorAbsenceNotice && (
+        {!isPause && !isFirstLesson && !isTutorAbsenceNotice && (
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
@@ -109,7 +111,7 @@ export default function DueTodayCard({
 
       {/* Pause cards and initial notices show their real action inline; other
           cards reveal the full card under Details. All use compact mode. */}
-      {isPause || isTutorAbsenceNotice || expanded ? (
+      {isPause || isFirstLesson || isTutorAbsenceNotice || expanded ? (
         <div className="mt-4 border-t border-slate-100 pt-4">
           <PlanningCard
             item={item}
@@ -119,6 +121,7 @@ export default function DueTodayCard({
             onArchive={onArchive}
             onEdit={onEdit}
             onProgress={onProgress}
+            onFirstLessonStep={onFirstLessonStep}
             onPauseCompleted={onPauseCompleted}
             sortedEntry={sortedEntry}
             onRepairPauseDetails={onRepairPauseDetails}

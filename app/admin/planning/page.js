@@ -28,7 +28,7 @@ const ALLOWED_INITIAL_FILTERS = new Set([
 export default async function AdminPlanningPage({ searchParams }) {
   const resolvedSearchParams = await searchParams;
   const [planning, students, scheduleRows, tutorOptions] = await Promise.all([
-    getPlanningDashboard(),
+    getPlanningDashboard({ includeFirstLessonLoops: true }),
     getAdminStudents(),
     getScheduleContextRows(),
     getActiveTutorOptions(),
@@ -47,6 +47,7 @@ export default async function AdminPlanningPage({ searchParams }) {
     parentLastName: student.parentLastName,
     stripeCustomerId: student.stripeCustomerId,
     stripeSubscriptionId: student.stripeSubscriptionId,
+    paymentMode: student.paymentMode,
     paymentExpectation: student.paymentExpectation,
     scheduleContext: scheduleByMmsId.get(student.mmsId) || null,
   }));
