@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   assessLessonMirrorStatus,
+  getLessonOccurrenceObservations,
   getLessonMirrorParityReport,
   getLessonMirrorStatus,
   lessonMirrorFailureCode,
@@ -127,6 +128,144 @@ test('status assessment distinguishes never-run, failed, running, stuck, fresh, 
   assert.equal(assessLessonMirrorStatus({ status: 'running', started_at: '2026-08-10T10:00:00Z' }, { now }).state, 'stuck');
   assert.equal(assessLessonMirrorStatus({ status: 'succeeded', completed_at: '2026-08-10T10:00:00Z' }, { now }).state, 'fresh');
   assert.equal(assessLessonMirrorStatus({ status: 'succeeded', completed_at: '2026-08-08T10:00:00Z' }, { now }).state, 'stale');
+});
+
+test('lesson occurrence reads are bounded to observations re-seen by the latest successful run', async () => {
+  const calls = [];
+  const database = {
+    async query(sql, params = []) {
+      const text = `${sql}`;
+      calls.push({ text, params });
+      if (text.includes("WHERE latest.status = 'succeeded'")) {
+        return { rows: [{
+          sync_run_id: '00000000-0000-4000-8000-000000000021',
+          status: 'succeeded',
+          window_start: '2026-08-16',
+          window_end_exclusive: '2026-10-12',
+          started_at: '2026-08-30T05:45:00Z',
+          completed_at: '2026-08-30T05:48:00Z',
+        }] };
+      }
+      if (text.includes('FROM fc_lesson_sync_runs latest')) {
+        return { rows: [{
+          sync_run_id: '00000000-0000-4000-8000-000000000021',
+          status: 'succeeded',
+          window_start: '2026-08-16',
+          window_end_exclusive: '2026-10-12',
+          started_at: '2026-08-30T05:45:00Z',
+          completed_at: '2026-08-30T05:48:00Z',
+        }] };
+      }
+      if (text.includes('WITH verified_run AS')) {
+        return { rows: [{
+          fc_event_id: 'fc_lev_1',
+          fc_series_id: 'fc_lsr_1',
+          fc_participation_id: 'fc_lpt_1',
+          local_date: '2026-09-03',
+          local_time: '16:00:00',
+          time_zone: 'Europe/London',
+          duration_minutes: 30,
+          source_status: 'Active',
+          calendar_observed: true,
+          attendance_observed: true,
+          raw_attendance_status: 'Unrecorded',
+          event_observed_at: '2026-08-30T05:48:00Z',
+          participation_observed_at: '2026-08-30T05:48:00Z',
+          mirror_observed_at: '2026-08-30T05:48:00Z',
+          event_external_id: 'evt_1',
+          attendance_external_id: 'att_1',
+          student_external_id: 'sdt_1',
+          tutor_external_id: 'tch_1',
+          original_tutor_external_id: null,
+        }] };
+      }
+      throw new Error('unexpected occurrence query');
+    },
+  };
+
+  const read = await getLessonOccurrenceObservations({
+    startDate: '2026-08-16',
+    endDateExclusive: '2026-10-12',
+    limit: 2000,
+    database,
+    now: new Date('2026-08-30T12:00:00Z'),
+  });
+
+  assert.equal(read.source.verified, true);
+  assert.equal(read.source.coversRequestedWindow, true);
+  assert.equal(read.observations[0].fcParticipationId, 'fc_lpt_1');
+  assert.equal(read.observations[0].rawAttendanceStatus, 'Unrecorded');
+  assert.equal(read.observations[0].eventExternalId, 'evt_1');
+  const observationQuery = calls.find((call) => call.text.includes('WITH verified_run AS'));
+  assert.deepEqual(observationQuery.params, [
+    '00000000-0000-4000-8000-000000000021',
+    '2026-08-16',
+    '2026-10-12',
+    2001,
+  ]);
+  assert.match(observationQuery.text, /event\.last_observed_at >= run\.started_at/u);
+  assert.match(observationQuery.text, /participation\.last_observed_at >= run\.started_at/u);
+  assert.match(observationQuery.text, /ORDER BY event\.local_date ASC, event\.local_time ASC/u);
+  assert.doesNotMatch(observationQuery.text, /student_name|student_full_name|parent|email|phone/u);
+});
+
+test('lesson occurrence reads reject backwards, oversized, and unbounded requests before querying', async () => {
+  const database = { async query() { throw new Error('must not query'); } };
+  await assert.rejects(
+    getLessonOccurrenceObservations({ startDate: '2026-09-01', endDateExclusive: '2026-08-31', database }),
+    /between 1 and 90 days/u,
+  );
+  await assert.rejects(
+    getLessonOccurrenceObservations({ startDate: '2026-01-01', endDateExclusive: '2026-08-31', database }),
+    /between 1 and 90 days/u,
+  );
+  await assert.rejects(
+    getLessonOccurrenceObservations({ startDate: '2026-08-01', endDateExclusive: '2026-08-31', limit: 5001, database }),
+    /limit must be between 1 and 5000/u,
+  );
+});
+
+test('lesson occurrence reads hide an older successful snapshot after a newer failed run', async () => {
+  let observationQueryRan = false;
+  const database = {
+    async query(sql) {
+      const text = `${sql}`;
+      if (text.includes("WHERE latest.status = 'succeeded'")) {
+        return { rows: [{
+          sync_run_id: '00000000-0000-4000-8000-000000000031',
+          status: 'succeeded',
+          window_start: '2026-08-16',
+          window_end_exclusive: '2026-10-12',
+          started_at: '2026-08-30T05:45:00Z',
+          completed_at: '2026-08-30T05:48:00Z',
+        }] };
+      }
+      if (text.includes('FROM fc_lesson_sync_runs latest')) {
+        return { rows: [{
+          sync_run_id: '00000000-0000-4000-8000-000000000032',
+          status: 'failed',
+          failure_code: 'attendance_total_mismatch',
+          started_at: '2026-08-30T06:45:00Z',
+          completed_at: '2026-08-30T06:48:00Z',
+        }] };
+      }
+      if (text.includes('WITH verified_run AS')) observationQueryRan = true;
+      throw new Error('unexpected stale occurrence query');
+    },
+  };
+
+  const read = await getLessonOccurrenceObservations({
+    startDate: '2026-08-16',
+    endDateExclusive: '2026-10-12',
+    database,
+    now: new Date('2026-08-30T12:00:00Z'),
+  });
+
+  assert.equal(read.source.state, 'failed');
+  assert.equal(read.source.verified, false);
+  assert.equal(read.source.lastVerifiedAt, '2026-08-30T05:48:00.000Z');
+  assert.deepEqual(read.observations, []);
+  assert.equal(observationQueryRan, false);
 });
 
 test('parity report exposes bounded counts, revisions, raw statuses, and non-observation uncertainty', async () => {

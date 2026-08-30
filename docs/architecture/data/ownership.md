@@ -155,10 +155,44 @@ practice-note delivery metadata without becoming a new owner or writer.
   tab or manual lifecycle.
 - Practice-note text and recipient data do not enter this context. Only bounded
   delivery metadata is projected.
-- A later lesson-provider cutover must add an adapter that emits the same
-  observation contract and prove dual-read parity before changing the preferred
-  source. The current SQL lesson mirror remains parity evidence and is not made
-  operational truth by this view.
+- The first lesson-ledger adapter now emits bounded event and participation
+  observations into each relationship card. It reads only rows re-observed by
+  the latest successful mirror run, projects First Chord identities, and keeps
+  MMS event/student/tutor aliases inside the server join. The relationship phase
+  still comes from the existing assignment and `Schedule_Context`; lesson-ledger
+  evidence cannot silently become the winner in a disagreement.
+
+## Lesson Occurrence Context Read Model
+
+`lib/admin/lesson-occurrence-helpers.mjs` is the deterministic boundary for one
+student participation in one dated lesson. It joins a stable First Chord event
+and participation to the current teaching relationship, tutor-absence workflow,
+raw attendance observation, and bounded practice-note delivery metadata.
+
+- PostgreSQL remains a rebuildable MMS-backed observation layer during this
+  slice. MMS still owns current calendar and attendance facts, and
+  `Schedule_Context` continues to drive the existing relationship phase.
+- The read is bounded to the same 14-days-back / 42-days-ahead London window as
+  the daily mirror. It excludes events and participations not re-seen by the
+  latest successful run, but never interprets their absence as cancellation.
+- `Unrecorded`, `Present`, `AbsentNotice`, `AbsentNoMakeup`, blank and unknown
+  attendance values remain raw provider labels. V1 does not map them to
+  completed, missed, payable, or needs-action states.
+- Practice notes attach by exact attendance reference, then exact event
+  reference. A unique student/date/tutor match is allowed only as explicitly
+  medium-confidence context; ambiguity attaches no note. Note text, recipient
+  data and provider references never enter the occurrence projection.
+- A tutor-absence cover or cancellation is a separate workflow fact. It does
+  not rewrite provider status. If a human has marked the cover calendar step
+  complete but a fresh verified occurrence still names another tutor, a bounded
+  review item remains until the evidence agrees or the workflow is corrected.
+- The UI receives at most one recent and two upcoming observations plus any
+  bounded attention for a relationship. If PostgreSQL is unavailable, stale,
+  incomplete or outside the requested window, the occurrence layer fails open
+  and the existing schedule/relationship view continues unchanged.
+- This is a dual-read consumer, not a scheduling cutover. A future preferred
+  source change still requires measured parity, a rollback switch and explicit
+  authority review for that consumer.
 
 ## Future Direction
 

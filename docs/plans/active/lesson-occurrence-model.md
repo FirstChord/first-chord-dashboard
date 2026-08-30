@@ -129,6 +129,37 @@ at the correct grain. Each reader migrates behind parity checks and a rollback
 switch. MMS still feeds the schedule, but provider IDs stop being the conceptual
 join key for the school.
 
+#### First Phase 3 consumer — teaching relationship lesson timeline (2026-08-30)
+
+The Tutor Changes page now has a bounded read-only lesson-occurrence timeline
+inside each current teaching relationship. The server queries only event and
+participation rows re-observed by the latest successful, exactly-counted mirror
+run; adapter-only MMS student, tutor, event and attendance references are used
+to join existing context and removed before the view model is returned.
+
+This consumer is deliberately shadow/dual-read:
+
+- the existing assignment plus `Schedule_Context` still derive relationship
+  phase and handover truth;
+- one recent and up to two upcoming verified occurrences are shown, with exact
+  First Chord event/participation identities, raw attendance status, matched
+  tutor-absence cover/cancel context and bounded practice-note delivery status;
+- exact attendance/event references link practice notes first, with a unique
+  date+tutor fallback labelled medium confidence and ambiguity left unattached;
+- raw attendance values are not interpreted as lesson completion, cancellation,
+  payroll truth or automatic work;
+- only an existing explicit practice-delivery follow-up, or a fresh mismatch
+  after the cover-calendar step was marked complete, creates occurrence
+  attention; both clear from their source evidence rather than a new status;
+- a failed, stale, missing or partially covering mirror never displaces the
+  existing relationship view and never proves that no lesson exists; and
+- no new Sheet, migration, provider write, attendance mutation or scheduling
+  authority is introduced.
+
+Rollback is the code deploy only: remove the occurrence reader/composition and
+the Tutor Changes page returns to its existing schedule-cache presentation. No
+provider, Sheets or lesson-ledger data needs reversing.
+
 ### Phase 4 — Own Selected Edits
 
 Make a deliberately narrow class of schedule change in First Chord first, then

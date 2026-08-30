@@ -259,10 +259,12 @@ The PostgreSQL lesson mirror is the other explicit exception. One advisory-locke
 transaction upserts a provider-complete series/event/participation snapshot and
 its changed-state revisions, then marks the sync successful. A secret-gated daily
 job reads 14 London calendar days back through 42 days ahead, and the authenticated
-`/admin/lessons` page reads aggregate parity evidence. No operational workflow
-consumes it and it has no MMS writer. Incomplete/failed runs never replace the
-last verified snapshot or infer missing/cancelled lessons; retry the bounded read
-instead.
+`/admin/lessons` page reads aggregate parity evidence. Tutor Changes also reads a
+bounded, fail-open lesson timeline from rows re-seen by the latest successful run,
+but assignment and `Schedule_Context` still own relationship phase and no
+operational workflow depends on the mirror. It has no MMS writer. Incomplete or
+failed runs never replace the last verified snapshot or infer missing/cancelled
+lessons; retry the bounded read instead.
 
 Use append-only tabs for history (`Event_Log`, `Planning_Progress_Log`, archives). Use keyed upserts for current workflow state.
 

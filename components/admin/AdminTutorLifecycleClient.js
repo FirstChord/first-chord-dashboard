@@ -131,11 +131,74 @@ function CoverEpisodeCard({ episode }) {
   );
 }
 
-function RelationshipCard({ relationship }) {
+function occurrenceTone(occurrence = {}) {
+  if (occurrence.attentionItems?.some((item) => item.severity === 'urgent')) return 'border-rose-200 bg-rose-50';
+  if (occurrence.attentionItems?.length || occurrence.exception?.code === 'cancel') return 'border-amber-200 bg-amber-50/70';
+  if (occurrence.state?.code === 'today') return 'border-blue-200 bg-blue-50/70';
+  return 'border-slate-200 bg-slate-50/70';
+}
+
+function occurrenceStateTone(state = '') {
+  return {
+    today: 'bg-blue-100 text-blue-800',
+    upcoming: 'bg-emerald-100 text-emerald-800',
+    past: 'bg-slate-200 text-slate-700',
+  }[state] || 'bg-amber-100 text-amber-900';
+}
+
+function LessonOccurrenceRow({ occurrence }) {
+  const attention = occurrence.attentionItems?.[0] || null;
+  const tutorName = occurrence.scheduledTutor?.displayName || occurrence.scheduledTutor?.shortName || 'Tutor not matched';
+  const attendance = occurrence.attendance?.rawStatus || 'Not observed';
+  const exception = occurrence.exception;
+
+  return (
+    <article className={`rounded-lg border px-3 py-2.5 ${occurrenceTone(occurrence)}`}>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900">
+            {formatDate(occurrence.lesson.date)}{occurrence.lesson.time ? ` · ${occurrence.lesson.time}` : ''}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-600">
+            {exception?.code === 'cover'
+              ? `Cover · ${exception.coverTutor?.displayName || tutorName}`
+              : exception?.code === 'cancel'
+                ? `Tutor absence · cancellation ${exception.workflowStatus === 'resolved' ? 'closed' : 'recorded'}`
+                : tutorName}
+          </p>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-1 text-[0.7rem] font-semibold ${occurrenceStateTone(occurrence.state.code)}`}>
+          {occurrence.state.label}
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-600">
+        <span>Attendance: <strong className="font-semibold text-slate-800">{attendance}</strong></span>
+        {occurrence.practiceNote ? (
+          <span>Practice note: <strong className="font-semibold text-slate-800">{deliveryLabel(occurrence.practiceNote.deliveryStatus)}</strong></span>
+        ) : null}
+      </div>
+      {attention ? (
+        <div className="mt-2 border-t border-current/10 pt-2 text-xs text-amber-950">
+          <p className="font-semibold">{attention.title}</p>
+          <p className="mt-0.5 leading-5 opacity-85">{attention.detail}</p>
+          {attention.recommendedWorkflow?.href ? (
+            <ButtonLink href={attention.recommendedWorkflow.href} variant="warning" size="compact" className="mt-2">
+              {attention.recommendedWorkflow.label}
+            </ButtonLink>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function RelationshipCard({ relationship, lessonSource = {} }) {
   const schedule = relationship.schedule || {};
   const note = relationship.latestPracticeNote;
   const conflicts = relationship.provenance?.conflicts || [];
   const attentionItems = relationship.attentionItems || [];
+  const lessonOccurrences = relationship.lessonOccurrences || [];
+  const timelineHasNote = lessonOccurrences.some((occurrence) => occurrence.practiceNote);
 
   return (
     <article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -153,20 +216,42 @@ function RelationshipCard({ relationship }) {
         </span>
       </div>
 
-      <div className="mt-3 space-y-1.5 text-sm text-slate-700">
-        <p>
-          <span className="font-medium text-slate-900">Lesson:</span>{' '}
-          {schedule.nextLessonAt
-            ? `${formatDateTime(schedule.nextLessonAt)}${schedule.durationMinutes ? ` · ${schedule.durationMinutes} mins` : ''}`
-            : 'No current lesson confirmed'}
-        </p>
-        <p>
-          <span className="font-medium text-slate-900">Practice note:</span>{' '}
-          {note
-            ? `${formatDate(note.lessonDate)} · ${deliveryLabel(note.deliveryStatus)}`
-            : 'None recorded for this pairing'}
-        </p>
-      </div>
+      {lessonOccurrences.length ? (
+        <div className="mt-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Lesson timeline</p>
+            {!lessonSource.verified ? <span className="text-[0.7rem] font-medium text-amber-800">Last verified snapshot</span> : null}
+          </div>
+          <div className="space-y-2">
+            {lessonOccurrences.map((occurrence) => (
+              <LessonOccurrenceRow key={occurrence.occurrenceId || occurrence.participationId} occurrence={occurrence} />
+            ))}
+          </div>
+          {relationship.lessonOccurrenceParity?.status === 'different' ? (
+            <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+              {relationship.lessonOccurrenceParity.reasons[0] || relationship.lessonOccurrenceParity.label}
+            </p>
+          ) : null}
+          {note && !timelineHasNote ? (
+            <p className="mt-2 text-xs text-slate-600">Latest practice note: {formatDate(note.lessonDate)} · {deliveryLabel(note.deliveryStatus)}</p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-3 space-y-1.5 text-sm text-slate-700">
+          <p>
+            <span className="font-medium text-slate-900">Next lesson:</span>{' '}
+            {schedule.nextLessonAt
+              ? `${formatDateTime(schedule.nextLessonAt)}${schedule.durationMinutes ? ` · ${schedule.durationMinutes} mins` : ''}`
+              : 'No current lesson confirmed'}
+          </p>
+          <p>
+            <span className="font-medium text-slate-900">Practice note:</span>{' '}
+            {note
+              ? `${formatDate(note.lessonDate)} · ${deliveryLabel(note.deliveryStatus)}`
+              : 'None recorded for this pairing'}
+          </p>
+        </div>
+      )}
 
       {attentionItems.map((item) => <AttentionItem key={item.code} item={item} />)}
 
@@ -184,6 +269,38 @@ function RelationshipCard({ relationship }) {
         <p className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs leading-5 text-rose-800">{conflicts[0].detail}</p>
       ) : null}
     </article>
+  );
+}
+
+function TeachingRelationshipDisclosure({ tutor, lessonSource }) {
+  const [open, setOpen] = useState(Boolean(tutor.teachingRelationshipSummary?.attention));
+  const total = tutor.teachingRelationshipSummary?.total || 0;
+
+  if (!tutor.teachingRelationships?.length) {
+    return <p className="mt-4 text-sm text-slate-500">No current student assignments found.</p>;
+  }
+
+  return (
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className="group mt-4 rounded-xl border border-slate-200 bg-slate-50/70"
+    >
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 active:bg-slate-200 [&::-webkit-details-marker]:hidden">
+        <span>{total} current student{total === 1 ? '' : 's'}</span>
+        <span className="text-xs font-medium text-slate-500 group-open:hidden">Show relationships ↓</span>
+        <span className="hidden text-xs font-medium text-slate-500 group-open:inline">Hide relationships ↑</span>
+      </summary>
+      <div className="grid gap-3 border-t border-slate-200 p-3 md:grid-cols-2 xl:grid-cols-3">
+        {tutor.teachingRelationships.map((relationship) => (
+          <RelationshipCard
+            key={relationship.relationshipId || `${tutor.teacherId}:${relationship.student.displayName}`}
+            relationship={relationship}
+            lessonSource={lessonSource}
+          />
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -217,6 +334,7 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], initialC
   const listedTutors = useMemo(() => tutors.filter((tutor) => (
     tutor.lifecycleStatus !== 'retired' || tutor.teachingRelationshipSummary?.total > 0
   )), [tutors]);
+  const lessonSource = relationshipSummary.lessonOccurrenceSource || {};
 
   useEffect(() => {
     setTutors(initialTutors);
@@ -291,7 +409,7 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], initialC
           <div>
             <h3 className="font-semibold text-slate-900">Teaching relationships</h3>
             <p className="mt-1 text-sm text-slate-600">
-              Rebuilt from student assignments, tutor status, the lesson schedule cache and practice-note delivery.
+              Relationship phase stays based on assignments and the schedule cache; the lesson timeline adds event-level attendance, cover and practice-note observations.
               {derivedAt ? ` Viewed ${formatDateTime(derivedAt)}.` : ''}
             </p>
           </div>
@@ -305,8 +423,20 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], initialC
           {relationshipSummary.handoversOpen ? <span className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900">{relationshipSummary.handoversOpen} handover{relationshipSummary.handoversOpen === 1 ? '' : 's'} open</span> : null}
           {relationshipSummary.urgentAttention ? <span className="rounded-full bg-rose-100 px-3 py-1.5 text-rose-800">{relationshipSummary.urgentAttention} urgent</span> : null}
           {relationshipSummary.coverEpisodes ? <span className="rounded-full bg-blue-100 px-3 py-1.5 text-blue-800">{relationshipSummary.coverEpisodes} cover lesson{relationshipSummary.coverEpisodes === 1 ? '' : 's'}</span> : null}
+          {relationshipSummary.lessonOccurrences ? <span className="rounded-full bg-slate-200 px-3 py-1.5 text-slate-700">{relationshipSummary.lessonOccurrences} lesson observations</span> : null}
+          {relationshipSummary.lessonOccurrenceAttention ? <span className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-900">{relationshipSummary.lessonOccurrenceAttention} lesson follow-up</span> : null}
           {relationshipSummary.needsReview ? <span className="rounded-full bg-rose-100 px-3 py-1.5 text-rose-800">{relationshipSummary.needsReview} need review</span> : null}
         </div>
+        {lessonSource.verified ? (
+          <p className="mt-3 text-xs text-slate-500">Detailed lesson observations verified {formatDateTime(lessonSource.lastVerifiedAt)}. Raw attendance labels are shown without treating them as proof a lesson happened or was cancelled.</p>
+        ) : (
+          <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {lessonSource.warning || (lessonSource.lastVerifiedAt
+              ? `The last verified lesson snapshot is from ${formatDateTime(lessonSource.lastVerifiedAt)}, so detailed lesson rows are hidden until the source is current again.`
+              : 'Detailed lesson observations are not currently available.')}
+            {' '}The existing relationship and schedule view still works, and no missing or cancelled lesson is being inferred.
+          </p>
+        )}
         {relationshipSummary.unmatchedAssignments?.length ? (
           <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             {relationshipSummary.unmatchedAssignments.length} student assignment{relationshipSummary.unmatchedAssignments.length === 1 ? '' : 's'} use a tutor name that is not in the canonical roster.
@@ -394,20 +524,7 @@ export default function AdminTutorLifecycleClient({ initialTutors = [], initialC
                     {tutor.teachingRelationshipSummary.attention} relationship{tutor.teachingRelationshipSummary.attention === 1 ? '' : 's'} need{tutor.teachingRelationshipSummary.attention === 1 ? 's' : ''} handover attention
                   </p>
                 ) : null}
-                {tutor.teachingRelationships?.length ? (
-                  <details defaultOpen={Boolean(tutor.teachingRelationshipSummary?.attention)} className="group mt-4 rounded-xl border border-slate-200 bg-slate-50/70">
-                    <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-offset-2 active:bg-slate-200 [&::-webkit-details-marker]:hidden">
-                      <span>{tutor.teachingRelationshipSummary.total} current student{tutor.teachingRelationshipSummary.total === 1 ? '' : 's'}</span>
-                      <span className="text-xs font-medium text-slate-500 group-open:hidden">Show relationships ↓</span>
-                      <span className="hidden text-xs font-medium text-slate-500 group-open:inline">Hide relationships ↑</span>
-                    </summary>
-                    <div className="grid gap-3 border-t border-slate-200 p-3 md:grid-cols-2 xl:grid-cols-3">
-                      {tutor.teachingRelationships.map((relationship) => (
-                        <RelationshipCard key={relationship.relationshipId || `${tutor.teacherId}:${relationship.student.displayName}`} relationship={relationship} />
-                      ))}
-                    </div>
-                  </details>
-                ) : <p className="mt-4 text-sm text-slate-500">No current student assignments found.</p>}
+                <TeachingRelationshipDisclosure tutor={tutor} lessonSource={lessonSource} />
                 {!leaving && !retired ? (
                   <div className="mt-4 grid gap-3 md:grid-cols-[12rem_12rem_1fr_auto]">
                     <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Final teaching date<input type="date" value={draft.finalTeachingDate} onChange={(event) => updateDraft(tutor.teacherId, 'finalTeachingDate', event.target.value)} className="mt-1 block w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-normal text-slate-900" /></label>
