@@ -40,13 +40,13 @@
     "preview:email": "node scripts/preview-email.mjs"
   },
   "dependencies": {
-    "googleapis": "^161.0.0",
-    "lucide-react": "^0.539.0",
-    "next": "^15.5.22",
+    "googleapis": "^176.0.0",
+    "lucide-react": "^1.34.0",
+    "next": "^16.3.3",
     "next-auth": "^4.24.15",
-    "pg": "^8.16.3",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "pg": "^8.23.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
