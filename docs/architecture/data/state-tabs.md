@@ -95,6 +95,31 @@ Some source formats are fragile because they come from human-edited external sys
 
 - MMS sign-up form labels `Preferred days` and `Preferred times` feed waiting-list availability matching. If the MMS form wording changes, update the waiting-list parser/tests before relying on capacity hints.
 - The Google Sheets `Students` header row is a contract for dashboard reads, FC regeneration, backups, and archive/delete flows. Protect the header row in Google Sheets with an edit-warning. If a column is renamed or moved, update the readers/tests intentionally.
+- **Students tutor banners are merged cells, not blank rows.** The `Students`
+  tab groups students under orange tutor bars (`MICHAEL GEMMELL`), and each bar
+  is a merged range **two rows deep across columns A–I**. The bar's second row
+  looks like an empty student row and is not one: writes to A–G there are
+  accepted by the Sheets API — `updatedCells` counts them — and hold nothing,
+  while columns J onward lie outside the merge and do persist, producing a
+  half-written row. Never write a student into the row directly beneath a
+  banner. Add rows through `addStudentSheetRow`
+  (`lib/admin/sheets/students.mjs`), which calls `insertDimension` to create a
+  genuinely new row rather than filling apparently blank cells. The banners are
+  cosmetic to every reader: `mapRowsToObjects` keeps them (they are not wholly
+  empty) and the student assembly then drops them for having no `mms_id`.
+  Note also that `findTutorInsertRow` (`lib/admin/sheets-helpers.mjs`) appends
+  at the **bottom of the sheet** for a tutor with no existing rows, so a new
+  tutor's first student lands outside their banner block until one row is moved
+  under it by hand.
+- **`Waiting_List_State.updated_at` is the growth clock.** Monthly joiner counts
+  come from `buildRosterMovement` (`lib/admin/roster-movement.mjs`) over rows
+  with status `onboarded`, bucketed by `updated_at` (falling back to
+  `date_started`) — **not** by the first lesson date. A student onboarded on 31
+  August who starts on 9 September counts as an August joiner. Two consequences:
+  a student recorded outside the dashboard onboarding flow is not counted at all
+  until a row exists, and a returning student re-onboarded by hand needs one
+  written deliberately. Departures pair with `Students_Archive.archived_at`, so
+  a student removed outside the archive flow is likewise uncounted.
 - **Incoming-message classification fields.** `Incoming_Message_Inbox` retains
   immutable machine proposals in `proposed_category`, `proposed_intent`, and
   `proposed_actionability`; the current reviewed values live in
