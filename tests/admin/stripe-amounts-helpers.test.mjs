@@ -2,10 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  buildCalibration,
+  buildStripeCollectionMatchStudents,
   buildStripeAmountsCacheRows,
   buildStripeAmountsMap,
-  describeCalibrationBasis,
   mapSubscriptionToAmounts,
   previousMonthKey,
   summariseCollectedInvoices,
@@ -167,60 +166,48 @@ test('summariseCollectedInvoices refuses an ambiguous customer-only match', () =
   assert.deepEqual(summary.studentBreakdown, []);
 });
 
+test('collection matching retains archived students without overriding the current roster', () => {
+  const students = buildStripeCollectionMatchStudents(
+    [{ mmsId: 'current', fullName: 'Current Name', stripeSubscriptionId: 'sub_current' }],
+    [
+      { mms_id: 'archived', 'Student forename': 'Past', 'Student Surname': 'Student', stripe_subscription_id: 'sub_archived' },
+      { mms_id: 'current', 'Student forename': 'Old', 'Student Surname': 'Name', stripe_subscription_id: 'sub_old' },
+    ],
+  );
+
+  assert.deepEqual(students, [
+    { mmsId: 'current', fullName: 'Current Name', stripeSubscriptionId: 'sub_current', stripeCustomerId: '', rosterSource: 'current' },
+    { mmsId: 'archived', fullName: 'Past Student', stripeSubscriptionId: 'sub_archived', stripeCustomerId: '', rosterSource: 'archive' },
+  ]);
+});
+
+test('summariseCollectedInvoices matches a prior-month invoice through the archive', () => {
+  const created = Math.floor(new Date('2026-06-15T12:00:00Z').getTime() / 1000);
+  const summary = summariseCollectedInvoices([
+    { status: 'paid', amount_paid: 2500, created, subscription: 'sub_archived' },
+  ], {
+    month: '2026-06',
+    students: [],
+    archivedStudents: [{
+      mms_id: 'archived',
+      'Student forename': 'Past',
+      'Student Surname': 'Student',
+      stripe_subscription_id: 'sub_archived',
+    }],
+  });
+
+  assert.equal(summary.unmatchedTotal, 0);
+  assert.deepEqual(summary.studentBreakdown, [{
+    mms_id: 'archived',
+    student_name: 'Past Student',
+    roster_source: 'archive',
+    invoice_count: 1,
+    paid_days: [15],
+    amount: 25,
+  }]);
+});
+
 test('previousMonthKey returns the last full calendar month, across year ends', () => {
   assert.equal(previousMonthKey(new Date('2026-07-06T06:00:00Z')), '2026-06');
   assert.equal(previousMonthKey(new Date('2026-01-10T06:00:00Z')), '2025-12');
-});
-
-test('buildCalibration prefers the frozen monthly snapshot for the estimate basis', () => {
-  const calibration = buildCalibration({
-    collectedRows: [{ month: '2026-06', collected_total: '4200', invoice_count: '160' }],
-    snapshotRows: [
-      { period_type: 'monthly', snapshot_at: '2026-06-01T06:30:00Z', revenue_stripe_weekly: '1000' },
-      { period_type: 'weekly', snapshot_at: '2026-06-08T06:00:00Z', revenue_stripe_weekly: '999' },
-    ],
-    currentStripeWeekly: 1200,
-    now: NOW,
-  });
-
-  assert.equal(calibration.month, '2026-06');
-  assert.equal(calibration.collectedTotal, 4200);
-  assert.equal(calibration.estimateBasis, 'monthly_snapshot');
-  assert.equal(calibration.estimateSnapshotAt, '2026-06-01T06:30:00Z');
-  assert.equal(calibration.estimatedStripeMonthly, Math.round(1000 * (52 / 12) * 100) / 100);
-  // (4200 − 4333.33) / 4333.33 ≈ −3.1%
-  assert.equal(calibration.deltaPct, -3.1);
-});
-
-test('buildCalibration uses the earliest weekly snapshot when the monthly baseline failed', () => {
-  const calibration = buildCalibration({
-    collectedRows: [{ month: '2026-06', collected_total: '4200', invoice_count: '160' }],
-    snapshotRows: [
-      { period_type: 'weekly', snapshot_at: '2026-06-15T06:00:00Z', revenue_stripe_weekly: '1100' },
-      { period_type: 'weekly', snapshot_at: '2026-06-08T06:00:00Z', revenue_stripe_weekly: '1000' },
-      { period_type: 'weekly', snapshot_at: '2026-05-25T06:00:00Z', revenue_stripe_weekly: '900' },
-    ],
-    currentStripeWeekly: 1200,
-    now: NOW,
-  });
-
-  assert.equal(calibration.estimateBasis, 'weekly_snapshot');
-  assert.equal(calibration.estimateSnapshotAt, '2026-06-08T06:00:00Z');
-  assert.equal(calibration.estimatedStripeMonthly, Math.round(1000 * (52 / 12) * 100) / 100);
-  assert.match(describeCalibrationBasis(calibration), /earliest weekly snapshot from 2026-06-08/u);
-});
-
-test('buildCalibration falls back to the current estimate and handles a missing collected row', () => {
-  const fallback = buildCalibration({
-    collectedRows: [],
-    snapshotRows: [],
-    currentStripeWeekly: 1200,
-    now: NOW,
-  });
-  assert.equal(fallback.collectedTotal, null);
-  assert.equal(fallback.deltaPct, null);
-  assert.equal(fallback.estimateBasis, 'current_estimate');
-  assert.equal(fallback.estimateSnapshotAt, null);
-  assert.equal(fallback.estimatedStripeMonthly, Math.round(1200 * (52 / 12) * 100) / 100);
-  assert.match(describeCalibrationBasis(fallback), /today’s estimate/u);
 });

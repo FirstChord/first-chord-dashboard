@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   buildStripeForecastRow,
+  buildStripeForecastConfidence,
   buildStripeMonthlyForecast,
   buildStripeReconciliation,
   currentMonthKey,
@@ -204,6 +205,35 @@ test('forecast rows are compact, first-write-wins monthly records', async () => 
   assert.equal(appends, 1);
 });
 
+test('forecast confidence separates actionable gaps from normal calendar assumptions', () => {
+  const confidence = buildStripeForecastConfidence({
+    candidate_student_count: '6',
+    unpriced_count: '1',
+    unparsed_pause_count: '2',
+    items_json: JSON.stringify([
+      { amount: 100, basis: 'calendar_weekday' },
+      { amount: 75, basis: 'calendar_less_structured_pauses' },
+      { amount: 50, basis: 'average_month_no_weekday' },
+      { amount: 0, basis: 'paused_expected' },
+      { amount: 0, basis: 'not_expected_to_bill' },
+      { amount: null, basis: 'calendar_weekday' },
+    ]),
+  });
+
+  assert.deepEqual(confidence, {
+    candidateCount: 6,
+    calendarCount: 2,
+    datedPauseCount: 1,
+    missingWeekdayCount: 1,
+    undatedPauseCount: 1,
+    inactiveCount: 1,
+    monthlyPriceCount: 0,
+    unpricedCount: 1,
+    unparsedPauseCount: 2,
+    actionableInputCount: 5,
+  });
+});
+
 test('reconciliation exposes offsetting student errors that a correct total hides', () => {
   const forecast = buildStripeForecastRow({
     month: '2026-07',
@@ -277,4 +307,51 @@ test('reconciliation keeps unresolved Stripe invoices visible', () => {
   assert.equal(result.totalAbsoluteError, 25);
   assert.equal(result.unmatchedActualTotal, 25);
   assert.equal(result.matchedCollectionPct, 80);
+});
+
+test('reconciliation attributes pause misses and separates students who joined after lock', () => {
+  const forecast = buildStripeForecastRow({
+    month: '2026-07',
+    forecastedAt: '2026-07-01T05:00:00.000Z',
+    forecastTotal: 0,
+    candidateStudentCount: 1,
+    forecastedStudentCount: 1,
+    billedStudentCount: 0,
+    zeroExpectedCount: 1,
+    unpricedCount: 0,
+    approximateCount: 0,
+    coveragePct: 100,
+    unparsedPauseCount: 0,
+    items: [{
+      mms_id: 'paused',
+      student_name: 'Paused Student',
+      expected_amount: 0,
+      billing_basis: 'paused_expected',
+      weekly_amount: 25,
+      expected_occurrences: 0,
+    }],
+  });
+  const result = buildStripeReconciliation({
+    forecastRows: [forecast],
+    collectedRows: [{
+      month: '2026-07',
+      collected_total: 125,
+      matched_total: 125,
+      unmatched_total: 0,
+      student_breakdown_json: JSON.stringify([
+        { mms_id: 'paused', amount: 75, invoice_count: 3 },
+        { mms_id: 'new', student_name: 'New Student', amount: 50, invoice_count: 2 },
+      ]),
+    }],
+    waitingRows: [{ mms_id: 'new', status: 'onboarded', updated_at: '2026-07-12T10:00:00.000Z' }],
+    now: AT,
+  });
+
+  assert.equal(result.totalAbsoluteError, 125);
+  assert.equal(result.modelAbsoluteError, 75);
+  assert.deepEqual(result.attribution.map((item) => [item.category, item.count, item.absoluteError]), [
+    ['paused_expected_but_collected', 1, 75],
+    ['post_lock_onboarding', 1, 50],
+  ]);
+  assert.equal(result.differences.find((item) => item.mmsId === 'new').category, 'post_lock_onboarding');
 });

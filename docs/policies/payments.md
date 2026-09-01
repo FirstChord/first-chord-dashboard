@@ -51,14 +51,22 @@ proves an accounting/bank balance. Forecast discrepancies are investigation
 evidence; Stripe remains the provider truth.
 
 The default Finance view uses progressive disclosure: show the current locked
-prediction or scored result, the billing/paused split needed to understand it,
-and links to real finance work. Unscored run-rate, break-even, projection,
-warning and historical models belong under **Evidence**. Do not promote a model
-back to Overview until repeated actual results make it useful for a real owner
-decision, including at least one normal month and one seasonal pause month. The
-Overview read boundary must mirror that presentation boundary: fetch only the
-forecast and revealed-collection lanes, leaving the wider planning model to
-Evidence and explicit tools.
+prediction or scored result, specific forecast-input gaps, attributed error
+categories, and links to real finance work. Post-lock onboarding remains part of
+the total prediction error but is separated from known-roster model error. The
+old run-rate-vs-collection aggregate, generic percentage pause scenarios, and
+"every waiting student converts" value are retired: they duplicate the scored
+test or imply precision their inputs do not support. Break-even/what-if remains
+a pure foundation for a later model, not a live finance surface. The Overview
+may read `Waiting_List_State` only to identify onboarding completed after the
+immutable forecast lock; it never changes the locked number.
+
+Older Stripe invoices are calibration evidence, not historical forecast rows.
+They can establish billing-anchor timing, seasonal invoice counts, legacy price
+differences, and matching gaps, but must not be presented as a backtest against
+dashboard pause/roster inputs that were never frozen. Fresh first-write-wins
+months remain the score. Any later timing adjustment must be versioned and
+evaluated separately before it changes the headline prediction.
 
 Glasgow school holidays may be joined to forecast errors as versioned external
 context. They must not directly reduce a Stripe forecast: lower attendance does

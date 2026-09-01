@@ -125,6 +125,39 @@ test('Stripe amounts endpoint refreshes both caches against one fixed capture ti
   });
 });
 
+test('Stripe amounts endpoint uses archived students only for prior-month invoice matching', async () => {
+  const students = [{ mmsId: 'current' }];
+  const archivedStudents = [{ mms_id: 'archived' }];
+  let cacheStudents = null;
+  let collectionOptions = null;
+  const handler = createHandler({
+    getStudents: async () => students,
+    getArchivedStudents: async () => archivedStudents,
+    buildCacheRows: (_subscriptions, receivedStudents) => {
+      cacheStudents = receivedStudents;
+      return { rows: [], unmatchedStudents: 0, unmatchedSubscriptions: 0 };
+    },
+    summariseInvoices: (_invoices, options) => {
+      collectionOptions = options;
+      return {
+        month: options.month,
+        collectedTotal: 0,
+        invoiceCount: 0,
+        matchedTotal: 0,
+        matchedInvoiceCount: 0,
+        unmatchedTotal: 0,
+        unmatchedInvoiceCount: 0,
+        studentBreakdown: [],
+      };
+    },
+  });
+
+  const response = await handler(request());
+  assert.equal(response.status, 200);
+  assert.equal(cacheStudents, students);
+  assert.deepEqual(collectionOptions, { month: '2026-07', students, archivedStudents });
+});
+
 test('Stripe endpoint durably locks the forecast before any provider read', async () => {
   const order = [];
   const handler = createHandler({

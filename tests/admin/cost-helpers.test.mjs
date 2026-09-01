@@ -9,6 +9,7 @@ import {
   buildTutorCost,
   calculateTutorSlotPay,
   resolveWeeklyWeight,
+  validateExpenseLogInput,
   DEFAULT_HOURLY_RATE,
 } from '../../lib/admin/cost-helpers.mjs';
 
@@ -170,13 +171,35 @@ test('buildExpenseLogSummary totals only the selected month and groups by catego
     { expense_id: 'a', date: '2026-06-01', amount: '10', category: 'Staff / meetings', description: 'Coffee' },
     { expense_id: 'b', date: '2026-06-02', amount: '25.50', category: 'Room improvement', description: 'Plants' },
     { expense_id: 'c', date: '2026-05-31', amount: '99', category: 'Equipment', description: 'Old month' },
+    { expense_id: 'd', date: '2026-07-01', amount: '15', category: 'Other', description: 'Future typo' },
   ], { at: new Date('2026-06-24T12:00:00Z') });
 
   assert.equal(summary.currentMonth, '2026-06');
   assert.equal(summary.monthTotal, 35.5);
   assert.equal(summary.currentMonthEntries.length, 2);
+  assert.equal(summary.previousMonth, '2026-05');
+  assert.equal(summary.previousMonthTotal, 99);
+  assert.equal(summary.futureEntries.length, 1);
+  assert.equal(summary.latestEntries.some((row) => row.expenseId === 'd'), false);
   assert.deepEqual(summary.byCategory.map((row) => [row.category, row.amount]), [
     ['Room improvement', 25.5],
     ['Staff / meetings', 10],
   ]);
+});
+
+test('validateExpenseLogInput accepts real spend and rejects future, invalid, or negative values', () => {
+  const at = new Date('2026-06-24T12:00:00Z');
+  assert.deepEqual(validateExpenseLogInput({
+    date: '2026-06-23',
+    amount: '£42.505',
+    description: '  Paint  ',
+  }, { at }), {
+    date: '2026-06-23',
+    amount: 42.51,
+    description: 'Paint',
+  });
+  assert.throws(() => validateExpenseLogInput({ date: '2026-06-25', amount: '10', description: 'Future' }, { at }), /future/u);
+  assert.throws(() => validateExpenseLogInput({ date: '2026-06-23', amount: '-10', description: 'Refund' }, { at }), /greater than zero/u);
+  assert.throws(() => validateExpenseLogInput({ date: 'not-a-date', amount: '10', description: 'Bad date' }, { at }), /valid/u);
+  assert.throws(() => validateExpenseLogInput({ date: '2026-06-23', amount: '10', description: '' }, { at }), /description/u);
 });

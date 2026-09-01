@@ -1,4 +1,4 @@
-/** @fileoverview Admin-gated endpoint assembling the finance overview: revenue, cost, coverage, trend, and forward outlook. */
+/** @fileoverview Admin-gated endpoint assembling finance run-rate, coverage, trend, and the scored Stripe proof. */
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
@@ -8,7 +8,6 @@ import {
   getExpenseRows,
   getExpenseLogRows,
   getFinanceSnapshotRows,
-  getPlanningItemRows,
   getWaitingListStateRows,
   getStripeAmountsCacheRows,
   getStripeCollectedMonthlyRows,
@@ -20,8 +19,7 @@ import { buildFinanceOverview } from '@/lib/admin/finance-helpers.mjs';
 import { PRICE_ASSUMPTIONS_VERSION } from '@/lib/admin/finance-assumptions.mjs';
 import { buildFinanceCoverage } from '@/lib/admin/finance-coverage.mjs';
 import { buildFinanceTrend } from '@/lib/admin/finance-trend.mjs';
-import { buildForwardOutlook } from '@/lib/admin/forward-outlook.mjs';
-import { buildCalibration, buildStripeAmountsMap } from '@/lib/admin/stripe-amounts-helpers.mjs';
+import { buildStripeAmountsMap } from '@/lib/admin/stripe-amounts-helpers.mjs';
 import { buildStripeReconciliation, currentMonthKey, findMonthlyStripeForecast } from '@/lib/admin/stripe-forecast-helpers.mjs';
 
 // Read-only structured finance picture — the same builders the finance page uses,
@@ -39,14 +37,13 @@ export async function GET(request) {
   const trendPeriod = url.searchParams.get('period') === 'monthly' ? 'monthly' : 'weekly';
 
   try {
-    const [students, scheduleRows, tutorPayRows, expenseRows, expenseLogRows, snapshotRows, planningRows, waitingStateRows, stripeCacheRows, forecastRows, collectedRows] = await Promise.all([
+    const [students, scheduleRows, tutorPayRows, expenseRows, expenseLogRows, snapshotRows, waitingStateRows, stripeCacheRows, forecastRows, collectedRows] = await Promise.all([
       getOperationalAdminStudents(),
       getScheduleContextRows(),
       getTutorPayRows(),
       getExpenseRows(),
       getExpenseLogRows(),
       getFinanceSnapshotRows(),
-      getPlanningItemRows(),
       getWaitingListStateRows(),
       getStripeAmountsCacheRows(),
       getStripeForecastMonthlyRows(),
@@ -64,24 +61,7 @@ export async function GET(request) {
     const coverage = buildFinanceCoverage(enriched, { tutorPay });
     const trend = buildFinanceTrend(snapshotRows, { period: trendPeriod, limit: 12 });
 
-    const activeMmsIds = enriched
-      .filter((s) => `${s.lifecycleStatus || ''}`.trim() === 'active')
-      .map((s) => s.mmsId)
-      .filter(Boolean);
-    const outlook = buildForwardOutlook({
-      totals: overview.totals,
-      activeCount: overview.revenue.active.count,
-      activeMmsIds,
-      pauseItems: planningRows,
-      waitingRows: waitingStateRows,
-      weeks: 12,
-    });
-    const calibration = buildCalibration({
-      collectedRows,
-      snapshotRows,
-      currentStripeWeekly: overview.revenue.byPaymentMode.stripe.weekly,
-    });
-    const stripeReconciliation = buildStripeReconciliation({ forecastRows, collectedRows });
+    const stripeReconciliation = buildStripeReconciliation({ forecastRows, collectedRows, waitingRows: waitingStateRows });
     const openStripeForecast = findMonthlyStripeForecast(forecastRows, { month: currentMonthKey() });
 
     return Response.json({
@@ -119,13 +99,6 @@ export async function GET(request) {
         deltas: trend.deltas,
         summary: trend.summary,
       },
-      outlook: {
-        summary: outlook.summary,
-        pipeline: outlook.pipeline,
-        pauses: outlook.pauses.summary,
-        seasonal: outlook.seasonal,
-      },
-      calibration,
       stripeProof: {
         openForecast: openStripeForecast,
         reconciliation: stripeReconciliation,
