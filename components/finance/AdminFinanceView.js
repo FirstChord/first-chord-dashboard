@@ -276,7 +276,7 @@ function DetailsView({ totals, cost, coverage, attentionItems, roster, trend }) 
 
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Roster · six months</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Roster movement · six calendar months</h2>
           <div className="mt-4 grid grid-cols-3 gap-3 text-center">
             <div><p className="text-2xl font-semibold text-emerald-700">+{roster.totals.onboarded}</p><p className="text-xs text-slate-500">joined</p></div>
             <div><p className="text-2xl font-semibold text-rose-700">−{roster.totals.left}</p><p className="text-xs text-slate-500">left</p></div>
@@ -284,8 +284,9 @@ function DetailsView({ totals, cost, coverage, attentionItems, roster, trend }) 
           </div>
           <details className="mt-5 border-t border-slate-100 pt-4">
             <summary className="cursor-pointer text-sm font-semibold text-slate-700">Monthly rows</summary>
-            <div className="mt-3 divide-y divide-slate-100">{roster.months.map((month) => <DetailRow key={month.month} label={month.month} value={`${month.net >= 0 ? '+' : ''}${month.net}`} />)}</div>
+            <div className="mt-3 divide-y divide-slate-100">{roster.months.map((month) => <DetailRow key={month.month} label={month.month} value={`${month.onboarded} joined · ${month.left} left · net ${month.net >= 0 ? '+' : ''}${month.net}`} />)}</div>
           </details>
+          <p className="mt-3 text-xs leading-5 text-slate-500">Departure month uses the recorded month, then an explicit month in older archive notes. The archive date is used only when neither exists.</p>
         </div>
         <div className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Billing-state trend</h2>

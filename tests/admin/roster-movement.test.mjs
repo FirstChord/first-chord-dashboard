@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildRosterMovement, onboardedDatesFromWaitingState, leftDatesFromArchive, countDatesInRange } from '../../lib/admin/roster-movement.mjs';
+import {
+  archivedDatesFromArchive,
+  buildRosterMovement,
+  countDatesInRange,
+  departureDatesFromArchive,
+  onboardedDatesFromWaitingState,
+} from '../../lib/admin/roster-movement.mjs';
 
 const NOW = new Date('2026-06-15T12:00:00Z');
 
@@ -54,6 +60,31 @@ test('countDatesInRange counts only dates within the window', () => {
   assert.equal(count, 2); // 20th + 26th; 10th excluded
 });
 
-test('leftDatesFromArchive reads archived_at', () => {
-  assert.deepEqual(leftDatesFromArchive([{ archived_at: '2026-06-05T09:00:00Z' }, { archived_at: '' }]), ['2026-06-05T09:00:00Z']);
+test('departureDatesFromArchive prefers the recorded departure month', () => {
+  assert.deepEqual(departureDatesFromArchive([{
+    date_left: '2026-02',
+    archive_note: 'Legacy note says June 2026',
+    archived_at: '2026-06-05T09:00:00Z',
+  }]), ['2026-02-01']);
+});
+
+test('departureDatesFromArchive reads an explicit legacy note month case-insensitively', () => {
+  assert.deepEqual(departureDatesFromArchive([
+    { archive_note: 'Student inactive since march 2026', archived_at: '2026-06-05T09:00:00Z' },
+    { archiveNote: 'Stopped Sept 2025', archivedAt: '2026-06-05T09:00:00Z' },
+  ]), ['2026-03-01', '2025-09-01']);
+});
+
+test('departureDatesFromArchive falls back to archive time without inventing a month', () => {
+  assert.deepEqual(departureDatesFromArchive([
+    { date_left: 'not-a-month', archive_note: 'No departure timing recorded', archived_at: '2026-06-05T09:00:00Z' },
+    { archived_at: '' },
+  ]), ['2026-06-05T09:00:00Z']);
+});
+
+test('archivedDatesFromArchive preserves exact archive timestamps for snapshots', () => {
+  assert.deepEqual(archivedDatesFromArchive([
+    { date_left: '2026-02', archived_at: '2026-06-05T09:00:00Z' },
+    { archived_at: '' },
+  ]), ['2026-06-05T09:00:00Z']);
 });

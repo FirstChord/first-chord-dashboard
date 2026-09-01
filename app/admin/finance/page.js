@@ -35,7 +35,7 @@ import {
 } from '@/lib/admin/stripe-forecast-helpers.mjs';
 import {
   buildRosterMovement,
-  leftDatesFromArchive,
+  departureDatesFromArchive,
   onboardedDatesFromWaitingState,
 } from '@/lib/admin/roster-movement.mjs';
 import { authOptions } from '@/lib/admin/auth';
@@ -157,7 +157,7 @@ export default async function AdminFinancePage({ searchParams }) {
   const trend = buildFinanceTrend(snapshotRows, { period: 'weekly', limit: 12 });
   const roster = buildRosterMovement({
     onboardedDates: onboardedDatesFromWaitingState(waitingRows),
-    leftDates: leftDatesFromArchive(archiveRows),
+    leftDates: departureDatesFromArchive(archiveRows),
     months: 6,
   });
   const spend = overview.actualSpend || buildExpenseLogSummary(expenseLogRows);

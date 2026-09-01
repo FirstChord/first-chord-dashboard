@@ -118,8 +118,13 @@ Some source formats are fragile because they come from human-edited external sys
   August who starts on 9 September counts as an August joiner. Two consequences:
   a student recorded outside the dashboard onboarding flow is not counted at all
   until a row exists, and a returning student re-onboarded by hand needs one
-  written deliberately. Departures pair with `Students_Archive.archived_at`, so
-  a student removed outside the archive flow is likewise uncounted.
+  written deliberately. Historical departures use `Students_Archive.date_left`,
+  then an explicit month and year in a legacy `archive_note`, and only then fall
+  back to `archived_at`. This keeps an old departure out of the month when its
+  cleanup happened without rewriting the append-only archive. A student removed
+  outside the archive flow is likewise uncounted. Finance snapshot period counts
+  continue to use the exact `archived_at` action timestamp because `date_left` is
+  only precise to a month.
 - **Incoming-message classification fields.** `Incoming_Message_Inbox` retains
   immutable machine proposals in `proposed_category`, `proposed_intent`, and
   `proposed_actionability`; the current reviewed values live in

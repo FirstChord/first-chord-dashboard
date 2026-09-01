@@ -14,7 +14,7 @@ import {
 import { buildStripeAmountsMap } from '@/lib/admin/stripe-amounts-helpers.mjs';
 import { enrichScheduleContextsWithSharedSlots } from '@/lib/admin/schedule-context-helpers.mjs';
 import { parseTutorPay } from '@/lib/admin/cost-helpers.mjs';
-import { countDatesInRange, onboardedDatesFromWaitingState, leftDatesFromArchive } from '@/lib/admin/roster-movement.mjs';
+import { archivedDatesFromArchive, countDatesInRange, onboardedDatesFromWaitingState } from '@/lib/admin/roster-movement.mjs';
 import { buildFinanceOverview, buildFinanceSnapshotRow } from '@/lib/admin/finance-helpers.mjs';
 import { createFinanceSnapshotPostHandler } from '@/lib/admin/finance-snapshot-endpoint.mjs';
 
@@ -54,7 +54,7 @@ async function buildCurrentFinanceSnapshotRow({ periodType, at }) {
   const fromISO = new Date(at.getTime() - (periodType === 'monthly' ? 31 : 7) * 24 * 60 * 60 * 1000).toISOString();
   const roster = {
     onboarded: countDatesInRange(onboardedDatesFromWaitingState(waitingStateRows), { fromISO, toISO: at.toISOString() }),
-    left: countDatesInRange(leftDatesFromArchive(archiveRows), { fromISO, toISO: at.toISOString() }),
+    left: countDatesInRange(archivedDatesFromArchive(archiveRows), { fromISO, toISO: at.toISOString() }),
   };
   return buildFinanceSnapshotRow(overview, { periodType, at, roster });
 }
