@@ -178,14 +178,16 @@ Do not assume a GitHub deploy to one Railway service means all Railway services 
 For the exact request flow, provider payload, safe log fields and error-code
 map, see `docs/architecture/ai/runtime-integration.md`.
 
-The AI button is non-consequential and the deterministic explanation is always
-the fallback. If calls fail, become slow, produce validation failures, or show
-materially misleading wording:
+The generated detective opinion is non-consequential and the deterministic case
+file is always the fallback. The separately displayed **Yes** resolution comes
+from the code allowlist and still requires the admin press; disabling AI does not
+remove or change that existing deterministic action. If model calls fail, become
+slow, produce validation failures, or show materially misleading wording:
 
 1. Set `ADMIN_AI_ISSUE_BRIEFING_ENABLED=false` on the canonical admin Railway
    service and redeploy/restart. No Sheets/provider reconciliation is required.
-2. Confirm **Why does this issue exist?** still loads the deterministic rule,
-   evidence, caveats and next step.
+2. Confirm **Ask the detective** still loads the checked assessment, evidence,
+   caveats and next step without a generated opinion.
 3. Inspect runtime metadata by opaque request ID. Logs must not contain the
    prompt, model output, MMS ID, student name, contact details or provider IDs.
 4. Fix/evaluate locally with synthetic or redacted fixtures before re-enabling.
