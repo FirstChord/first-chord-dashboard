@@ -173,6 +173,58 @@ for (const file of exactPathSources) {
   }
 }
 
+// --- Snapshot bounds -------------------------------------------------------
+//
+// CURRENT_STATUS.md is a snapshot, not a changelog, but nothing enforced that
+// and "Recently shipped" grew from 154 to 567 lines in sixteen days. Pruning
+// failed as a rule because it asks for a judgement call at the end of a
+// session, when the work is done and the writing is good — so it was always the
+// step that got dropped. Nothing was lost by capping it: every entry was
+// already written up, with its reasoning, in the vault Learning Log.
+//
+// The cap is an error because it is mechanical: count entries, delete the
+// oldest. `Next choices` is a warning instead — pruning it means deciding an
+// initiative is no longer next, which is a real decision and not one a build
+// should force at commit time.
+const SNAPSHOT_ENTRY_LIMIT = 8;
+const NEXT_CHOICES_SOFT_LIMIT = 6;
+const snapshotWarnings = [];
+
+function countSectionEntries(source, heading) {
+  const lines = source.split('\n');
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) return null;
+  let count = 0;
+  for (const line of lines.slice(start + 1)) {
+    if (line.startsWith('## ')) break;
+    if (line.startsWith('- **')) count += 1;
+  }
+  return count;
+}
+
+const statusPath = path.join(docsRoot, 'CURRENT_STATUS.md');
+if (fs.existsSync(statusPath)) {
+  const source = fs.readFileSync(statusPath, 'utf8');
+
+  const shipped = countSectionEntries(source, '## Since last session');
+  if (shipped === null) {
+    errors.push('docs/CURRENT_STATUS.md: missing "## Since last session" section');
+  } else if (shipped > SNAPSHOT_ENTRY_LIMIT) {
+    errors.push(
+      `docs/CURRENT_STATUS.md: "Since last session" has ${shipped} entries, limit ${SNAPSHOT_ENTRY_LIMIT}. `
+      + 'Delete the oldest; git log is the chronology and the vault Learning Log has the reasoning.',
+    );
+  }
+
+  const next = countSectionEntries(source, '## Next choices');
+  if (next !== null && next > NEXT_CHOICES_SOFT_LIMIT) {
+    snapshotWarnings.push(
+      `"Next choices" has ${next} entries (soft limit ${NEXT_CHOICES_SOFT_LIMIT}) — `
+      + 'consider parking one rather than carrying it.',
+    );
+  }
+}
+
 // --- Obsidian vault freshness ---------------------------------------------
 //
 // The vault carries `last_verified` dates that nothing ever checked, so they
@@ -231,6 +283,8 @@ if (errors.length > 0) {
 }
 
 console.log(`Documentation check passed (${markdownFiles.length} docs, ${markdownSources.length} Markdown sources).`);
+
+for (const warning of snapshotWarnings) console.log(`Snapshot warning: ${warning}`);
 
 if (!fs.existsSync(vaultRoot)) {
   console.log('Vault not present here; skipped (set FIRST_CHORD_VAULT to check it).');
