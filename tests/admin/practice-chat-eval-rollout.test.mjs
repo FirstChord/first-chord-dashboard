@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  appendPracticeChatEvaluationParams,
   getPracticeChatEvalTutors,
   resolvePracticeChatEvalPrompt,
   resolvePracticeChatEvalSample,
@@ -59,4 +60,33 @@ test('sample of 1 always prompts, and the rate is roughly honoured', () => {
   // Not an exact quarter — a hash is not a shuffle — but it must be in the
   // right neighbourhood, or the configured rate means nothing.
   assert.ok(picked > 60 && picked < 140, `expected roughly 100 of 400, got ${picked}`);
+});
+
+test('the production launch helper turns an enabled tutor into prompt parameters', () => {
+  const params = appendPracticeChatEvaluationParams(new URLSearchParams(), {
+    tutorName: 'Finn',
+    priorNote: { exists: true, ageDays: 8, historyOpened: true },
+    env: {
+      NEXT_PUBLIC_PRACTICE_CHAT_EVAL_TUTORS: 'Finn',
+      NEXT_PUBLIC_PRACTICE_CHAT_EVAL_SAMPLE: '4',
+    },
+  });
+
+  assert.deepEqual(Object.fromEntries(params), {
+    evalPrompt: '1',
+    evalSample: '4',
+    priorNoteExists: '1',
+    priorNoteAgeDays: '8',
+    priorHistoryOpened: '1',
+  });
+});
+
+test('the production launch helper omits prompt parameters for a tutor outside the roster', () => {
+  const params = appendPracticeChatEvaluationParams(new URLSearchParams(), {
+    tutorName: 'Calum',
+    env: { NEXT_PUBLIC_PRACTICE_CHAT_EVAL_TUTORS: 'Finn' },
+  });
+
+  assert.equal(params.has('evalPrompt'), false);
+  assert.equal(params.has('evalSample'), false);
 });

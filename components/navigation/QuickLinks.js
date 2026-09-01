@@ -2,7 +2,7 @@ import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
 import { generateSmartUrls } from '@/lib/config';
 import { resolvePracticeChatAsrModel } from '@/lib/config/practice-chat-asr.mjs';
-import { resolvePracticeChatEvalPrompt } from '@/lib/config/practice-chat-eval.mjs';
+import { appendPracticeChatEvaluationParams } from '@/lib/config/practice-chat-eval.mjs';
 
 const CANONICAL_PRACTICE_CHAT_DASHBOARD_BASE_URL =
   process.env.NEXT_PUBLIC_PRACTICE_CHAT_DASHBOARD_BASE_URL
@@ -22,32 +22,6 @@ function getPracticeChatDashboardBaseUrl() {
   }
 
   return CANONICAL_PRACTICE_CHAT_DASHBOARD_BASE_URL.replace(/\/+$/u, '');
-}
-
-/**
- * Context the Practice Chat evaluation needs and cannot work out for itself.
- *
- * `priorNoteExists` / `priorNoteAgeDays` describe what the tutor had in front
- * of them; `priorHistoryOpened` records the one deliberate act — pressing "Show
- * earlier lessons". The previous note itself is rendered automatically on
- * student select, so its presence on screen is not evidence of anything and is
- * recorded as availability, never as review.
- */
-function appendEvaluationParams(params, { tutorName, priorNote }) {
-  const { prompt, sample } = resolvePracticeChatEvalPrompt({ tutorName });
-  if (prompt) {
-    params.set('evalPrompt', '1');
-    params.set('evalSample', `${sample}`);
-  }
-  if (priorNote?.exists) {
-    params.set('priorNoteExists', '1');
-    if (Number.isFinite(priorNote.ageDays)) {
-      params.set('priorNoteAgeDays', `${priorNote.ageDays}`);
-    }
-  }
-  if (priorNote?.historyOpened) {
-    params.set('priorHistoryOpened', '1');
-  }
 }
 
 function buildPracticeChatUrl(student, activeTutor = '', priorNote = null) {
@@ -72,7 +46,7 @@ function buildPracticeChatUrl(student, activeTutor = '', priorNote = null) {
     params.set('asrModel', asrModel);
   }
 
-  appendEvaluationParams(params, { tutorName, priorNote });
+  appendPracticeChatEvaluationParams(params, { tutorName, priorNote });
 
   return `${practiceChatBaseUrl}/?${params.toString()}`;
 }
