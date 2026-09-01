@@ -30,6 +30,22 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Issues now open as detective case files with a bounded one-button resolution
+  — DEPLOYED 2026-09-01:** **Ask the detective** always loads the checked,
+  redacted rule and evidence; when the existing AI flag/key are configured, that
+  same explicit click also adds one validated generated opinion. The model never
+  chooses the action. `getDetectiveResolution` offers **Yes, solve it** only for
+  the existing deterministic primary correction on `PAUSE EXPECTATION MISMATCH`
+  and `PAUSE EXPECTATION STALE`, while a source-cleared case can be closed with
+  the same reviewed gesture. Every other case says it still needs judgement and
+  leaves the established action in place. Payment fixes now carry the payment
+  mode/expectation the card was prepared from, and source-cleared closure carries
+  expected `source_present = false`; either endpoint returns 409 rather than
+  applying a stale decision. **No, reconsider** freezes the proposal and records
+  only a fixed correction enum against the opaque AI request ID. Those pilot
+  runtime logs can guide reviewed rule/test changes; they are not durable
+  training data and the detective does not retrain itself. Vince character and
+  visual identity are deliberately a later pass over this working contract.
 - **Tutor banners in the Students sheet are merged cells, and the growth figure
   runs off `updated_at` — DEPLOYED 2026-08-31:** Michael Gemmell joined the
   roster (canonical `first-chord-brain/tutors.py`, regenerated into
@@ -127,26 +143,12 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   from it (`indyfc` → `Indy`), so `theta-credentials.js`, the registry field and
   the admin/onboarding Theta inputs are all still live. Finishing the
   decommission means repointing names at the registry first.
-- **Pause expectations now reconcile themselves nightly — DEPLOYED
-  2026-08-17 (`d12e1a0`):** An audit of 73 open issues found 50 were one thing:
-  `payment_expectation` still saying `stripe_paused_expected` after a summer
-  pause had ended and Stripe had correctly resumed billing. Nobody was billed
-  wrongly; the sync that fixes it existed but was a button nobody had a reason
-  to press, so three months of ended pauses queued up behind it. `POST
-  /api/cron/pause-expectations` (secret `PAUSE_SYNC_SECRET`, nightly 04:30 UTC)
-  now previews, reconciles, then rescans live Stripe — coupled in that order
-  because only the rescan can clear a `stripe_live` queue row, and only the
-  reconcile makes the rescan see corrected data. Eligibility is unchanged and
-  still narrow, so the unattended write is the same write the admin page makes;
-  the new guardrail is a cap of 25 changes that refuses an anomalous plan with
-  409 before writing. **`PAUSE_SYNC_SECRET` must be set to the same value in
-  Railway and in the repo's GitHub Actions secrets before the schedule does
-  anything; until then the endpoint returns 503 and the workflow fails fast.**
 ## Current operating contracts
 
 | Area | Current boundary |
 |---|---|
 | Context | Student lifecycle, schedule, payment value, and capacity summaries are derived/read-only. They do not become provider truth or authorise actions. |
+| Issues detective | The generated opinion is optional wording over the deterministic case file. A one-button resolution is selected by code from an allowlist of existing issue actions, never by the model; the human press is approval, stale-state checks fail with 409, and normal action logging remains authoritative. |
 | Navigation | Overview orients; Planning holds due work, reflection, notes, and initiatives; Workflows holds specialised and recurring processes; Issues handles detected exceptions. Persistent navigation visibly identifies the current section. Student records are reached through search and workflow links. |
 | Capacity | MMS `Free` events remain source truth. Waiting-list matches are hints filtered by instrument, never reservations or automatic assignment. |
 | Planning | `Planning_Items` is human work state, not a project-management or workflow engine. Friday reflection and Monday scheduling are seeded planning prompts. |

@@ -9,6 +9,11 @@ const REASONS = new Set([
   'missed_uncertainty',
   'confusing',
   'no_added_value',
+  'evidence_wrong',
+  'diagnosis_wrong',
+  'proposed_fix_wrong',
+  'missing_context',
+  'not_an_issue',
 ]);
 const REQUEST_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 

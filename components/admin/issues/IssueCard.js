@@ -5,6 +5,7 @@ import IssueExplanationPanel from '@/components/admin/issues/IssueExplanationPan
 import { buildIssueEvidenceSummary, formatDateTime } from '@/lib/admin/health-helpers.mjs';
 import { buildPauseWorkflowSummary } from '@/lib/admin/pause-workflow-helpers.mjs';
 import {
+  getDetectiveResolution,
   getIssueCategoryLabel,
   getIssueKeyFact,
   getIssueShortLabel,
@@ -113,6 +114,7 @@ function IssueCardBody({
   const paymentActionPath = isPaymentIssue(issue) ? getPaymentActionPath(issue) : [];
   const paymentQuickActions = getPaymentQuickActions(issue);
   const primaryQuickAction = issue.sourcePresent ? getPrimaryPaymentQuickAction(issue, paymentQuickActions) : null;
+  const detectiveResolution = getDetectiveResolution(issue, primaryQuickAction);
   const secondaryQuickActions = issue.sourcePresent
     ? paymentQuickActions.filter((action) => action.label !== primaryQuickAction?.label)
     : [];
@@ -131,6 +133,21 @@ function IssueCardBody({
       stripeSnapshot: liveStripeState?.snapshot || null,
     })
     : null;
+
+  function approveDetectiveResolution(resolution) {
+    if (resolution.kind === 'resolve_source_absent') {
+      return onStatusChange(
+        issue,
+        'resolved',
+        'Detective proposal approved — the source check no longer detects this issue.',
+        { expectedSourcePresent: false },
+      );
+    }
+    if (resolution.kind === 'payment_quick_action') {
+      return onPaymentQuickAction(issue, resolution.action, { detectiveApproved: true });
+    }
+    return undefined;
+  }
 
   // One obvious primary action per card; everything else lives under Details.
   let primaryKind = 'none';
@@ -196,7 +213,13 @@ function IssueCardBody({
             {issue.identityMismatchHint.description}
           </p>
         ) : null}
-        <IssueExplanationPanel issue={issue} />
+        <IssueExplanationPanel
+          issue={issue}
+          detectiveResolution={detectiveResolution}
+          onApproveResolution={approveDetectiveResolution}
+          resolutionPending={actionState.pendingId === issue.issueId}
+          readOnly={readOnly}
+        />
       </div>
 
       <div className="mt-5 space-y-3">

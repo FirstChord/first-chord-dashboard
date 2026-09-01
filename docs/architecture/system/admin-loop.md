@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-07-20
+last_verified: 2026-09-01
 ---
 # Admin loop architecture
 
@@ -111,6 +111,17 @@ Planning holds human-created actions, initiatives, reflections, and school notes
 It is not a generic workflow engine or a second issue queue. A linked planning
 item may guide an existing deterministic action; its generic status change cannot
 perform that action implicitly.
+
+### Issues detective
+
+The case-file UI can add optional generated wording, but the deterministic
+explanation remains the evidence record. Code—not the model—decides whether a
+case has a one-button resolution. The initial allowlist is deliberately narrow:
+source-cleared closure plus the existing primary payment-expectation correction
+for the two pause-expectation issue types. The human **Yes** press invokes that
+existing workflow, which logs normally; expected source/payment state is checked
+immediately before the write and stale proposals fail closed. **No, reconsider**
+records bounded evaluation telemetry and leaves operational state untouched.
 
 ## Implementation guardrails
 

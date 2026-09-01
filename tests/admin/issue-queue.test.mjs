@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildDisplayIssues, buildIssueStateChange, mergeIssuesWithQueueState, prepareIssue } from '../../lib/admin/issue-queue.js';
+import {
+  buildDisplayIssues,
+  buildIssueStateChange,
+  issueSourceMatchesExpected,
+  mergeIssuesWithQueueState,
+  prepareIssue,
+} from '../../lib/admin/issue-queue.js';
 
 test('mergeIssuesWithQueueState creates queue rows for newly detected issues', () => {
   const now = '2026-05-05T10:00:00.000Z';
@@ -256,6 +262,12 @@ test('buildIssueStateChange logs previous and next state while keeping issue met
   assert.equal(nextRow.resolutionNote, 'Handled offline');
   assert.equal(eventRow.eventType, 'issue_ignored');
   assert.match(eventRow.payloadJson, /previous_status/);
+});
+
+test('detective source expectation fails closed when a case changed after review', () => {
+  assert.equal(issueSourceMatchesExpected({ sourcePresent: 'false' }, false), true);
+  assert.equal(issueSourceMatchesExpected({ sourcePresent: 'true' }, false), false);
+  assert.equal(issueSourceMatchesExpected({ sourcePresent: 'true' }, undefined), true);
 });
 
 test('buildDisplayIssues includes persisted queue rows that are no longer currently detected', () => {

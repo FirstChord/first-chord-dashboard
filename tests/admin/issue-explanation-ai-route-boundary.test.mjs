@@ -25,19 +25,23 @@ test('feedback records enums only and cannot receive issue context or mutate wor
 
   assert.match(source, /getServerSession\(authOptions\)/u);
   assert.match(source, /REQUEST_ID_PATTERN/u);
-  assert.match(source, /incorrect_or_unsupported/u);
+  assert.match(source, /evidence_wrong/u);
+  assert.match(source, /proposed_fix_wrong/u);
   assert.match(source, /No student identifier, prompt, context or model/u);
   assert.doesNotMatch(source, /body\?*\.?(?:mmsId|issueType|prompt|output)|getAdminIssues|upsert|appendRow|resolveIssue|acknowledgeIssue/u);
 });
 
-test('client calls the model only after an explicit click and keeps the standard explanation', async () => {
+test('client calls the model only after an explicit detective click and keeps the checked evidence', async () => {
   const source = await readFile(panelUrl, 'utf8');
 
-  assert.match(source, /Explain this simply/u);
-  assert.match(source, /onClick=\{loadAiBriefing\}/u);
+  assert.match(source, /Ask the detective/u);
+  assert.match(source, /onClick=\{toggle\}/u);
+  assert.match(source, /if \(aiBriefingAvailable\) loadAiBriefing\(\)/u);
   assert.match(source, /method: 'POST'/u);
   assert.match(source, /source: issue\.source/u);
   assert.match(source, /issueType: issue\.type/u);
-  assert.match(source, /deterministic explanation below is unaffected/u);
+  assert.match(source, /Evidence and case rules/u);
+  assert.match(source, /No, reconsider/u);
+  assert.match(source, /current\.feedback === 'held' \? 'choose_reason'/u);
   assert.doesNotMatch(source, /OPENAI|API_KEY/u);
 });

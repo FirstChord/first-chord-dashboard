@@ -1,7 +1,7 @@
 /** @fileoverview Admin-gated endpoint moving one issue-queue row to a new status with an event-log entry. */
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
-import { buildIssueStateChange } from '@/lib/admin/issue-queue';
+import { buildIssueStateChange, issueSourceMatchesExpected } from '@/lib/admin/issue-queue';
 import { getIssueQueueRows, appendEventLogRow, upsertIssueQueueRow } from '@/lib/admin/sheets';
 
 export async function POST(request, { params }) {
@@ -25,12 +25,25 @@ export async function POST(request, { params }) {
     return Response.json({ error: 'Unsupported issue status' }, { status: 400 });
   }
 
+  if (
+    Object.prototype.hasOwnProperty.call(body || {}, 'expectedSourcePresent')
+    && typeof body.expectedSourcePresent !== 'boolean'
+  ) {
+    return Response.json({ error: 'expectedSourcePresent must be a boolean' }, { status: 400 });
+  }
+
   try {
     const queueRows = await getIssueQueueRows();
     const issueRow = queueRows.find((row) => row.issueId === issueId && row.mmsId === mmsId);
 
     if (!issueRow) {
       return Response.json({ error: 'Issue was not found in the queue' }, { status: 404 });
+    }
+
+    if (!issueSourceMatchesExpected(issueRow, body?.expectedSourcePresent)) {
+      return Response.json({
+        error: 'The source state changed after this action was prepared. Refresh the case and review it again.',
+      }, { status: 409 });
     }
 
     const { nextRow, eventRow } = buildIssueStateChange({

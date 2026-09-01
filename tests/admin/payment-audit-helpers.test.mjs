@@ -9,6 +9,7 @@ import {
   normaliseAuditContext,
   shouldLogPaymentIssueAction,
   shouldLogPauseWorkflowAction,
+  validateExpectedPaymentState,
   validatePaymentAuditContext,
 } from '../../lib/admin/payment-audit-helpers.mjs';
 
@@ -65,6 +66,25 @@ test('validatePaymentAuditContext keeps direct student-detail payment edits ligh
     }),
     '',
   );
+});
+
+test('validateExpectedPaymentState refuses a stale detective payment action', () => {
+  const student = {
+    paymentMode: 'stripe',
+    paymentExpectation: 'stripe_paused_expected',
+  };
+
+  assert.equal(validateExpectedPaymentState({
+    expectedPaymentMode: 'stripe',
+    expectedPaymentExpectation: 'stripe_paused_expected',
+  }, student), '');
+  assert.match(validateExpectedPaymentState({
+    expectedPaymentExpectation: 'stripe_active_expected',
+  }, student), /changed after this action was prepared/);
+  assert.match(validateExpectedPaymentState({
+    expectedPaymentMode: 'manual',
+  }, student), /changed after this action was prepared/);
+  assert.equal(validateExpectedPaymentState({ paymentExpectation: 'stripe_active_expected' }, student), '');
 });
 
 test('normaliseAuditContext trims issue payment action context', () => {

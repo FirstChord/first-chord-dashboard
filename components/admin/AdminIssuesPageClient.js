@@ -384,8 +384,8 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
     }
   }
 
-  async function handleStatusChange(issue, nextStatus) {
-    let note = '';
+  async function handleStatusChange(issue, nextStatus, providedNote = '', { expectedSourcePresent } = {}) {
+    let note = providedNote;
     if (nextStatus === 'ignored') {
       const prompted = window.prompt(`Optional note for ignoring ${issue.studentName || issue.mmsId}`, issue.resolutionNote || '');
       if (prompted === null) {
@@ -404,6 +404,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
           issueId: issue.issueId,
           nextStatus,
           note,
+          ...(typeof expectedSourcePresent === 'boolean' ? { expectedSourcePresent } : {}),
         }),
       });
 
@@ -498,8 +499,11 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
     }
   }
 
-  async function handlePaymentQuickAction(issue, action) {
-    const auditNote = buildPaymentQuickActionAuditNote(issue, action);
+  async function handlePaymentQuickAction(issue, action, { detectiveApproved = false } = {}) {
+    const baseAuditNote = buildPaymentQuickActionAuditNote(issue, action);
+    const auditNote = detectiveApproved
+      ? `Detective proposal approved. ${baseAuditNote}`
+      : baseAuditNote;
 
     setActionState({ pendingId: issue.issueId, error: '', success: '' });
 
@@ -509,6 +513,8 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...action.payload,
+          expectedPaymentMode: issue.paymentMode || '',
+          expectedPaymentExpectation: issue.paymentExpectation || '',
           auditContext: {
             source: 'admin_flags_payment_action',
             issueId: issue.issueId,

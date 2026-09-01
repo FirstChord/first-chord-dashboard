@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-10
+last_verified: 2026-09-01
 ---
 # State Tabs Schema
 
@@ -35,8 +35,8 @@ Lane meanings:
 
 | Tab | Lane | Purpose | Key | Write Pattern | Main Writers | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| `Issue_Queue` | workflow-state | Persistent issue objects generated from review/payment/pause/practice-delivery checks | `issue_id` | keyed upsert | `upsertIssueQueueRow`, `upsertIssueQueueRows`, issue action APIs | Issues are operational objects, not just warnings. `source_present` tracks whether the latest source scan still detects them. |
-| `Event_Log` | append-only-log | Append-only history of consequential actions and issue exceptions | `event_id` | append-only | `appendEventLogRow`, `appendEventLogRows` | Do not edit in place. Use for audit/memory, not routine source scans: normal issue presence belongs in `Issue_Queue`; first detection, human actions, and genuine reappearances belong here. Machine-generated exception rows carry an `event_dedupe_key` so a retried transition is not appended twice. |
+| `Issue_Queue` | workflow-state | Persistent issue objects generated from review/payment/pause/practice-delivery checks | `issue_id` | keyed upsert | `upsertIssueQueueRow`, `upsertIssueQueueRows`, issue action APIs | Issues are operational objects, not just warnings. `source_present` tracks whether the latest source scan still detects them. Detective closure of a source-cleared case sends expected `source_present = false`; the state route refuses with 409 if a newer scan has made the case current again. Generated opinions and feedback do not live in this tab. |
+| `Event_Log` | append-only-log | Append-only history of consequential actions and issue exceptions | `event_id` | append-only | `appendEventLogRow`, `appendEventLogRows` | Do not edit in place. Use for audit/memory, not routine source scans: normal issue presence belongs in `Issue_Queue`; first detection, human actions, and genuine reappearances belong here. Machine-generated exception rows carry an `event_dedupe_key` so a retried transition is not appended twice. Detective-approved fixes still use the existing issue/payment action routes, so their normal issue-resolution and payment-change events remain the audit record; AI feedback is enum-only runtime telemetry, not an event. |
 | `Waiting_List_State` | workflow-state | Manual waiting-list status/notes over MMS waiting-list data | `mms_id` | keyed upsert | `upsertWaitingListStateRow` | MMS remains the source for waiting students/contact facts. `no_response`, `closed`, and `onboarded` sit outside active capacity and finance totals but remain visible in the waiting page's inactive shelf; `no_response`/`closed` can be returned explicitly to `contacted`. A status change never deletes the row or the MMS waiting record. |
 | `Showcase_Task_State` | workflow-state | Recurring showcase checklist progress | `workflow_key` + `task_id` | keyed upsert | `upsertShowcaseTaskStateRow` | Stores checklist completion only; reference copy lives in code/docs. |
 | `Holiday_Workflow_State` | workflow-state | Recurring holiday workflow checklist progress | `workflow_key` + `task_id` | keyed upsert | `upsertHolidayWorkflowStateRow` | Same pattern as showcase workflows. |

@@ -1,16 +1,19 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-04
+last_verified: 2026-09-01
 ---
 # AI Runtime Integration
 
-Last verified against code and production behaviour: 2026-08-04
+Last verified against code: 2026-09-01. Production behaviour still depends on
+the feature flag and dedicated key described below.
 
 This is the canonical engineering reference for the dashboard's model runtime.
 Read it before adding or changing any dashboard AI feature. The issue briefing
-is the reference integration described in detail below. It is a deliberately
-thin, tool-free layer over deterministic context; it is not an agent framework.
+is the reference integration described in detail below. The UI now presents it
+as a detective opinion inside a case file, but it remains a deliberately thin,
+tool-free layer over deterministic context; it is not an agent framework and
+never selects the case action.
 
 A second integration built on the same pattern is the bounded proposals-inbox
 reply lane (`lib/admin/incoming-reply-ai-{contract,provider}.mjs`, flag
@@ -49,7 +52,7 @@ Issues card in the admin browser
   +-> buildIssueExplanation(...)
   +-> redacted rule/evidence/ambiguity/next-step view model
   |
-  | Admin clicks "Explain this simply"
+  | Admin clicks "Ask the detective"
   v
 /api/admin/issues/[mmsId]/ai-explanation
   |
@@ -62,7 +65,12 @@ Issues card in the admin browser
   +-> validateIssueAiBriefing(...)
   |
   v
-Generated wording shown above, never instead of, deterministic evidence
+Generated opinion shown above, never instead of, deterministic evidence
+  |
+  +-> getDetectiveResolution(...) independently selects an allowlisted existing action
+  +-> admin chooses Yes or No
+  +-> Yes invokes that action with stale-state guards and normal audit logging
+  +-> No records enum-only feedback and leaves the case untouched
 ```
 
 The browser supplies the selected issue `source` and `issueType`; it does not
@@ -74,7 +82,7 @@ text into the model call.
 
 | Responsibility | File | Change risk |
 | --- | --- | --- |
-| AI panel, explicit click, fallback and feedback UI | `components/admin/issues/IssueExplanationPanel.js` | Keep generated copy visibly separate from evidence and actions |
+| Detective case file, explicit click, fallback, approval and feedback UI | `components/admin/issues/IssueExplanationPanel.js` | Keep generated copy visibly separate from evidence and the code-selected action |
 | Deterministic explanation API | `app/api/admin/issues/[mmsId]/explanation/route.js` | Must remain useful with AI disabled |
 | Authenticated AI orchestration, rate limit, safe HTTP errors and metadata logs | `app/api/admin/issues/[mmsId]/ai-explanation/route.js` | Must never accept raw context or gain mutation imports |
 | Enum-only pilot feedback | `app/api/admin/ai/feedback/route.js` | Evaluation telemetry only; not an issue correction |
@@ -142,11 +150,11 @@ Content-Type: application/json
 }
 ```
 
-Allowed negative reasons are `incorrect_or_unsupported`,
-`missed_uncertainty`, `confusing`, and `no_added_value`. The route accepts no
-student ID, issue context, prompt, output or free-text comment. It writes a
-structured runtime log only. It does not update `Issue_Queue` or another
-operational record.
+The original pilot reasons remain accepted for compatibility. The detective UI
+uses `evidence_wrong`, `diagnosis_wrong`, `proposed_fix_wrong`,
+`missing_context`, and `not_an_issue`. The route accepts no student ID, issue
+context, prompt, output or free-text comment. It writes a structured runtime log
+only. It does not update `Issue_Queue` or another operational record.
 
 ## Exact OpenAI Request
 
@@ -268,7 +276,7 @@ Production variables belong only on the canonical admin Railway service:
 
 | Variable | Required value/purpose |
 | --- | --- |
-| `ADMIN_AI_ISSUE_BRIEFING_ENABLED` | `true` enables the button; `false` is the immediate kill switch |
+| `ADMIN_AI_ISSUE_BRIEFING_ENABLED` | `true` adds the generated opinion to the deterministic case file; `false` is the immediate model kill switch and leaves the checked case file usable |
 | `ADMIN_AI_REPLY_DRAFT_ENABLED` | `true` makes one card's **Reply** press request one bounded draft; `false` routes Reply directly to the standard template |
 | `ADMIN_AI_OPENAI_API_KEY` | Dedicated server-side OpenAI project key |
 | `ADMIN_AI_OPENAI_MODEL` | Optional; defaults to `gpt-5.6-luna` |
@@ -403,12 +411,16 @@ Do not overstate that coverage when extending the runtime.
 
 Manual production smoke test:
 
-1. Open **Issues** and expand **Why does this issue exist?**.
-2. Confirm the deterministic rule/evidence loads before using AI.
-3. Click **Explain this simply** once.
-4. Check the generated label, evidence agreement, caveat and next check.
-5. Confirm no issue/workflow/provider state changed.
-6. Record helpful/not-helpful feedback.
+1. Open **Issues** and click **Ask the detective** on one current case.
+2. Confirm the deterministic assessment and collapsed evidence file load.
+3. When the AI flag/key are configured, confirm that same explicit click makes
+   one generated request and adds a visibly labelled opinion.
+4. Check the opinion against the evidence, caveat and next step.
+5. On a case without an allowlisted resolution, confirm the detective admits it
+   cannot safely close the case and no mutation is offered.
+6. On a fixture/test case with an allowlisted resolution, exercise **No,
+   reconsider** and confirm the proposal freezes without changing workflow
+   state. Do not use a live payment case merely to smoke-test **Yes**.
 7. Check one success metadata event and token usage without inspecting/logging
    student context.
 8. Test at least one recorded-only or ambiguous issue and ensure uncertainty is

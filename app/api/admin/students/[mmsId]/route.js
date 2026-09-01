@@ -9,6 +9,7 @@ import {
   normaliseAuditContext,
   shouldLogPaymentIssueAction,
   shouldLogPauseWorkflowAction,
+  validateExpectedPaymentState,
   validatePaymentAuditContext,
 } from '@/lib/admin/payment-audit-helpers.mjs';
 import { normalisePaymentExpectation, normalisePaymentMode } from '@/lib/admin/payments-helpers.mjs';
@@ -127,6 +128,15 @@ export async function PATCH(request, { params }) {
 
   try {
     const previousStudent = await getAdminStudentByMmsId(mmsId);
+    if (!previousStudent) {
+      return Response.json({ error: 'Not found' }, { status: 404 });
+    }
+
+    const expectedStateError = validateExpectedPaymentState(payload, previousStudent);
+    if (expectedStateError) {
+      return Response.json({ error: expectedStateError }, { status: 409 });
+    }
+
     const student = await updateAdminStudent({
       mmsId,
       sheetsUpdates: mapUpdates(payload, SHEETS_FIELD_MAP),

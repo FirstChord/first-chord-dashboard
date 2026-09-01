@@ -18,6 +18,7 @@ import {
   getIssueStory,
   getIssueWhatToDo,
   getIssueWorkBucket,
+  getDetectiveResolution,
   summariseStripeSnapshot,
 } from '../../lib/admin/issues-client-helpers.mjs';
 
@@ -78,6 +79,36 @@ test('getPrimaryPaymentQuickAction finds the right action by payload, not label'
   assert.equal(getPrimaryPaymentQuickAction({ type: 'PAUSE EXPECTATION MISMATCH' }, actions).label, 'Confirm pause — expect payments paused');
   assert.equal(getPrimaryPaymentQuickAction({ type: 'PAUSE EXPECTATION STALE' }, actions).label, 'Expect payments active');
   assert.equal(getPrimaryPaymentQuickAction({ type: 'PAYMENT_FAILED' }, actions), null);
+});
+
+test('detective offers one-button resolution only for deterministic existing actions', () => {
+  const setActive = { label: 'Expect payments active', payload: { paymentExpectation: 'stripe_active_expected' } };
+  const stale = getDetectiveResolution({
+    status: 'open',
+    sourcePresent: true,
+    type: 'PAUSE EXPECTATION STALE',
+  }, setActive);
+  assert.equal(stale.kind, 'payment_quick_action');
+  assert.equal(stale.buttonLabel, 'Yes, solve it');
+  assert.equal(stale.action, setActive);
+
+  const sourceGone = getDetectiveResolution({
+    status: 'acknowledged',
+    sourcePresent: false,
+    type: 'PAYMENT_FAILED',
+  });
+  assert.equal(sourceGone.kind, 'resolve_source_absent');
+
+  assert.equal(getDetectiveResolution({
+    status: 'open',
+    sourcePresent: true,
+    type: 'PAYMENT_FAILED',
+  }, setActive), null);
+  assert.equal(getDetectiveResolution({
+    status: 'resolved',
+    sourcePresent: false,
+    type: 'PAYMENT_FAILED',
+  }), null);
 });
 
 test('getIssueCategoryLabel reflects the predicate buckets', () => {
