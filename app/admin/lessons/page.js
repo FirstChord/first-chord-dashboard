@@ -1,7 +1,12 @@
+import Link from 'next/link';
+
 import ScopeBadge from '@/components/admin/ui/ScopeBadge';
 import { formatDateTime } from '@/lib/admin/health-helpers.mjs';
 import { buildLessonMirrorHealth } from '@/lib/admin/lesson-mirror-parity.mjs';
-import { getLessonMirrorParityReport } from '@/lib/admin/lesson-mirror-store.mjs';
+import {
+  getLessonMirrorExceptionInvestigation,
+  getLessonMirrorParityReport,
+} from '@/lib/admin/lesson-mirror-store.mjs';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,15 +51,36 @@ function runChangeTotal(run = {}) {
 
 async function loadReport() {
   try {
-    return { report: await getLessonMirrorParityReport(), error: false };
+    const [report, investigationResult] = await Promise.all([
+      getLessonMirrorParityReport(),
+      getLessonMirrorExceptionInvestigation()
+        .then((investigation) => ({ investigation, error: false }))
+        .catch(() => ({ investigation: null, error: true })),
+    ]);
+    return {
+      report,
+      investigation: investigationResult.investigation,
+      investigationError: investigationResult.error,
+      error: false,
+    };
   } catch (error) {
     console.warn('Lesson mirror parity page unavailable', { category: error?.code || 'read_failed' });
-    return { report: null, error: true };
+    return { report: null, investigation: null, investigationError: false, error: true };
   }
 }
 
+function exceptionKindLabel(value = '') {
+  return ({
+    lesson: 'Lessons / student events',
+    availability: 'Free capacity',
+    potential: 'Potential holds',
+    break: 'Breaks',
+    other: 'Other calendar rows',
+  })[value] || value || 'Other';
+}
+
 export default async function AdminLessonsPage() {
-  const { report, error } = await loadReport();
+  const { report, investigation, investigationError, error } = await loadReport();
   if (error || !report) {
     return (
       <div className="space-y-6">
@@ -91,6 +117,9 @@ export default async function AdminLessonsPage() {
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
           First Chord’s observed copy of MMS. This page measures completeness and change; MMS still owns the timetable and attendance truth.
         </p>
+        <Link href="/admin/lessons/calendar" className="mt-3 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700">
+          Open read-only calendar
+        </Link>
       </section>
 
       <section className={`rounded-2xl border p-5 shadow-sm ${tone(health.status)}`}>
@@ -167,6 +196,99 @@ export default async function AdminLessonsPage() {
             <FieldRow label="No location" value={metrics.events_without_location} explanation="May be an online or deliberately unlocated lesson." />
           </ul>
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-xl font-semibold text-slate-900">Exception investigation</h3>
+          <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+            The broad warnings are split into lesson-shaped evidence and known non-lesson calendar rows. These counts help choose what to investigate; they never infer cancellation or repair MMS.
+          </p>
+        </div>
+        {investigationError ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            The bounded exception breakdown could not be loaded. The verified parity evidence above is unchanged.
+          </div>
+        ) : null}
+        {investigation?.source?.verified ? (
+          <>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <MetricCard
+                label="Lesson-shaped rows not re-observed"
+                value={investigation.metrics.notObservedLessons}
+                detail={`${number(investigation.metrics.notObservedEvents)} total calendar rows were not re-observed, including capacity and holds.`}
+                warning={number(investigation.metrics.notObservedLessons) > 0}
+              />
+              <MetricCard
+                label="Same-student replacements"
+                value={number(investigation.metrics.replacementSameSlot) + number(investigation.metrics.replacementChangedSlot)}
+                detail={`${number(investigation.metrics.replacementSameSlot)} at the same slot · ${number(investigation.metrics.replacementChangedSlot)} elsewhere on the same date · ${number(investigation.metrics.noSameDateReplacement)} with no same-date event.`}
+                warning={number(investigation.metrics.noSameDateReplacement) > 0}
+              />
+              <MetricCard
+                label="Tutor gaps on lessons"
+                value={investigation.metrics.lessonEventsWithoutTutor}
+                detail={`${number(investigation.metrics.nonLessonEventsWithoutTutor)} tutor gaps belong to non-lesson rows and are kept out of this headline.`}
+                warning={number(investigation.metrics.lessonEventsWithoutTutor) > 0}
+              />
+              <MetricCard
+                label="Current availability-label conflicts"
+                value={investigation.metrics.availabilityLabelsWithStudents}
+                detail={`${number(investigation.metrics.availabilityLabelsWithRetainedStudents)} current Free/Potential rows retain only an older student link; the calendar does not show that student as current.`}
+                warning={number(investigation.metrics.availabilityLabelsWithStudents) > 0}
+              />
+              <MetricCard
+                label="Late attendance changes"
+                value={investigation.metrics.attendanceChangesDays8To14}
+                detail={investigation.metrics.latestAttendanceChangeDays === null
+                  ? 'No non-future attendance change lag was observed in the last 30 days.'
+                  : `Changes observed 8–14 days after the lesson; latest observed lag ${number(investigation.metrics.latestAttendanceChangeDays)} days.`}
+                warning={number(investigation.metrics.attendanceChangesDays8To14) > 0}
+              />
+              <MetricCard
+                label="Rows without MMS status"
+                value={investigation.metrics.eventsWithoutSourceStatus}
+                detail="Current rows where MMS supplied no event status, so disappearance cannot be re-labelled as cancellation."
+                warning={number(investigation.metrics.eventsWithoutSourceStatus) > 0}
+              />
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
+              <div className="p-5">
+                <h4 className="text-base font-semibold text-slate-900">Current versus not re-observed</h4>
+                <p className="mt-1 text-sm text-slate-600">Rows are classified by their student participation and MMS category, without exposing student or provider identifiers.</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 text-left text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-5 py-3 font-medium">Evidence type</th>
+                      <th className="px-5 py-3 font-medium">Current</th>
+                      <th className="px-5 py-3 font-medium">Not re-observed</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {['lesson', 'availability', 'potential', 'break', 'other'].map((kind) => {
+                      const current = investigation.groups.find((group) => group.observation === 'current' && group.eventKind === kind);
+                      const notObserved = investigation.groups.find((group) => group.observation === 'not_observed' && group.eventKind === kind);
+                      return (
+                        <tr key={kind}>
+                          <td className="px-5 py-3 font-medium text-slate-900">{exceptionKindLabel(kind)}</td>
+                          <td className="px-5 py-3 text-slate-700">{number(current?.eventCount)}</td>
+                          <td className="px-5 py-3 text-slate-700">{number(notObserved?.eventCount)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        ) : !investigationError ? (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Exception classification waits for a fresh successful mirror run; an older snapshot is not substituted.
+          </div>
+        ) : null}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr]">

@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 
 import {
   assessLessonMirrorStatus,
+  getLessonMirrorCalendarObservations,
+  getLessonMirrorExceptionInvestigation,
   getLessonOccurrenceObservations,
   getLessonMirrorParityReport,
   getLessonMirrorStatus,
@@ -309,6 +311,181 @@ test('lesson occurrence reads hide an older successful snapshot after a newer fa
   assert.equal(read.source.lastVerifiedAt, '2026-08-30T05:48:00.000Z');
   assert.deepEqual(read.observations, []);
   assert.equal(observationQueryRan, false);
+});
+
+test('lesson calendar reads only current verified calendar observations and keeps provider aliases adapter-only', async () => {
+  const calls = [];
+  const run = {
+    sync_run_id: '00000000-0000-4000-8000-000000000051',
+    status: 'succeeded',
+    window_start: '2026-08-19',
+    window_end_exclusive: '2026-10-15',
+    started_at: '2026-09-02T05:45:00Z',
+    completed_at: '2026-09-02T05:48:00Z',
+  };
+  const database = {
+    async query(sql, params = []) {
+      const text = `${sql}`;
+      calls.push({ text, params });
+      if (text.includes("WHERE latest.status = 'succeeded'")) return { rows: [run] };
+      if (text.includes('FROM fc_lesson_sync_runs latest')) return { rows: [run] };
+      if (text.includes('JSONB_AGG')) {
+        return { rows: [{
+          fc_event_id: 'fc_lev_1',
+          fc_series_id: 'fc_lsr_1',
+          local_date: '2026-09-03',
+          local_time: '16:00:00',
+          duration_minutes: 30,
+          tutor_external_id: 'tch_1',
+          original_tutor_external_id: 'tch_2',
+          location_name: 'Room 1',
+          category_name: 'Lesson',
+          event_observed_at: '2026-09-02T05:48:00Z',
+          mirror_observed_at: '2026-09-02T05:48:00Z',
+          participations: [{
+            fcParticipationId: 'fc_lpt_1',
+            studentExternalId: 'sdt_1',
+            rawAttendanceStatus: 'Unrecorded',
+          }],
+        }] };
+      }
+      throw new Error('unexpected calendar query');
+    },
+  };
+
+  const read = await getLessonMirrorCalendarObservations({
+    startDate: '2026-08-31',
+    endDateExclusive: '2026-09-07',
+    limit: 100,
+    database,
+    now: new Date('2026-09-02T12:00:00Z'),
+  });
+
+  assert.equal(read.source.verified, true);
+  assert.equal(read.observations[0].fcEventId, 'fc_lev_1');
+  assert.equal(read.observations[0].participations[0].studentExternalId, 'sdt_1');
+  const calendarQuery = calls.find((call) => call.text.includes('JSONB_AGG'));
+  assert.deepEqual(calendarQuery.params, [run.sync_run_id, '2026-08-31', '2026-09-07', 101]);
+  assert.match(calendarQuery.text, /event\.last_observed_at >= run\.started_at/u);
+  assert.match(calendarQuery.text, /participation\.last_observed_at >= run\.started_at/u);
+  assert.match(calendarQuery.text, /event\.calendar_observed = TRUE/u);
+  assert.doesNotMatch(calendarQuery.text, /student_name|student_full_name|parent|email|phone/u);
+});
+
+test('lesson calendar rejects unbounded windows and hides observations after a newer failed run', async () => {
+  const staleRun = {
+    sync_run_id: '00000000-0000-4000-8000-000000000052',
+    status: 'succeeded',
+    window_start: '2026-08-19',
+    window_end_exclusive: '2026-10-15',
+    started_at: '2026-09-02T05:45:00Z',
+    completed_at: '2026-09-02T05:48:00Z',
+  };
+  let calendarQueryRan = false;
+  const database = {
+    async query(sql) {
+      const text = `${sql}`;
+      if (text.includes("WHERE latest.status = 'succeeded'")) return { rows: [staleRun] };
+      if (text.includes('FROM fc_lesson_sync_runs latest')) {
+        return { rows: [{
+          sync_run_id: '00000000-0000-4000-8000-000000000053',
+          status: 'failed',
+          failure_code: 'provider_read_failed',
+          started_at: '2026-09-02T06:45:00Z',
+          completed_at: '2026-09-02T06:48:00Z',
+        }] };
+      }
+      if (text.includes('JSONB_AGG')) calendarQueryRan = true;
+      throw new Error('unexpected calendar query');
+    },
+  };
+  const read = await getLessonMirrorCalendarObservations({
+    startDate: '2026-08-31',
+    endDateExclusive: '2026-09-07',
+    database,
+    now: new Date('2026-09-02T12:00:00Z'),
+  });
+  assert.equal(read.source.verified, false);
+  assert.deepEqual(read.observations, []);
+  assert.equal(calendarQueryRan, false);
+
+  await assert.rejects(
+    getLessonMirrorCalendarObservations({
+      startDate: '2026-08-01',
+      endDateExclusive: '2026-10-01',
+      database: { async query() { throw new Error('must not query'); } },
+    }),
+    /between 1 and 31 days/u,
+  );
+});
+
+test('exception investigation classifies non-lessons, replacements, tutor gaps, and late attendance without exposing identities', async () => {
+  const calls = [];
+  const run = {
+    sync_run_id: '00000000-0000-4000-8000-000000000061',
+    status: 'succeeded',
+    window_start: '2026-08-19',
+    window_end_exclusive: '2026-10-15',
+    started_at: '2026-09-02T05:45:00Z',
+    completed_at: '2026-09-02T05:48:00Z',
+  };
+  const database = {
+    async query(sql, params = []) {
+      const text = `${sql}`;
+      calls.push({ text, params });
+      if (text.includes("WHERE latest.status = 'succeeded'")) return { rows: [run] };
+      if (text.includes('FROM fc_lesson_sync_runs latest')) return { rows: [run] };
+      if (text.includes('replacement_shape AS')) {
+        return { rows: [{
+          groups: [
+            { observation: 'current', eventKind: 'lesson', eventCount: 100 },
+            { observation: 'not_observed', eventKind: 'availability', eventCount: 20 },
+          ],
+          not_observed_events: 30,
+          not_observed_lessons: 10,
+          replacement_same_slot: 2,
+          replacement_changed_slot: 1,
+          no_same_date_replacement: 7,
+          lesson_events_without_tutor: 0,
+          non_lesson_events_without_tutor: 12,
+          availability_labels_with_students: 3,
+          availability_labels_with_retained_students: 5,
+          events_without_source_status: 130,
+          attendance_changes_days_8_to_14: 4,
+          latest_attendance_change_days: 13,
+        }] };
+      }
+      throw new Error('unexpected exception query');
+    },
+  };
+
+  const investigation = await getLessonMirrorExceptionInvestigation({
+    database,
+    now: new Date('2026-09-02T12:00:00Z'),
+  });
+
+  assert.equal(investigation.source.verified, true);
+  assert.equal(investigation.groups[0].eventCount, 100);
+  assert.deepEqual(investigation.metrics, {
+    notObservedEvents: 30,
+    notObservedLessons: 10,
+    replacementSameSlot: 2,
+    replacementChangedSlot: 1,
+    noSameDateReplacement: 7,
+    lessonEventsWithoutTutor: 0,
+    nonLessonEventsWithoutTutor: 12,
+    availabilityLabelsWithStudents: 3,
+    availabilityLabelsWithRetainedStudents: 5,
+    eventsWithoutSourceStatus: 130,
+    attendanceChangesDays8To14: 4,
+    latestAttendanceChangeDays: 13,
+  });
+  const exceptionQuery = calls.find((call) => call.text.includes('replacement_shape AS'));
+  assert.deepEqual(exceptionQuery.params, [run.sync_run_id]);
+  assert.match(exceptionQuery.text, /current_participant_count/u);
+  assert.match(exceptionQuery.text, /stored_participant_count/u);
+  assert.match(exceptionQuery.text, /latest\.started_at - INTERVAL '30 days'/u);
+  assert.doesNotMatch(exceptionQuery.text, /student_name|student_full_name|parent|email|phone/u);
 });
 
 test('parity report exposes bounded counts, revisions, raw statuses, and non-observation uncertainty', async () => {

@@ -38,6 +38,6 @@ test('workflow directory replaces internal or ambiguous labels', () => {
 
   assert.ok(labels.includes('Parent Check-ins'));
   assert.ok(labels.includes('Tutor Changes'));
-  assert.ok(labels.includes('Lesson Data Checks'));
+  assert.ok(labels.includes('Lesson Calendar & Data Checks'));
   assert.ok(!labels.includes('Lesson Parity'));
 });

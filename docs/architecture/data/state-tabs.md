@@ -1,11 +1,11 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-01
+last_verified: 2026-09-02
 ---
 # State Tabs Schema
 
-Last updated: 2026-08-10
+Last updated: 2026-09-02
 
 This note is the canonical map for dashboard-owned state lanes. It documents the Google Sheets tabs that store workflow state, cache snapshots, append-only logs, or derived context. It is intentionally about dashboard state, not the main `Students` operational sheet.
 
@@ -289,12 +289,16 @@ The PostgreSQL lesson mirror is the other explicit exception. One advisory-locke
 transaction upserts a provider-complete series/event/participation snapshot and
 its changed-state revisions, then marks the sync successful. A secret-gated daily
 job reads 14 London calendar days back through 42 days ahead, and the authenticated
-`/admin/lessons` page reads aggregate parity evidence. Tutor Changes also reads a
-bounded, fail-open lesson timeline from rows re-seen by the latest successful run,
-but assignment and `Schedule_Context` still own relationship phase and no
-operational workflow depends on the mirror. It has no MMS writer. Incomplete or
-failed runs never replace the last verified snapshot or infer missing/cancelled
-lessons; retry the bounded read instead.
+`/admin/lessons` page reads aggregate parity and exception evidence. Its weekly
+`/admin/lessons/calendar` child renders only calendar events and participations
+re-seen by that same latest fresh verified run; Students and tutor aliases are
+resolved server-side and removed before the view model is rendered. Older
+retained participation history can inform the aggregate investigation but never
+puts a student onto a current Free card. Tutor Changes also reads a bounded,
+fail-open lesson timeline, but assignment and `Schedule_Context` still own
+relationship phase and no operational workflow depends on the mirror. It has no
+MMS writer. Incomplete or failed runs never replace the last verified snapshot
+or infer missing/cancelled lessons; retry the bounded read instead.
 
 Use append-only tabs for history (`Event_Log`, `Planning_Progress_Log`, archives). Use keyed upserts for current workflow state.
 

@@ -1,7 +1,7 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-08-30
+last_verified: 2026-09-02
 ---
 # First Chord Lesson Ledger and MMS Exit Path
 
@@ -121,6 +121,33 @@ The overlapping observation added 825 events, 812 participations and two changed
 participation revisions. The separate Practice Chat claim table remained at 111
 completed claims with none active.
 
+#### Read-only calendar and exception investigation (2026-09-02)
+
+`/admin/lessons/calendar` is the first calendar-shaped First Chord surface. It is
+an authenticated weekly view, not a new schedule owner: it renders only calendar
+events re-seen by the latest fresh, successful and exactly-counted mirror run.
+A newer failed run, stale mirror or week outside the verified window produces no
+calendar fallback. Student and tutor provider aliases are used only inside the
+server composition layer to join the current Students row and canonical tutor
+roster; the rendered view model contains names plus stable First Chord IDs and
+never exposes those aliases. An unmatched participation stays visibly unmatched.
+
+The calendar defaults to student-bearing lessons and can filter by tutor or show
+Free capacity, Potential holds, breaks and other rows. A `Free` or `Potential`
+event counts as a lesson only when its participation was re-observed in the same
+verified run. Older retained participation history never puts a student onto a
+currently free calendar card.
+
+`/admin/lessons` now turns its broad parity warnings into a bounded aggregate
+investigation. It separates lesson-shaped rows from availability/hold/break
+rows, splits genuine lesson tutor gaps from expected placeholder gaps, compares
+not-re-observed lessons with same-student replacements, measures late attendance
+changes within the existing overlap, and reports availability labels that retain
+only older student links. The SQL uses provider references only for aggregate
+matching and returns no student names or provider IDs. Disappearance is still
+not cancellation; these counts identify the next evidence to inspect rather
+than resolving it.
+
 ### Phase 3 — Attach Existing Systems to First Chord IDs
 
 Gradually make payroll, tutor cover, WhatsApp context, Practice Chat, student
@@ -229,8 +256,9 @@ event lacking a calendar observation. Names and free text were not emitted by
 the operator commands.
 
 Phase 2 schedules the bounded read and exposes aggregate evidence at
-`/admin/lessons`. Two Phase 3 shadow consumers now read the verified mirror: the
-Tutor Changes lesson timeline and first-lesson Planning context. MMS remains
+`/admin/lessons` plus an authenticated weekly parity calendar at
+`/admin/lessons/calendar`. Two Phase 3 shadow consumers read the verified mirror:
+the Tutor Changes lesson timeline and first-lesson Planning context. MMS remains
 schedule and attendance truth, and no MMS write is performed. This is a
 provider-neutral read-model adoption, not a scheduling-authority cutover.
 
