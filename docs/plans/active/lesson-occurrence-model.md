@@ -148,6 +148,21 @@ matching and returns no student names or provider IDs. Disappearance is still
 not cancellation; these counts identify the next evidence to inspect rather
 than resolving it.
 
+The follow-on `/admin/lessons/exceptions` drill-down keeps that boundary while
+making the 74 lesson-shaped non-observations inspectable. It resolves current
+Students/tutor names on the server, shows up to eight current same-student events
+within seven days, and counts current events sharing the stable First Chord
+series. It is capped at 250 rows and returns nothing after a newer failed or
+stale sweep. Provider aliases never enter the view model, and the screen has no
+classification or mutation control.
+
+The first live detail read split the 74 rows into zero same-slot candidates,
+five same-day candidates, 14 with only nearby context and 55 with no same-student
+event within seven days. Twelve have current events in the same First Chord
+series; 33 historical participations no longer map to a current Students row.
+All 74 lack an MMS event status. These findings narrow the evidence questions,
+but none proves cancellation or authorises an identity merge.
+
 ### Phase 3 — Attach Existing Systems to First Chord IDs
 
 Gradually make payroll, tutor cover, WhatsApp context, Practice Chat, student

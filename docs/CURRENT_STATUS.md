@@ -30,7 +30,7 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
-- **The lesson mirror now has a real read-only calendar and an exception lens —
+- **The lesson mirror now has a real read-only calendar and a detailed exception lens —
   DEPLOYED 2026-09-02:** `/admin/lessons/calendar` renders one authenticated week
   from events re-seen in the latest fresh, exactly-counted MMS sweep. It defaults
   to student-bearing lessons, filters by tutor/type, resolves names on the server
@@ -38,12 +38,20 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   out-of-window evidence produces no fallback calendar. The parity page now
   separates lessons from Free/Potential/Break rows, splits real lesson tutor gaps
   from placeholder gaps, compares non-observations with same-student replacements,
-  and measures retained historical links and late attendance changes. The first
+  and measures retained historical links and late attendance changes.
+  `/admin/lessons/exceptions` then opens the lesson-shaped rows as a bounded,
+  authenticated evidence list: current-roster names are resolved server-side,
+  nearby same-student events and continuing-series evidence are shown, and MMS
+  aliases are removed before rendering. The first
   live classification found 1,557 current lesson events, 198 Free rows, 72
   Potential holds, eight breaks, zero current lesson tutor gaps and 74
-  lesson-shaped rows not re-observed; 30 current Free rows retain only older
-  student links, so they stay free in the calendar. None of those counts means
-  cancelled and the surface performs no MMS or workflow write.
+  lesson-shaped rows not re-observed. Those 74 currently split into zero same-slot
+  candidates, five elsewhere that day, 14 with only a same-student event within
+  seven days, and 55 with no nearby event; 12 have current events in the same
+  First Chord series, while 33 no longer match a current Students row. Thirty
+  current Free rows retain only older student links, so they stay free in the
+  calendar. None of those counts means cancelled and the surfaces perform no MMS
+  or workflow write.
 - **Issues now open as detective case files with a bounded one-button resolution
   — DEPLOYED 2026-09-01:** **Ask the detective** always loads the checked,
   redacted rule and evidence; when the existing AI flag/key are configured, that
@@ -157,7 +165,7 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
 | Pauses | Generic completion never changes payment state. The guarded pause-completion action requires human confirmation, writes through the existing student route, and logs to `Event_Log`. For new guided tutor-absence cancellations, an undated paused-expected flag cannot suppress the dated structured pause card or unlock its final message; only an explicit per-lesson payment-not-needed decision takes the message-only path. |
 | Messaging | Parent communication remains approval-first. `Communication_Log` means copied to send, not proven sent; inbound classifications and reply drafts remain proposals. |
 | Practice Chat | All registered tutors are enabled unless temporarily constrained. The tutor self-attests, the student must have one clear tutor assignment, the final screen names the server-derived recipient, and PostgreSQL claims the delivery key before MMS/Gmail work. Ambiguous Gmail outcomes require manual follow-up. |
-| Lesson mirror | Neon PostgreSQL holds rebuildable MMS observations and stable First Chord series/event/participation IDs. A daily bounded read populates the mirror; `/admin/lessons` exposes aggregate parity/exception evidence and `/admin/lessons/calendar` renders the latest verified week. Tutor Changes and first-lesson Planning consume the mirror as fail-open shadow context, but no operational workflow depends or acts on it. MMS remains schedule and attendance truth, and absence from a sweep never proves cancellation. |
+| Lesson mirror | Neon PostgreSQL holds rebuildable MMS observations and stable First Chord series/event/participation IDs. A daily bounded read populates the mirror; `/admin/lessons` exposes aggregate parity/exception evidence, `/admin/lessons/exceptions` gives a bounded human-readable drill-down, and `/admin/lessons/calendar` renders the latest verified week. Tutor Changes and first-lesson Planning consume the mirror as fail-open shadow context, but no operational workflow depends or acts on it. MMS remains schedule and attendance truth, and absence from a sweep never proves cancellation. |
 | Student portal notes | Profile URLs and non-note resources stay public. Practice Chat notes load through a separate no-store API; families are moved individually to memorable-code protection through the claimed admin rollout queue. A missing rollout row remains legacy-public, while an access-state failure fails closed. The memorable code is a light privacy guard proportionate to what it protects — a child's practice notes — not a defence against a determined attacker, and it is not sized to become one. |
 | Finance | Sheets holds operating estimates/review state; Stripe and Wise remain provider truth. Payroll preparation does not execute Wise payment. |
 | Public tutor surfaces | Low-friction tutor identity is not durable authentication. Do not add broader sensitive reads or consequential writes before tutor auth. |

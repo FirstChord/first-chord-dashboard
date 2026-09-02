@@ -215,6 +215,8 @@ window: 14 days back, today, and 42 days ahead. It reads MMS calendar and
 attendance sequentially, verifies both reported totals, then writes only the
 First Chord PostgreSQL mirror in one transaction. `/admin/lessons` is the
 authenticated read-only evidence and exception surface;
+`/admin/lessons/exceptions` expands lesson-shaped non-observations into bounded
+same-student and same-series clues without making a cancellation decision;
 `/admin/lessons/calendar` shows a weekly, MMS-backed view of rows re-seen in the
 latest verified run. `/admin` separately reports mirror freshness and workflow
 health. Tutor Changes optionally reads the latest verified
@@ -274,8 +276,8 @@ node scripts/sync-lesson-mirror.mjs --start YYYY-MM-DD --end-exclusive YYYY-MM-D
 node scripts/lesson-mirror-status.mjs
 ```
 
-Then inspect `/admin/lessons` and the current week on
-`/admin/lessons/calendar`. Expected and received totals must match. A failed
+Then inspect `/admin/lessons`, `/admin/lessons/exceptions`, and the current week
+on `/admin/lessons/calendar`. Expected and received totals must match. A failed
 attempt is visible in health/history but cannot replace the last successful
 snapshot; a previously seen row absent from a successful sweep is “not observed”
 evidence, not a cancellation.

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   assessLessonMirrorStatus,
   getLessonMirrorCalendarObservations,
+  getLessonMirrorExceptionDetails,
   getLessonMirrorExceptionInvestigation,
   getLessonOccurrenceObservations,
   getLessonMirrorParityReport,
@@ -486,6 +487,124 @@ test('exception investigation classifies non-lessons, replacements, tutor gaps, 
   assert.match(exceptionQuery.text, /stored_participant_count/u);
   assert.match(exceptionQuery.text, /latest\.started_at - INTERVAL '30 days'/u);
   assert.doesNotMatch(exceptionQuery.text, /student_name|student_full_name|parent|email|phone/u);
+});
+
+test('exception detail returns bounded stale lessons with nearby candidates and adapter-only aliases', async () => {
+  const calls = [];
+  const run = {
+    sync_run_id: '00000000-0000-4000-8000-000000000071',
+    status: 'succeeded',
+    window_start: '2026-08-19',
+    window_end_exclusive: '2026-10-15',
+    started_at: '2026-09-02T05:45:00Z',
+    completed_at: '2026-09-02T05:48:00Z',
+  };
+  const database = {
+    async query(sql, params = []) {
+      const text = `${sql}`;
+      calls.push({ text, params });
+      if (text.includes("WHERE latest.status = 'succeeded'")) return { rows: [run] };
+      if (text.includes('FROM fc_lesson_sync_runs latest')) return { rows: [run] };
+      if (text.includes('bounded_stale_lessons AS')) {
+        return { rows: [{
+          fc_event_id: 'fc_lev_old',
+          fc_series_id: 'fc_lsr_1',
+          local_date: '2026-09-01',
+          local_time: '16:00:00',
+          duration_minutes: 30,
+          tutor_external_id: 'tch_1',
+          original_tutor_external_id: '',
+          location_name: 'Room 1',
+          category_name: 'Lesson',
+          source_status: '',
+          source_recurring: true,
+          first_observed_at: '2026-08-20T05:48:00Z',
+          last_observed_at: '2026-09-01T05:48:00Z',
+          total_count: 74,
+          current_same_series_count: 3,
+          participations: [{
+            fcParticipationId: 'fc_lpt_old',
+            studentExternalId: 'sdt_1',
+            rawAttendanceStatus: 'Unrecorded',
+            lastObservedAt: '2026-09-01T05:48:00Z',
+          }],
+          nearby_candidates: [{
+            fcEventId: 'fc_lev_new',
+            fcSeriesId: 'fc_lsr_1',
+            localDate: '2026-09-01',
+            localTime: '17:00:00',
+            durationMinutes: 30,
+            tutorExternalId: 'tch_1',
+            categoryName: 'Lesson',
+            daysOffset: 0,
+            sameSeries: true,
+            sameSlot: false,
+            matchedStudentExternalIds: ['sdt_1'],
+          }],
+        }] };
+      }
+      throw new Error('unexpected exception-detail query');
+    },
+  };
+
+  const result = await getLessonMirrorExceptionDetails({
+    database,
+    limit: 100,
+    now: new Date('2026-09-02T12:00:00Z'),
+  });
+
+  assert.equal(result.source.verified, true);
+  assert.equal(result.totalCount, 74);
+  assert.equal(result.details[0].tutorExternalId, 'tch_1');
+  assert.equal(result.details[0].nearbyCandidates[0].matchedStudentExternalIds[0], 'sdt_1');
+  const detailQuery = calls.find((call) => call.text.includes('bounded_stale_lessons AS'));
+  assert.deepEqual(detailQuery.params, [run.sync_run_id, 100]);
+  assert.match(detailQuery.text, /event\.last_observed_at < latest\.started_at/u);
+  assert.match(detailQuery.text, /current_participation\.last_observed_at >= latest\.started_at/u);
+  assert.match(detailQuery.text, /current_event\.local_date BETWEEN stale\.local_date - 7 AND stale\.local_date \+ 7/u);
+  assert.doesNotMatch(detailQuery.text, /student_name|student_full_name|parent|email|phone/u);
+});
+
+test('exception detail fails closed after a newer failed run and validates its cap', async () => {
+  const successfulRun = {
+    sync_run_id: '00000000-0000-4000-8000-000000000072',
+    status: 'succeeded',
+    window_start: '2026-08-19',
+    window_end_exclusive: '2026-10-15',
+    started_at: '2026-09-02T05:45:00Z',
+    completed_at: '2026-09-02T05:48:00Z',
+  };
+  let detailQueryRan = false;
+  const database = {
+    async query(sql) {
+      const text = `${sql}`;
+      if (text.includes("WHERE latest.status = 'succeeded'")) return { rows: [successfulRun] };
+      if (text.includes('FROM fc_lesson_sync_runs latest')) return { rows: [{
+        sync_run_id: '00000000-0000-4000-8000-000000000073',
+        status: 'failed',
+        failure_code: 'provider_read_failed',
+        started_at: '2026-09-02T06:45:00Z',
+        completed_at: '2026-09-02T06:48:00Z',
+      }] };
+      if (text.includes('bounded_stale_lessons AS')) detailQueryRan = true;
+      throw new Error('unexpected detail query');
+    },
+  };
+  const result = await getLessonMirrorExceptionDetails({
+    database,
+    now: new Date('2026-09-02T12:00:00Z'),
+  });
+  assert.equal(result.source.verified, false);
+  assert.deepEqual(result.details, []);
+  assert.equal(detailQueryRan, false);
+
+  await assert.rejects(
+    getLessonMirrorExceptionDetails({
+      limit: 501,
+      database: { async query() { throw new Error('must not query'); } },
+    }),
+    /between 1 and 500/u,
+  );
 });
 
 test('parity report exposes bounded counts, revisions, raw statuses, and non-observation uncertainty', async () => {

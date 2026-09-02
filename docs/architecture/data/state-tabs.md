@@ -289,11 +289,14 @@ The PostgreSQL lesson mirror is the other explicit exception. One advisory-locke
 transaction upserts a provider-complete series/event/participation snapshot and
 its changed-state revisions, then marks the sync successful. A secret-gated daily
 job reads 14 London calendar days back through 42 days ahead, and the authenticated
-`/admin/lessons` page reads aggregate parity and exception evidence. Its weekly
+`/admin/lessons` page reads aggregate parity and exception evidence. Its bounded
+`/admin/lessons/exceptions` child shows lesson-shaped non-observations with
+same-student current events within seven days and current same-series counts;
+these are clues only, never cancellation or replacement decisions. Its weekly
 `/admin/lessons/calendar` child renders only calendar events and participations
 re-seen by that same latest fresh verified run; Students and tutor aliases are
-resolved server-side and removed before the view model is rendered. Older
-retained participation history can inform the aggregate investigation but never
+resolved server-side and removed before either view model is rendered. Older
+retained participation history can inform the investigations but never
 puts a student onto a current Free card. Tutor Changes also reads a bounded,
 fail-open lesson timeline, but assignment and `Schedule_Context` still own
 relationship phase and no operational workflow depends on the mirror. It has no

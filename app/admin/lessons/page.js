@@ -253,6 +253,15 @@ export default async function AdminLessonsPage() {
               />
             </div>
 
+            {number(investigation.metrics.notObservedLessons) > 0 ? (
+              <Link
+                href="/admin/lessons/exceptions"
+                className="inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-900 focus:ring-offset-2"
+              >
+                Review {number(investigation.metrics.notObservedLessons)} lesson exceptions
+              </Link>
+            ) : null}
+
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/90 shadow-sm">
               <div className="p-5">
                 <h4 className="text-base font-semibold text-slate-900">Current versus not re-observed</h4>
