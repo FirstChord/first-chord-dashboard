@@ -9,6 +9,7 @@ import {
   soundsliceUrlFor,
   songMatchesInstrument,
   getSongsForInstrument,
+  syllabusLabelForSong,
   validateCatalogue,
   findNameLeaks,
 } from '../../lib/songs/catalogue-helpers.mjs';
@@ -44,6 +45,48 @@ test('soundslice URLs are derived from scorehash only', () => {
   );
   assert.equal(soundsliceUrlFor({}), null);
   assert.equal(soundsliceUrlFor(null), null);
+});
+
+test('syllabus filing tags become plain shelf labels', () => {
+  assert.equal(syllabusLabelForSong({ tags: ['2026 syllabus'] }), 'RSL 2026 syllabus');
+  assert.equal(syllabusLabelForSong({ tags: ['RSL 2018 book'] }), 'RSL 2018 book');
+  assert.equal(syllabusLabelForSong({ tags: ['RSL legacy book'] }), 'RSL legacy book');
+  assert.equal(syllabusLabelForSong({ tags: ['exam piece'] }), null);
+  assert.equal(syllabusLabelForSong(null), null);
+});
+
+test('RSL Acoustic 2026 intake is complete for every populated Soundslice list', () => {
+  const songs = Object.entries(SONGS_CATALOGUE)
+    .filter(([songId]) => songId.startsWith('fc_song_ac26_'))
+    .map(([, song]) => song);
+
+  assert.equal(songs.length, 25);
+  assert.ok(songs.every((song) => song.instruments.length === 1 && song.instruments[0] === 'Guitar'));
+  assert.ok(songs.every((song) => song.contentType === 'song'));
+  assert.ok(songs.every((song) => song.tags.includes('2026 syllabus')));
+
+  const countsByList = Object.groupBy(songs, (song) => song.soundslice.sourceListId);
+  assert.deepEqual(
+    Object.fromEntries(Object.entries(countsByList).map(([listId, rows]) => [listId, rows.length])),
+    { CZZG7: 9, '5ZZG7': 9, LZZG7: 4, '3JZG7': 2, '-BwG7': 1 }
+  );
+
+  const populatedLevels = new Set(songs.map((song) => song.level));
+  const olderAcousticSongs = Object.entries(SONGS_CATALOGUE)
+    .filter(([songId, song]) =>
+      !songId.startsWith('fc_song_ac26_') &&
+      song.contentType === 'song' &&
+      song.instruments.length === 1 &&
+      song.instruments[0] === 'Guitar' &&
+      populatedLevels.has(song.level)
+    )
+    .map(([, song]) => song);
+  assert.ok(
+    olderAcousticSongs.every((song) =>
+      song.tags.includes('RSL legacy book') || song.tags.includes('RSL 2018 book')
+    ),
+    'older acoustic songs sharing a shelf with 2026 pieces must identify their book'
+  );
 });
 
 test('instrument matching handles combo instrument strings', () => {
@@ -171,20 +214,25 @@ test("artist 'RSL' is only used where RSL really is the artist", () => {
   // Originals. Anything else carrying 'RSL' has not been checked.
   const VERIFIED_RSL_ORIGINALS = new Set([
     // Piano (Rock School 2025)
-    'Home To Philadelphia', 'Vanishing Footprints', 'Short Fuse', 'Midnight Song',
-    'Step By Step', 'Circus Waltz', 'Ignite',
-    'Le Noche En Havana', 'Cinnamon Roll', 'Elevator Shoes',
-    'Get Going', 'Contemplation', 'Camden Square',
+    'Piano:Home To Philadelphia', 'Piano:Vanishing Footprints', 'Piano:Short Fuse',
+    'Piano:Midnight Song', 'Piano:Step By Step', 'Piano:Circus Waltz', 'Piano:Ignite',
+    'Piano:Le Noche En Havana', 'Piano:Cinnamon Roll', 'Piano:Elevator Shoes',
+    'Piano:Get Going', 'Piano:Contemplation', 'Piano:Camden Square',
     // Bass
-    'Noisy Neighbour', 'Do Balanco', 'Slam Dunk Funk',
+    'Bass:Noisy Neighbour', 'Bass:Do Balanco', 'Bass:Slam Dunk Funk',
     // Electric guitar
-    'Route 66', 'Cashville', 'Helicopter', 'Headline Act', "Just Don't Know", 'Overrated',
+    'Electric Guitar:Route 66', 'Electric Guitar:Cashville', 'Electric Guitar:Helicopter',
+    'Electric Guitar:Headline Act', "Electric Guitar:Just Don't Know", 'Electric Guitar:Overrated',
+    // Acoustic guitar (RSL 2026 syllabus) — verified against the per-grade
+    // rslawards.com product pages, which group Originals separately from covers.
+    'Guitar:Route 66', 'Guitar:Runaway Road', 'Guitar:Pocket Change',
+    'Guitar:Call Across the Mountain', 'Guitar:Ignite', 'Guitar:Toledo Sun',
   ]);
 
   const unverified = Object.values(SONGS_CATALOGUE)
     .filter((song) => song.artist === 'RSL' && song.contentType === 'song')
-    .map((song) => song.title)
-    .filter((title) => !VERIFIED_RSL_ORIGINALS.has(title));
+    .flatMap((song) => song.instruments.map((instrument) => `${instrument}:${song.title}`))
+    .filter((key) => !VERIFIED_RSL_ORIGINALS.has(key));
 
   assert.deepEqual(
     unverified,

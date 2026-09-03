@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ---
 # Admin current status
 
@@ -30,6 +30,15 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **The available RSL Acoustic 2026 repertoire is on the Song Shelf — DEPLOYED
+  2026-09-03:** 25 playable slices were added: complete Debut and Grade 1 books,
+  four Grade 3 pieces, two Grade 4 pieces and one Grade 5 piece. Grade 2's 2026
+  Soundslice list is still empty. Every new slice has its secret link enabled,
+  passes anonymous playback verification and has a MusicXML cold-storage backup.
+  Existing and 2026 pieces deliberately share grade shelves; plain text under
+  the artist identifies `RSL 2026 syllabus`, `RSL legacy book`, or `RSL 2018 book`
+  without another badge. The available 2026 arrangements have no same-instrument
+  catalogue collision, so the first intake did not duplicate an acoustic work.
 - **The lesson mirror now has a real read-only calendar and a detailed exception lens —
   DEPLOYED 2026-09-02:** `/admin/lessons/calendar` renders one authenticated week
   from events re-seen in the latest fresh, exactly-counted MMS sweep. It defaults
@@ -136,23 +145,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   `Name - WGCS` WhatsApp group label is also gone, along with the `wgcs` key in
   the onboarding response (now `messages`) — the welcome message and Soundslice
   follow-up are unchanged.
-- **A preselected Free slot can now start a student weeks later — DEPLOYED
-  2026-08-18 (`44ac3bf`):** the Waiting slot buttons pin one *occurrence* of a weekly
-  Free event, and the capacity summary always collapses a slot to its soonest
-  one, so choosing any start date past the next free week failed the exact
-  date-equality guard and blocked the entire onboarding before its first write.
-  A first lesson may now sit any whole number of weeks after the pinned
-  occurrence, capped at 12. Two decisions keep that safe. The bumped week is
-  confirmed against a live per-day MMS calendar search before anything is
-  written, so a bump can never book over a slot taken since the suggestions were
-  refreshed. And removal still deletes from the **pinned** occurrence forward,
-  deliberately taking the free weeks before the start date with it: a weekly Free
-  slot with a couple of occurrences left still advertises itself to the capacity
-  matcher as a full weekly slot, and would be offered to a second student who
-  collides with this one within a month. A different weekday or an earlier date
-  is still refused, and the form now bumps in whole weeks and offers onboarding
-  without the slot, rather than leaving a free-text date to drift out of
-  alignment and dead-end the run.
 ## Current operating contracts
 
 | Area | Current boundary |
@@ -281,13 +273,13 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
 - **Cover test cleanup:** before 22 July, check MMS event `evt_zsGLw6J0` at
   14:00 and restore Tom unless Dean is genuinely covering. This is a manual MMS
   check; automation remains parked in [the cover note](./plans/parked/cover-loop.md).
-- **Song placements, before the RSL 2026 songs are added.** A level is a property
-  of a (song, framework) pair, not of a song: today a song has one `level` and
-  one `series`, so a piece that sits at Grade 3 in the 2019 syllabus and Grade 4
-  in the 2026 one cannot be expressed without duplicating its ID and splitting
-  its accumulated history. Deciding the schema before the new songs go in is a
-  schema choice; after, it is a migration of live data. Phased plan, invariants
-  and open decisions in [song placements](./plans/active/song-placements.md).
+- **Song placements, before an overlapping RSL 2026 work is added.** The first
+  2026 intake had no same-instrument work collision, so visible year tags were a
+  safe interim choice. A level is still a property of a (song, framework) pair,
+  not of a song: the current shape cannot represent one acoustic work at two
+  grades without duplicating its ID and splitting history. Implement the phased
+  [song placements](./plans/active/song-placements.md) migration before that
+  overlap arrives or assignments need to record a student's exam framework.
 - **Student paths:** decide whether current use justifies RSL Grade 7–8 ingestion,
   recommendation/progress work, or fretboard/chord paths. Finn must still create
   the missing Soundslice slices listed in

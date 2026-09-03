@@ -23,6 +23,7 @@ import {
   seriesForSongs,
   seriesOf,
   songMatchesInstrument,
+  syllabusLabelForSong,
 } from '@/lib/songs/catalogue-helpers.mjs';
 import {
   buildPathProgress,
@@ -624,6 +625,7 @@ export default function SongBrowser({ student }) {
                 // What the song teaches, from the tags it already carries.
                 // Absent on a song nobody has tagged yet, which is honest.
                 const skillLabels = skillLabelsForSong(song);
+                const syllabusLabel = syllabusLabelForSong(song);
                 return (
                   <div
                     key={song.songId}
@@ -660,6 +662,9 @@ export default function SongBrowser({ student }) {
                         </span>
                       )}
                     </div>
+                    {syllabusLabel && (
+                      <p className="mt-0.5 text-[10px] text-gray-400">{syllabusLabel}</p>
+                    )}
                     {searchTerm && (
                       <p className="mt-0.5 text-xs text-gray-400">
                         {song.level}

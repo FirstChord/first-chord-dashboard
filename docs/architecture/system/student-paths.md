@@ -76,11 +76,14 @@ its history in two.
 That invariant is what makes the current one-`level`-one-`series` shape a
 problem: a song placed at Grade 3 in one syllabus and Grade 4 in its replacement
 cannot be expressed without duplicating the ID. **A level is a property of a
-(song, framework) pair, not of a song.** The phased migration, invariants and
-open naming decision are in
-[song placements](../../plans/active/song-placements.md); it needs settling
-before the RSL 2026 syllabus is ingested, because before is a schema choice and
-after is a migration of live data.
+(song, framework) pair, not of a song.** The first RSL Acoustic 2026 intake was
+safe to add without that migration because none of its available arrangements
+duplicated an existing acoustic catalogue work. Finn chose to keep both books on
+the same grade shelves, identified by visible plain-text filing tags. That is an
+interim display decision, not a replacement for the placement model: implement
+the phased migration in [song placements](../../plans/active/song-placements.md)
+before ingesting an acoustic work that moves between syllabuses or recording a
+student's exam framework at assignment time.
 
 Per-student Soundslice courses and the shared slice catalogue are separate
 surfaces. Soundslice exposes no usable course API, so this system does not create

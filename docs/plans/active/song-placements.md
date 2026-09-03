@@ -1,7 +1,7 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-07-29
+last_verified: 2026-09-03
 ---
 # Song Placements
 
@@ -13,6 +13,21 @@ history.
 
 Written 2026-07-29 for a later session. It can be implemented cold: everything
 needed to start is below.
+
+## Decision update — first RSL 2026 intake
+
+On 2026-09-03 Finn chose to put the available RSL Acoustic 2026 pieces on the
+existing grade shelves and distinguish both books with visible plain-text
+filing tags (`RSL 2026 syllabus`, `RSL legacy book`, or the existing
+`RSL 2018 book`), with no new badge. This was safe for the first 25 arrangements:
+none duplicates an existing acoustic catalogue work, so no song history was
+split across IDs.
+
+That decision unblocks useful repertoire; it does **not** solve the structural
+problem below. Implement this plan before a later intake places the same acoustic
+work in two syllabuses or at two grades, or before assignments need to answer
+which exam framework a student entered under. Phase 3 is therefore editorially
+started but not structurally complete.
 
 ## Why this is time-sensitive
 
@@ -161,8 +176,8 @@ independently shippable.
 **Phase 0 — decide.** Finn confirms the naming (`framework` vs keeping `series`)
 and the framework list. Nothing is built until this is settled.
 
-**Phase 1 — add placements alongside the existing fields.** Every one of the 311
-songs gains a `placements` array derived from its current `series` + `level`. The
+**Phase 1 — add placements alongside the existing fields.** Every catalogue song
+gains a `placements` array derived from its current `series` + `level`. The
 old `level`/`series` fields stay exactly as they are. A contract test asserts the
 two representations agree for every song. **No consumer changes, no behaviour
 change** — this phase is provably inert.
