@@ -1,4 +1,5 @@
 /** @fileoverview Admin-gated save, delete, and group-messaged marking for a tutor absence workflow. */
+import { planningSaveErrorBody } from '@/lib/admin/planning-duplicate-helpers.mjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
 import {
@@ -53,8 +54,8 @@ export async function POST(request) {
     return Response.json({ success: true, state });
   } catch (error) {
     return Response.json(
-      { error: error.message || 'Tutor absence save failed' },
-      { status: error.code === 'TUTOR_ABSENCE_NOT_READY' ? 409 : 500 },
+      planningSaveErrorBody(error, 'Tutor absence save failed'),
+      { status: error.status || (error.code === 'TUTOR_ABSENCE_NOT_READY' ? 409 : 500) },
     );
   }
 }

@@ -275,6 +275,35 @@ Shared sheet reads use a short in-process cache in `lib/admin/sheets/core.mjs`.
 
 Dashboard-owned writes call `invalidateSheetReadCache()` for the affected tab. External writers, such as separate tools or manual Sheets edits, can therefore be briefly stale but should not remain stale beyond the hard cap. If a workflow needs immediate external truth, use an explicit refresh or a direct source read instead of relying on cached rows.
 
+## Exact Pause Planning Duplicates
+
+The shared `savePlanningItem` path rejects a new open structured pause with HTTP
+409 / `DUPLICATE_PAUSE` when an existing open card has the same complete set of
+linked student IDs, pause type, and exact dates. Single lessons compare the
+lesson date; away periods compare both first pause and return dates. The
+canonical structured note labels provide that evidence; incomplete, invalid or
+conflicting labels do not establish an exact match. Titles, owners and source
+workflow IDs are not part of the comparison.
+
+The error carries `duplicatePlanningId`; Planning, incoming-message conversion
+and tutor-absence saves offer **Open existing card**. A blocked incoming
+conversion keeps the source message open and does not link/archive it or append
+Planning progress. Tutor-absence decisions can already be saved before child
+Planning work is attempted: the conflict explicitly reports that partial result,
+and missing child cards never count as completion. Review the existing card and
+resolve redundant work through the normal human workflow before retrying.
+
+Same-card retries and edits that leave the pause identity unchanged remain
+usable, including where older duplicates already exist. Edits that change the
+students/type/dates are checked. Done and parked cards remain history and are
+excluded from matching; this change neither reopens them nor cleans up old
+duplicates. Overlapping or adjacent windows retain the existing advisory notice.
+
+Saves force-read Planning rows and serialize the read/check/write in one server
+process. This narrows double-submission races but does not provide a
+cross-instance uniqueness constraint or a transaction with external Sheets
+writers. A failed fresh read blocks the save instead of using stale evidence.
+
 ## Concurrency And Limits
 
 Google Sheets is acceptable for the current scale because writes are low-volume and mostly human-triggered. The main risk is two users editing the same keyed row at nearly the same time. Sheets remains last-write-wins: there is no compare-and-swap row primitive. Student mutations therefore force-read before locating an MMS ID, single-student edits write only the named cells, and archive/delete re-locates the MMS ID after the archive append before deleting. Shared managed-row upserts also bypass the read cache before targeting a row. These measures prevent stale cache use and greatly narrow unrelated-field collisions, but they are not a transaction; preserve the explicit partial-success handling in multi-system workflows.

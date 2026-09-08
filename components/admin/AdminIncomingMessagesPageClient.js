@@ -1,5 +1,8 @@
 'use client';
 
+import { planningSaveClientError } from '@/lib/admin/planning-duplicate-helpers.mjs';
+import PlanningSaveError from './planning/PlanningSaveError';
+
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Check, Clock3, Ellipsis, RefreshCw, Reply, RotateCcw } from 'lucide-react';
@@ -1099,6 +1102,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const [pendingId, setPendingId] = useState('');
   const [pendingChatId, setPendingChatId] = useState('');
   const [submitError, setSubmitError] = useState(error);
+  const [duplicatePlanningId, setDuplicatePlanningId] = useState('');
   const [inboxView, setInboxView] = useState('open');
   const [showCapture, setShowCapture] = useState(false);
   const [conversions, setConversions] = useState({});
@@ -1129,6 +1133,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleDraftReply(entry) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingId(entry.incomingId);
     try {
       const response = await fetch('/api/admin/incoming-messages/reply-proposals', {
@@ -1152,6 +1157,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleDecideReply(entry, proposal, { decision, finalBody = '', rejectionReason = '' }) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingId(entry.incomingId);
     try {
       const response = await fetch('/api/admin/incoming-messages/reply-proposals', {
@@ -1222,7 +1228,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(data.error || 'Incoming message save failed');
+      throw planningSaveClientError(data, 'Incoming message save failed');
     }
     setInbox(data.inbox || []);
     if (Array.isArray(data.groupMap)) {
@@ -1234,6 +1240,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   async function handleCapture(event) {
     event.preventDefault();
     setSubmitError('');
+    setDuplicatePlanningId('');
     setStatus('Saving…');
     try {
       await postPayload({
@@ -1275,6 +1282,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleReview(entries, nextStatus) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingId(entries[0].incomingId);
     try {
       await reviewBurst(entries, nextStatus);
@@ -1287,6 +1295,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleSnooze(entries, snoozedUntil) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingId(entries[0].incomingId);
     try {
       for (const message of entries) {
@@ -1311,6 +1320,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     if (!confirmed) return;
 
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingId(first.incomingId);
     try {
       for (const message of entries) {
@@ -1328,6 +1338,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleCorrect(entry, correction) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingId(entry.incomingId);
     try {
       await postPayload({
@@ -1344,6 +1355,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleReviewGroup(chatId, { matchedMmsId = '', status }) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingChatId(chatId);
     try {
       await postPayload({
@@ -1361,6 +1373,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleAddGroupStudent(chatId, mmsId) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingChatId(chatId);
     try {
       await postPayload({
@@ -1377,6 +1390,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleUpdateText(entry, messageText) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingId(entry.incomingId);
     try {
       await postPayload({
@@ -1393,6 +1407,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function handleConvert(entry, correction, burst = [entry]) {
     setSubmitError('');
+    setDuplicatePlanningId('');
     setPendingId(entry.incomingId);
     try {
       const data = await postPayload({
@@ -1416,6 +1431,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       return data;
     } catch (caught) {
       setSubmitError(caught.message || 'Conversion failed');
+      setDuplicatePlanningId(caught.duplicatePlanningId || '');
       return null;
     } finally {
       setPendingId('');
@@ -1450,7 +1466,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       </section>
 
       {submitError ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{submitError}</div>
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><PlanningSaveError message={submitError} duplicatePlanningId={duplicatePlanningId} /></div>
       ) : null}
 
       <BridgeStatusStrip bridgeStatus={bridgeStatus} inbox={inbox} />

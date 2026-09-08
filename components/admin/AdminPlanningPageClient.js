@@ -1,5 +1,8 @@
 'use client';
 
+import { planningSaveClientError } from '@/lib/admin/planning-duplicate-helpers.mjs';
+import PlanningSaveError from './planning/PlanningSaveError';
+
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -215,7 +218,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.error || 'Planning save failed');
+      throw planningSaveClientError(data, 'Planning save failed');
     }
 
     if (!deferApply) setPlanning(data.planning);
@@ -250,7 +253,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       setQuickOptions({});
       setQuickExpanded(false);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -272,7 +275,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       setSchoolNoteForm(EMPTY_SCHOOL_NOTE_FORM);
       setFilter('school_notes');
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -302,7 +305,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       }, project.planningId);
       return true;
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
       return false;
     }
@@ -341,7 +344,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         [normaliseReflectionIntentionKey(intention || cleanTitle)]: { targetDate: targetDate || calculateFridayReviewDate(new Date()) },
       }));
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -359,7 +362,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         nextAction: mondayItem.nextAction,
       }, mondayItem.planningId);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -381,7 +384,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       setQuickOptions({});
       setQuickExpanded(false);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -396,7 +399,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Tutor absence capture failed');
+        throw planningSaveClientError(data, 'Tutor absence capture failed');
       }
       setPlanning(data.planning);
       setQuickNote('');
@@ -408,7 +411,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         savedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
       });
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
     }
   }
 
@@ -428,7 +431,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         body: JSON.stringify({ mode: 'decide', planningId: item.planningId, decision }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Tutor absence decision failed');
+      if (!response.ok) throw planningSaveClientError(data, 'Tutor absence decision failed');
       setPlanning(data.planning);
       setSaveState({
         pending: false,
@@ -437,7 +440,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       });
       setPendingId('');
     } catch (error) {
-      setSaveState({ pending: false, error: error.message || 'Tutor absence decision failed', savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message || 'Tutor absence decision failed', savedAt: '' });
       setPendingId('');
     }
   }
@@ -452,7 +455,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         progressNote: 'Initial tutor-absence notice sent manually; payment and final confirmation remain on the linked pause card.',
       }, item.planningId);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message || 'Could not mark the initial notice sent', savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message || 'Could not mark the initial notice sent', savedAt: '' });
       setPendingId('');
     }
   }
@@ -467,7 +470,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         progressNote: 'Final tutor-absence payment outcome confirmation sent manually; no payment-tool action was required.',
       }, item.planningId);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message || 'Could not mark the final confirmation sent', savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message || 'Could not mark the final confirmation sent', savedAt: '' });
       setPendingId('');
     }
   }
@@ -482,7 +485,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
     });
     const data = await response.json();
     if (!response.ok || !data.ready) {
-      throw new Error(data.error || 'MMS schedule needs review before continuing.');
+      throw planningSaveClientError(data, 'MMS schedule needs review before continuing.');
     }
   }
 
@@ -541,7 +544,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       setEditingItem(null);
       setEditForm(EMPTY_FORM);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -554,7 +557,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         status,
       }, item.planningId);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -576,7 +579,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
           : 'Removed from active Planning board by admin.',
       }, item.planningId);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -596,7 +599,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         item: { title: item.title, targetDate: nextMeeting },
       }, item.planningId);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -613,7 +616,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         status,
       }, item.planningId);
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
     }
   }
@@ -628,7 +631,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       }, item.planningId);
       return true;
     } catch (error) {
-      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message, savedAt: '' });
       setPendingId('');
       return false;
     }
@@ -637,7 +640,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
   async function handleRepairPauseDetails(item, { draft, linkedStudentId }) {
     if (!draft?.isComplete) {
       setSaveState({ pending: false, error: 'Add the missing pause date details before saving.', savedAt: '' });
-      return;
+      return false;
     }
 
     try {
@@ -658,9 +661,11 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         },
         progressNote: draft.progressNote || 'Added structured pause dates to existing planning item.',
       }, item.planningId);
+      return true;
     } catch (error) {
-      setSaveState({ pending: false, error: error.message || 'Pause date repair failed', savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message || 'Pause date repair failed', savedAt: '' });
       setPendingId('');
+      return false;
     }
   }
 
@@ -704,7 +709,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         const data = await response.json();
 
         if (!response.ok) {
-          throw new Error(data.error || 'Pause expectation update failed');
+          throw planningSaveClientError(data, 'Pause expectation update failed');
         }
 
         await postPlanning({
@@ -746,7 +751,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         () => setPlanning(nextPlanning),
       );
     } catch (error) {
-      setSaveState({ pending: false, error: error.message || 'Pause completion failed', savedAt: '' });
+      setSaveState({ pending: false, duplicatePlanningId: error.duplicatePlanningId, error: error.message || 'Pause completion failed', savedAt: '' });
       setPendingId('');
     }
   }
@@ -903,8 +908,8 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
             </span>
           </div>
         )}
-        {saveState.error && (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{saveState.error}</p>
+        {saveState.error && !editingItem && (
+          <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"><PlanningSaveError message={saveState.error} duplicatePlanningId={saveState.duplicatePlanningId} /></p>
         )}
         <div className={saveState.savedAt || saveState.error ? 'mt-3' : ''}>
           <QuickBrainCapture
@@ -1099,14 +1104,18 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
           )}
         >
           <div className="flex-1 overflow-y-auto p-5">
+              {saveState.error ? (
+                <p className="mb-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <PlanningSaveError message={saveState.error} duplicatePlanningId={saveState.duplicatePlanningId} />
+                </p>
+              ) : null}
               {editorMode === 'structured' ? (
                 <PauseDatesEditor
                   item={editingItem}
                   studentOptions={studentOptions}
                   isPending={pendingId === editingItem.planningId}
                   onSave={async (item, payload) => {
-                    await handleRepairPauseDetails(item, payload);
-                    setEditingItem(null);
+                    if (await handleRepairPauseDetails(item, payload)) setEditingItem(null);
                   }}
                   startOpen
                   hasPrefillUrl={isPausePlanningItem(editingItem)}

@@ -1,4 +1,5 @@
 /** @fileoverview Incoming-message inbox endpoint covering ingest, review, correction, snooze, planning conversion, and WhatsApp group sync. */
+import { planningSaveErrorBody } from '@/lib/admin/planning-duplicate-helpers.mjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
 import { buildBridgeMutationResponse } from '@/lib/admin/incoming-route-helpers.mjs';
@@ -205,6 +206,6 @@ export async function POST(request) {
     ]);
     return Response.json({ success: true, inbox, groupMap, ...extra });
   } catch (error) {
-    return Response.json({ error: error.message || 'Incoming message save failed' }, { status: 500 });
+    return Response.json(planningSaveErrorBody(error, 'Incoming message save failed'), { status: error.status || 500 });
   }
 }

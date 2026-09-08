@@ -1,4 +1,5 @@
 /** @fileoverview Admin-gated endpoint turning a tutor absence date range into planning cards and a schedule review, capped at a bounded number of dates. */
+import { planningSaveErrorBody } from '@/lib/admin/planning-duplicate-helpers.mjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
 import { getPlanningDashboard, savePlanningItem } from '@/lib/admin/planning';
@@ -138,7 +139,7 @@ export async function POST(request) {
 
       return Response.json({ success: true, planning: await getPlanningDashboard() });
     } catch (error) {
-      return Response.json({ error: error.message || 'Tutor absence decision failed' }, { status: 500 });
+      return Response.json(planningSaveErrorBody(error, 'Tutor absence decision failed'), { status: error.status || 500 });
     }
   }
 
@@ -248,6 +249,6 @@ export async function POST(request) {
       createdItems,
     });
   } catch (error) {
-    return Response.json({ error: error.message || 'Tutor absence capture failed' }, { status: 500 });
+    return Response.json(planningSaveErrorBody(error, 'Tutor absence capture failed'), { status: error.status || 500 });
   }
 }

@@ -1,4 +1,5 @@
 /** @fileoverview Admin-gated planning dashboard read plus item save, status update, and progress append, syncing tutor-absence handoffs. */
+import { planningSaveErrorBody } from '@/lib/admin/planning-duplicate-helpers.mjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
 import {
@@ -74,6 +75,6 @@ export async function POST(request) {
 
     return Response.json({ success: true, planning: await getPlanningDashboard({ includeFirstLessonLoops: true }) });
   } catch (error) {
-    return Response.json({ error: error.message || 'Planning save failed' }, { status: error.status || 500 });
+    return Response.json(planningSaveErrorBody(error, 'Planning save failed'), { status: error.status || 500 });
   }
 }

@@ -132,6 +132,16 @@ pause work. `Students.payment_expectation = stripe_paused_expected` does not
 carry date coverage, so it cannot suppress the payment tool or complete a tutor
 absence by itself.
 
+## Exact Duplicate Pause Handoffs
+
+The shared Planning save rejects an exact open student/type/date duplicate even
+when it came from another source. The tutor-absence response reports that its
+decision was saved and links to the existing card; it does not substitute that
+card's ID or treat it as a completed tutor-absence handoff. Review the existing
+work before retrying. If a card is redundant, park it through the established
+human boundary, preserving its history. Missing generated child work continues
+to block completion. Same-ID generated refreshes remain idempotent.
+
 ## Reconciliation Boundary
 
 Finance/reconciliation uses only dated cancellation/cover state, structured

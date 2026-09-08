@@ -1,5 +1,7 @@
 'use client';
 
+import PlanningSaveError from './planning/PlanningSaveError';
+
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Copy, Loader2, Search, Trash2 } from 'lucide-react';
@@ -251,7 +253,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
       });
       const payload = await response.json();
       if (!response.ok) {
-        setSaveState({ pending: false, action: '', error: payload.error || 'Save failed', savedAt: '' });
+        setSaveState({ pending: false, action: '', duplicatePlanningId: payload.duplicatePlanningId, error: payload.error || 'Save failed', savedAt: '' });
         return;
       }
       setSaveState({ pending: false, action: '', error: '', savedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
@@ -752,7 +754,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
               </ConfirmButton>
             ) : null}
             {saveState.savedAt ? <span className="text-sm text-emerald-700">Saved at {saveState.savedAt}</span> : null}
-            {saveState.error ? <span className="text-sm text-red-700">{saveState.error}</span> : null}
+            {saveState.error ? <span className="text-sm text-red-700"><PlanningSaveError message={saveState.error} duplicatePlanningId={saveState.duplicatePlanningId} /></span> : null}
           </div>
           {resolveHint({ decision, summary, selectedCoverTutor }) && workflow.lessons.length ? (
             <p className="mt-3 text-sm text-amber-800">{resolveHint({ decision, summary, selectedCoverTutor })}</p>
