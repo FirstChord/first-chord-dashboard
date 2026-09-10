@@ -7,6 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const P = require('pino');
 const qrcode = require('qrcode-terminal');
+const { titleLooksLikeFcGroup, confirmedGroupsRefreshMs } = require('./group-discovery');
 const { guardOutbound } = require('./outbound-guard');
 const {
   buildSafeDashboardResponseLog,
@@ -97,29 +98,6 @@ function extractMessageContent(message = {}) {
   };
 }
 
-// Coarse pre-filter so we don't ship every group the account is in (personal
-// chats, community groups, etc.) to the dashboard. First Chord group titles are
-// "{First name} {Instrument} Lessons {emoji}", so an instrument keyword or the
-// word "lessons" is a cheap, no-student-data signal. The dashboard still does
-// the authoritative instrument + roster + phone matching.
-const FC_GROUP_TITLE_KEYWORDS = [
-  'guitar', 'piano', 'keyboard', 'keys', 'voice', 'vocal', 'vocals', 'singing', 'sing',
-  'ukulele', 'uke', 'bass', 'drums', 'drum', 'violin', 'viola', 'cello', 'sax',
-  'saxophone', 'flute', 'clarinet', 'trumpet', 'theory', 'mandolin', 'banjo',
-  'lesson', 'lessons',
-];
-
-function titleLooksLikeFcGroup(name = '') {
-  const tokens = new Set(
-    `${name || ''}`
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[^\p{Letter}\p{Number}\s]/gu, ' ')
-      .split(/\s+/u)
-      .filter(Boolean),
-  );
-  return FC_GROUP_TITLE_KEYWORDS.some((keyword) => tokens.has(keyword));
-}
 
 class WhatsAppIncomingBridge {
   constructor(options = {}) {
@@ -145,7 +123,7 @@ class WhatsAppIncomingBridge {
       ? true
       : parseBoolean(process.env.AUTO_CAPTURE_CONFIRMED_GROUPS);
     this.confirmedChatIds = new Set();
-    this.confirmedGroupsRefreshMs = Math.max(10 * 60 * 1000, Number(process.env.CONFIRMED_GROUPS_REFRESH_MS || 6 * 60 * 60 * 1000) || 6 * 60 * 60 * 1000);
+    this.confirmedGroupsRefreshMs = confirmedGroupsRefreshMs(process.env.CONFIRMED_GROUPS_REFRESH_MS);
     this.confirmedGroupsTimer = null;
     this.heartbeatMs = Math.max(5 * 60 * 1000, Number(process.env.BRIDGE_HEARTBEAT_MS || 30 * 60 * 1000) || 30 * 60 * 1000);
     this.heartbeatTimer = null;
@@ -691,7 +669,7 @@ class WhatsAppIncomingBridge {
           lastActiveAt: ts ? new Date(ts * 1000).toISOString() : '',
         };
       });
-    this.logInfo('Filtered groups to likely First Chord lesson groups', { total: all.length, kept: groups.length });
+    this.logInfo('Filtered groups to likely First Chord student or tutor groups', { total: all.length, kept: groups.length });
     return groups;
   }
 
@@ -721,6 +699,7 @@ class WhatsAppIncomingBridge {
       this.logInfo('Fetched participating groups', { groupCount: groups.length });
       const result = await this.sendGroupSync(groups);
       this.logInfo('Live group sync complete', { summary: result?.groupSyncSummary || null });
+      await this.refreshConfirmedGroups();
     } catch (error) {
       this.logError('Live group sync failed', { error: error.message });
     } finally {

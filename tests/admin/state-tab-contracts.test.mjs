@@ -10,6 +10,7 @@ import assert from 'node:assert/strict';
 import {
   buildManagedStateSheetDefinitions,
   INCOMING_MESSAGE_INBOX_HEADERS,
+  WHATSAPP_GROUP_MAP_HEADERS,
   LIFECYCLE_SNAPSHOT_HEADERS,
   PRACTICE_CHAT_SESSIONS_HEADERS,
   PRACTICE_NOTES_LOG_HEADERS,
@@ -22,7 +23,7 @@ import {
   STUDENT_LIFECYCLE_HEADERS,
   STUDENT_PORTAL_ACCESS_HEADERS,
 } from '../../lib/admin/sheets/core.mjs';
-import { buildIncomingMessageSheetRow } from '../../lib/admin/sheets/incoming-messages.mjs';
+import { buildIncomingMessageSheetRow, buildWhatsappGroupMapSheetRow } from '../../lib/admin/sheets/incoming-messages.mjs';
 import { buildPracticeNoteLogSheetRow } from '../../lib/admin/practice-notes-helpers.mjs';
 import { buildPracticeChatSessionSheetRow } from '../../lib/admin/practice-chat-session-helpers.mjs';
 import {
@@ -108,6 +109,7 @@ const BUILDER_CONTRACTS = [
   ['Student_Lifecycle', STUDENT_LIFECYCLE_HEADERS, buildStudentLifecycleRow],
   ['Lifecycle_Snapshot', LIFECYCLE_SNAPSHOT_HEADERS, buildLifecycleSnapshotRow],
   ['Stripe_Forecast_Monthly', STRIPE_FORECAST_MONTHLY_HEADERS, buildStripeForecastRow],
+  ['WhatsApp_Group_Map', WHATSAPP_GROUP_MAP_HEADERS, buildWhatsappGroupMapSheetRow],
   ['Incoming_Message_Inbox', INCOMING_MESSAGE_INBOX_HEADERS, buildIncomingMessageSheetRow],
   ['Practice_Notes_Log', PRACTICE_NOTES_LOG_HEADERS, buildPracticeNoteLogSheetRow],
   ['Practice_Chat_Sessions', PRACTICE_CHAT_SESSIONS_HEADERS, buildPracticeChatSessionSheetRow],

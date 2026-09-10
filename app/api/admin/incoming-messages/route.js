@@ -145,6 +145,8 @@ export async function POST(request) {
         return Response.json({ error: 'Admin session required for group review' }, { status: 401 });
       }
       await reviewWhatsappGroup({
+        groupType: body?.groupType || '',
+        matchedTutorId: body?.matchedTutorId || '',
         chatId: `${body?.chatId || ''}`.trim(),
         matchedMmsId: Object.hasOwn(body || {}, 'matchedMmsId') ? body.matchedMmsId : null,
         status: body?.status || 'confirmed',

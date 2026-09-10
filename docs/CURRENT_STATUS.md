@@ -30,6 +30,26 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Tutor WhatsApp groups are now a first-class group type — COMMITTED, NOT
+  DEPLOYED 2026-09-10:** the incoming inbox previously assumed every confirmed
+  group was a parent/student lesson group. `Incoming_Message_Inbox` gains
+  `group_type` / `matched_tutor_id` / `matched_tutor_name` and
+  `WhatsApp_Group_Map` gains `group_type` / `matched_tutor_id`, all appended and
+  optional; missing means `student`, nothing is backfilled, and no existing
+  group is auto-confirmed. A tutor group is discovered by the title convention
+  `<tutor> First Chord` checked against the active roster (a shared first name
+  stays ambiguous and needs explicit selection), and confirming one clears the
+  student/sibling/parent links so one tutor message can never remap the group.
+  The consequential half is that **tutor messages are inbound work, not school
+  reply evidence** — being listed in `Tutor_Phones` suppresses a tutor's message
+  in a *student* group and must not suppress it in their own. Parent reply
+  policy is bypassed for tutor rows (neutral acknowledgement, no model call) and
+  Reply + Plan creates a general tutor Action, never a student pause inferred
+  from a tutor's dates. The bridge's confirmed-group refresh drops from 6 hours
+  to 10 minutes by default so a confirmation is usable in the same session.
+  Rollback: mark confirmed tutor groups Review/Ignored *before* reverting, or an
+  older build applies parent rules to them; leave the appended columns alone.
+
 - **The available RSL Acoustic 2026 repertoire is on the Song Shelf — DEPLOYED
   2026-09-03:** 25 playable slices were added: complete Debut and Grade 1 books,
   four Grade 3 pieces, two Grade 4 pieces and one Grade 5 piece. Grade 2's 2026
@@ -129,22 +149,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   not teach the newly chosen instrument is cleared rather than silently
   submitted. `generateFcStudentId` moved to `lib/admin/fc-id.mjs` so the
   normalisation helpers stay importable by client components.
-- **Onboarding lost its dry run and its last manual-era label — DEPLOYED
-  2026-08-18 (`825ea63`):** the read-only
-  `POST /api/admin/onboard/preflight` endpoint and its "Run preflight" panel are
-  deleted. Every state it reported is now enforced
-  at submit and enforced harder: duplicates and partial canonical records block
-  with a 409 before the first write, the selected Free slot is validated before
-  any write, and MMS activation, billing profile and first lesson are all
-  idempotent (`alreadyActive`, `alreadyExists`, `duplicateSkipped`). The one gap
-  preflight genuinely covered is closed rather than kept — a sibling group's
-  **second** student is now duplicate-checked before the primary is written, so
-  it can no longer fail halfway and leave one sibling created. **A reintroduced
-  dry run should be read as a sign the write path stopped being safe to press;**
-  `tests/admin/onboarding-route-boundary.test.mjs` pins that. The
-  `Name - WGCS` WhatsApp group label is also gone, along with the `wgcs` key in
-  the onboarding response (now `messages`) — the welcome message and Soundslice
-  follow-up are unchanged.
 ## Current operating contracts
 
 | Area | Current boundary |

@@ -1,14 +1,14 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-29
+last_verified: 2026-09-10
 ---
 # WhatsApp Incoming Bridge
 
 ## Purpose
 
-The local Baileys bridge copies live parent messages from human-confirmed First
-Chord lesson groups into the admin inbox. It is a receive-only intake aid, not a
+The local Baileys bridge copies live messages from human-confirmed First
+Chord student and tutor groups into the admin inbox. It is a receive-only intake aid, not a
 WhatsApp sender or a source of operational truth.
 
 Manual **Quick capture** on `/admin/incoming-messages` is the fallback for direct
@@ -46,8 +46,10 @@ dashboard re-checks that the chat is still `confirmed` before storing it. Its
 replay identity is `source + chat_id + external_message_id`, so a repeated post
 is a no-op.
 
-Own-account, configured staff, and the confirmed group's tutor replies do not
-create parent-message rows. A later school message stamps weak engagement
+Own-account and configured admin-staff replies do not create inbox rows.
+In student groups, recognised tutor replies also remain school-side evidence.
+In confirmed tutor groups, the tutor's messages are inbound work and create
+normal inbox rows; being listed in Tutor_Phones must not suppress them. A later school message stamps weak engagement
 evidence on the nearest preceding open row only; it does not prove that row was
 answered and does not mark the work handled.
 
@@ -60,7 +62,7 @@ the human-final decision so accepted/corrected outcomes can be measured without
 calling untouched guesses knowledge. Neither result authorises a payment,
 pause, attendance, archive, planning, or messaging action.
 
-The daily card leads with student/sender, time and the original message.
+The daily card leads with student/sender, time and the original message. Tutor-group cards lead with the linked tutor and a compact **Tutor** badge.
 Consecutive messages from the same sender, chat and matched student sent within
 five minutes are one card: the burst is shown oldest-first under a single
 header, and Handled / No action / Later / Delete apply to every message in it.
@@ -104,7 +106,7 @@ More. Neither performs a provider action or sends a reply.
 
 ## Confirmed-Group Gate
 
-On connection, and every six hours by default, the bridge requests
+On connection, and every ten minutes by default, the bridge requests
 `GET /api/admin/incoming-messages?mode=confirmed_groups` using
 `INCOMING_MESSAGE_INGEST_SECRET`. A refresh failure retains the previous set;
 failure with no set retries after ten minutes. An empty set means no capture.
@@ -117,13 +119,39 @@ phones and the group-title convention:
 {Student first name} {Instrument} Lessons {emoji}
 ```
 
-The dashboard requires a group JID, an instrument token, and activity within six
+The dashboard requires a group JID, a recognised student/tutor title, and activity within six
 months; unknown activity is retained for review. Sync may rebucket only automatic
 `review`/`unmatched` states. Human `confirmed` and `ignored` decisions persist.
-Confirmation requires a real student and stores the group/student/parent/tutor
-context that becomes the capture allow-list.
+Confirmation requires either a real student or a tutor selected from the active
+roster. The group review offers **Student group** / **Tutor group** and the
+corresponding person selector. Known tutor names followed by **First Chord**
+(with optional emoji) are also discovered without an instrument word. A shared
+first name stays ambiguous and needs an explicit selection. The title is only a
+proposal; neither it nor participant membership enables capture by itself.
 
-Use `SIGUSR1` to sync on the existing live socket. Use the one-shot
+The map stores explicit `group_type` (`student` / `tutor`) and
+`matched_tutor_id` (the roster short name). Missing legacy types mean student.
+A tutor-group confirmation clears student, sibling and parent links; selecting a
+student on one tutor message cannot remap the whole group. Re-review and Ignore
+remove the group from the server capture gate. Sync preserves confirmed/ignored
+decisions. A confirmed tutor group without a tutor ID fails closed.
+
+Each new tutor inbox row snapshots `group_type`, `matched_tutor_id` and
+`matched_tutor_name`, so later review, snoozing and group changes do not relabel
+its history. Tutor messages do not auto-match a student from an incidental name
+or phone; an admin can explicitly link a student when relevant. Reply uses a
+neutral editable acknowledgement. Parent-policy AI falls back without a model
+call, and Reply + Plan creates a general tutor Action (`is_pause = false`),
+never a student pause inferred from the tutor's dates. The normal reviewed tutor
+absence workflow remains the route for organising cover or cancellation.
+
+The two schemas gain appended, optional columns through the existing managed
+header adapter; no existing row is backfilled or automatically confirmed.
+Before rolling back the code, mark any confirmed tutor groups Review or
+Ignored, so an older bridge/dashboard does not apply parent rules to them.
+Leave the appended columns and historical inbox rows intact.
+
+Use `SIGUSR1` to sync on the existing live socket and refresh its confirmed-group list. Use the one-shot
 `npm start -- --sync-groups` only while the normal bridge is stopped: two Baileys
 sockets sharing one auth directory replace each other (status 440). The launchd
 template signals the live bridge on Monday at 06:30.

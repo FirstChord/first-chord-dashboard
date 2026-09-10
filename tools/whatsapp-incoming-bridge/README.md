@@ -24,7 +24,7 @@ Useful configuration:
 
 ```text
 AUTO_CAPTURE_CONFIRMED_GROUPS=true
-CONFIRMED_GROUPS_REFRESH_MS=21600000
+CONFIRMED_GROUPS_REFRESH_MS=600000
 BRIDGE_HEARTBEAT_MS=1800000
 INCOMING_STAFF_PHONES=+44...
 WHATSAPP_CAPTURED_BY=Finn
@@ -60,6 +60,12 @@ node --test ../../tests/admin/whatsapp-bridge-outbound-guard.test.mjs
 ```
 
 ## Group Sync
+
+Discovery includes student lesson titles and tutor titles such as
+`Taylor First Chord 🎹`. The dashboard proposes a roster match, and an admin
+must confirm the tutor before capture begins. Confirmed-group IDs refresh every
+ten minutes by default; signalling a live sync also refreshes that list.
+
 
 When the main bridge is running, sync on its existing socket:
 
