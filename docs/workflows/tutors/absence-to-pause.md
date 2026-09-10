@@ -299,3 +299,22 @@ reverse-order overlap.
 
 Do not change the exact structured pause labels without checking
 `lib/admin/pause-forecast.mjs` and every parser consumer.
+
+## Completing the original capture card
+
+An explicit **Resolve absence** save checks the existing server-side cover or
+cancellation readiness rules, persists the dated absence as resolved, then marks
+its matching open tutor/date Planning capture done and appends progress history.
+Cover completion includes the chosen tutor, confirmation, briefing, calendar check
+and every affected parent message. Saving progress alone does not close the card.
+The workflow refreshes after a successful save so the resolved date leaves the
+direct-attention list.
+
+Only an existing capture in Inbox, Active or Waiting participates. Done/parked
+cards retain their history; missing captures are not recreated. This is part of
+the explicit resolution action, not a retrospective sweep of resolved absences.
+If the absence write succeeds but the Planning follow-through fails, the response
+reports partial success and asks the admin to click **Resolve absence** again.
+A retry still attempts the capture completion when the absence is already resolved,
+and preserves its original resolution timestamp. These Sheets writes are not a
+transaction; concurrent external edits retain the usual last-write-wins limit.

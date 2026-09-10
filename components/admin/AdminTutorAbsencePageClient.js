@@ -256,7 +256,8 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
         setSaveState({ pending: false, action: '', duplicatePlanningId: payload.duplicatePlanningId, error: payload.error || 'Save failed', savedAt: '' });
         return;
       }
-      setSaveState({ pending: false, action: '', error: '', savedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
+      router.refresh();
+      setSaveState({ pending: false, action: '', error: '', resolved: payload.state?.status === 'resolved', savedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
     } catch (error) {
       setSaveState({ pending: false, action: '', error: error.message || 'Save failed', savedAt: '' });
     }
@@ -753,7 +754,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
                 Delete logged date
               </ConfirmButton>
             ) : null}
-            {saveState.savedAt ? <span className="text-sm text-emerald-700">Saved at {saveState.savedAt}</span> : null}
+            {saveState.savedAt ? <span className="text-sm text-emerald-700">{saveState.resolved ? 'Absence resolved' : 'Saved'} at {saveState.savedAt}</span> : null}
             {saveState.error ? <span className="text-sm text-red-700"><PlanningSaveError message={saveState.error} duplicatePlanningId={saveState.duplicatePlanningId} /></span> : null}
           </div>
           {resolveHint({ decision, summary, selectedCoverTutor }) && workflow.lessons.length ? (
