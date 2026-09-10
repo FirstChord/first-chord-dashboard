@@ -1148,7 +1148,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     }
   }
 
-  async function handleReviewGroup(chatId, { matchedMmsId = '', status }) {
+  async function handleReviewGroup(chatId, { matchedMmsId = '', matchedTutorId = '', groupType = '', status }) {
     setSubmitError('');
     setDuplicatePlanningId('');
     setPendingChatId(chatId);
@@ -1157,6 +1157,8 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         mode: 'review_group',
         chatId,
         matchedMmsId,
+        matchedTutorId,
+        groupType,
         status,
       });
     } catch (caught) {

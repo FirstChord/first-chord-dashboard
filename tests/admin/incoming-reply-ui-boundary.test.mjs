@@ -31,3 +31,21 @@ test('Reply + Plan copies one reviewed draft, persists it, then opens the linked
   assert.ok(copyIndex >= 0 && convertIndex > copyIndex);
   assert.match(source, /window\.location\.assign\(`\/admin\/planning\?focus=/u);
 });
+
+// The panel offers Student group / Tutor group plus a person selector, but the
+// server decides. A handler that drops either field silently confirms against
+// `existing.groupType` with an empty id, which fails closed on a tutor group
+// ("A tutor from the roster is required...") and, worse, would let a Student
+// group choice be overridden by the sync's guess. Both must reach the route.
+test('group review sends the chosen group type and tutor, not just the student', async () => {
+  const source = await readFile(inboxClientUrl, 'utf8');
+  const handler = source.slice(
+    source.indexOf('async function handleReviewGroup'),
+    source.indexOf('async function handleAddGroupStudent'),
+  );
+
+  assert.ok(handler, 'handleReviewGroup should exist');
+  assert.match(handler, /matchedTutorId/u);
+  assert.match(handler, /groupType/u);
+  assert.match(handler, /mode: 'review_group'/u);
+});
