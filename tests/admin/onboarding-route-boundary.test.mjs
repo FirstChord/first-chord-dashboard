@@ -75,3 +75,34 @@ test('every state the removed preflight reported is still checked before the fir
   assert.match(routeSource, /billingProfile\?\.alreadyExists/);
   assert.match(routeSource, /lesson\?\.duplicateSkipped \? 'skipped' : 'succeeded'/);
 });
+
+// Rerunning a completed onboarding is a dead end by design: the guard refuses
+// before Sheets, the registry or MMS are touched. The usual reason for the
+// rerun is to get the messages back, so the block returns them and the form
+// presents the state as information rather than damage.
+test('a blocked rerun of a complete record returns its messages and reads as information', () => {
+  const blockIndex = routeSource.indexOf('if (blockingReasons.length > 0)');
+  const firstWrite = routeSource.indexOf('const primaryRecord = await appendCanonicalStudent');
+
+  assert.notEqual(blockIndex, -1);
+  assert.ok(blockIndex < firstWrite, 'the duplicate block must precede every canonical write');
+
+  const block = routeSource.slice(blockIndex, firstWrite);
+  assert.match(block, /alreadyOnboarded/u);
+  assert.match(block, /welcomeMessage: buildWelcomeMessage/u);
+  assert.match(block, /soundsliceFollowup: buildSoundsliceFollowup/u);
+
+  assert.match(formSource, /errorState\?\.alreadyOnboarded/u);
+  assert.match(formSource, /Already onboarded/u);
+});
+
+// A Students row without its registry entry is unfinished work, not a
+// reassuring duplicate — it must keep the attention panel and the SHEETS ONLY
+// recovery guidance rather than being reported as already done.
+test('a partial canonical record is never reported as already onboarded', () => {
+  const blockIndex = routeSource.indexOf('if (blockingReasons.length > 0)');
+  const block = routeSource.slice(blockIndex, routeSource.indexOf('const primaryRecord = await appendCanonicalStudent'));
+
+  assert.match(block, /!duplicateState\.partialCanonicalRecord/u);
+  assert.match(block, /!secondDuplicateState\?\.partialCanonicalRecord/u);
+});

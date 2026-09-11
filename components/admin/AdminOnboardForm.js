@@ -381,9 +381,11 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
       if (!response.ok) {
         setErrorState({
           message: payload.error || 'Onboarding failed',
+          alreadyOnboarded: Boolean(payload.alreadyOnboarded),
           steps: payload.steps || null,
           recoveryGuidance: payload.recoveryGuidance || [],
           duplicateWarnings: payload.duplicateWarnings || [],
+          messages: payload.messages || null,
         });
         return;
       }
@@ -676,11 +678,52 @@ export default function AdminOnboardForm({ initialData, tutorOptions, initialDup
           {validationError ? (
             <p role="alert" className="text-sm font-medium text-red-700">{validationError}</p>
           ) : null}
-          {errorState ? <p className="text-sm text-red-700">{errorState.message}</p> : null}
+          {errorState ? (
+            <p className={`text-sm ${errorState.alreadyOnboarded ? 'text-slate-600' : 'text-red-700'}`}>
+              {errorState.alreadyOnboarded ? 'Already onboarded — nothing was changed.' : errorState.message}
+            </p>
+          ) : null}
         </div>
       </form>
 
-      {errorState ? (
+      {errorState?.alreadyOnboarded ? (
+        // Not a failure: the guard refused before touching Sheets, the registry
+        // or MMS, so this student is intact and already set up. The step grid is
+        // omitted deliberately — eight "skipped" cards describe work that was
+        // never attempted and read as damage. What is actually wanted here is
+        // the messages.
+        <section className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-6">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Already onboarded</h3>
+            <p className="mt-1 text-sm text-slate-700">{errorState.message}</p>
+            <p className="mt-2 text-sm text-slate-600">
+              Nothing was written — no Sheets row, no registry entry, no MMS change. Rerunning will always stop here.
+            </p>
+          </div>
+          {errorState.messages ? (
+            <>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-700">Messages</p>
+                <p className="mt-1 text-sm text-slate-700">Rebuilt from this form, in case you came back for them.</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-sm font-semibold text-slate-900">Welcome message</p>
+                  <CopyButton text={errorState.messages.welcomeMessage} title="Copy the welcome message" />
+                </div>
+                <pre className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{errorState.messages.welcomeMessage}</pre>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <p className="text-sm font-semibold text-slate-900">Soundslice follow-up</p>
+                  <CopyButton text={errorState.messages.soundsliceFollowup} title="Copy the Soundslice follow-up" />
+                </div>
+                <pre className="mt-2 whitespace-pre-wrap text-sm text-slate-700">{errorState.messages.soundsliceFollowup}</pre>
+              </div>
+            </>
+          ) : null}
+        </section>
+      ) : errorState ? (
         <section className="space-y-4 rounded-2xl border border-red-200 bg-red-50 p-6">
           <h3 className="text-lg font-semibold text-red-900">Onboarding needs attention</h3>
           {errorState.duplicateWarnings?.length ? (

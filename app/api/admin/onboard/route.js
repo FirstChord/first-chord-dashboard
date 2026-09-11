@@ -320,9 +320,21 @@ export async function POST(request) {
     steps = markOnboardingStep(steps, 'mmsFirstLesson', 'skipped', 'Skipped because an exact duplicate already exists.');
     steps = markOnboardingStep(steps, 'mmsFreeSlot', 'skipped', 'Skipped because an exact duplicate already exists.');
 
+    // The commonest reason to rerun a completed onboarding is to get the
+    // messages back, so the block returns them. They are a pure function of the
+    // submitted form — no lookup, no write — and the run is already refusing to
+    // touch Sheets, the registry or MMS, so handing them over costs nothing and
+    // removes the only incentive to keep pressing a button that cannot work.
     return Response.json(
       {
         error: blockingReasons.join(' '),
+        // Only a *complete* existing record is reassuring. A partial canonical
+        // record (Students row written, registry entry missing) is real
+        // unfinished work needing the SHEETS ONLY recovery action, so it keeps
+        // the attention panel and its guidance.
+        alreadyOnboarded: Boolean(duplicateState.exactDuplicate)
+          && !duplicateState.partialCanonicalRecord
+          && !secondDuplicateState?.partialCanonicalRecord,
         duplicateWarnings,
         steps,
         recoveryGuidance: buildOnboardingRecoveryGuidance({
@@ -331,6 +343,28 @@ export async function POST(request) {
             ? secondDuplicateState
             : duplicateState,
         }),
+        messages: {
+          welcomeMessage: buildWelcomeMessage({
+            studentName,
+            studentNamesLabel,
+            studentFirstNamesLabel,
+            parentName,
+            lessonTime: lessonTimeLabel,
+            lessonDay,
+            lessonDate: lessonDateLabel,
+            tutorFullName: tutor.fullName,
+            age: payload.age,
+            experienceLevel,
+            interests: payload.interests || 'music',
+            isAdult,
+            lessonType,
+          }),
+          soundsliceFollowup: buildSoundsliceFollowup({
+            soundsliceCode: payload.soundsliceCode || '',
+            studentName: studentFirstNamesLabel,
+            tutorFullName: tutor.fullName,
+          }),
+        },
       },
       { status: 409 },
     );
