@@ -81,6 +81,7 @@ export default function AdminStudentNotesAccessPageClient({
     ? buildNotesRolloutMessage({
         studentName: selected.student.studentName,
         code,
+        friendlyUrl: selected.student.friendlyUrl,
         reset: selected.state.protectionEnabled,
       })
     : '';
@@ -400,10 +401,10 @@ export default function AdminStudentNotesAccessPageClient({
                     {code ? (
                       <button
                         type="button"
-                        onClick={() => handleCopy('description', buildNotesGroupDescription(code))}
+                        onClick={() => handleCopy('description', buildNotesGroupDescription(code, selected.student.friendlyUrl))}
                         className="mt-4 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-4 text-left text-sm"
                       >
-                        <span>{buildNotesGroupDescription(code)}</span>
+                        <span className="whitespace-pre-line">{buildNotesGroupDescription(code, selected.student.friendlyUrl)}</span>
                         {copied === 'description' ? <Check className="h-4 w-4 text-emerald-600" /> : <Copy className="h-4 w-4" />}
                       </button>
                     ) : <p className="mt-3 text-sm text-amber-800">Reveal the code before copying the description.</p>}

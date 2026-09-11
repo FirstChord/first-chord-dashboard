@@ -19,16 +19,31 @@ test('normalises friendly notes codes without making punctuation significant', (
   assert.equal(normaliseNotesAccessCode('otter 27'), 'otter27');
 });
 
-test('builds the WhatsApp description and family message with the code', () => {
+test('builds the WhatsApp description and family message with the code and profile link', () => {
   const message = buildNotesRolloutMessage({
     studentName: 'Ayla Smith',
     code: 'otter-27',
+    friendlyUrl: 'ayla',
   });
-  assert.equal(buildNotesGroupDescription('otter-27'), 'First Chord notes code: otter-27');
-  assert.match(message, /Ayla’s First Chord dashboard/);
+  assert.equal(
+    buildNotesGroupDescription('otter-27', 'ayla'),
+    'First Chord notes code: otter-27\nhttps://firstchord.co.uk/ayla',
+  );
+  assert.match(message, /Ayla’s First Chord dashboard \(https:\/\/firstchord\.co\.uk\/ayla\)/);
   assert.match(message, /Practice Chat lesson notes/);
-  assert.match(message, /otter-27/);
+  assert.match(message, /\*otter-27\*/);
   assert.match(message, /WhatsApp group’s description/);
+  assert.equal(
+    redactNotesCodeFromMessage(message, 'otter-27').includes('*[ACCESS CODE]*'),
+    true,
+  );
+});
+
+test('omits the profile link when the student has no friendly URL', () => {
+  assert.equal(buildNotesGroupDescription('otter-27'), 'First Chord notes code: otter-27');
+  const message = buildNotesRolloutMessage({ studentName: 'Ayla Smith', code: 'otter-27' });
+  assert.match(message, /Ayla’s First Chord dashboard\. Their/);
+  assert.doesNotMatch(message, /https?:/);
 });
 
 test('redacts the access code before a copied message is logged', () => {

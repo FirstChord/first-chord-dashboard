@@ -80,9 +80,11 @@ Use `/admin/workflows/student-notes-access`.
 
 1. Claim the family so another administrator can see who is handling it.
 2. Generate or reveal the memorable code.
-3. Put `First Chord notes code: <code>` in the WhatsApp group description and
-   confirm that step.
-4. Copy and manually send the personalised explanation, then explicitly confirm
+3. Put `First Chord notes code: <code>` and the profile link
+   (`https://firstchord.co.uk/<friendlyUrl>`) in the WhatsApp group description
+   and confirm that step.
+4. Copy and manually send the personalised explanation (profile link included,
+   code wrapped in `*…*` so WhatsApp shows it bold), then explicitly confirm
    that it was sent.
 5. Activate protection. Activation is unavailable until both confirmations are
    present.
