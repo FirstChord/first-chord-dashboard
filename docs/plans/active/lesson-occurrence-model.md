@@ -1,7 +1,7 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-09-02
+last_verified: 2026-09-11
 ---
 # First Chord Lesson Ledger and MMS Exit Path
 
@@ -162,6 +162,42 @@ event within seven days. Twelve have current events in the same First Chord
 series; 33 historical participations no longer map to a current Students row.
 All 74 lack an MMS event status. These findings narrow the evidence questions,
 but none proves cancellation or authorises an identity merge.
+
+#### Controlled single-occurrence deletion (2026-09-11)
+
+A controlled MMS browser experiment used a synthetic student on a weekly
+Sunday lesson. The baseline calendar search returned six occurrences from 6
+September through 11 October. Each occurrence had its own MMS event ID and
+attendance ID, all six shared one `SeriesID`, and each row's `NextEventID`
+pointed to the following occurrence. `TeacherID` and `OriginalTeacherID`
+matched throughout.
+
+The 20 September occurrence was then removed through the MMS calendar UI using
+the one-occurrence option. The same bounded calendar search subsequently
+returned five of five rows:
+
+- the removed event and its attendance row were absent rather than returned
+  with a cancellation or deletion status;
+- the surrounding event, series and attendance IDs stayed unchanged; and
+- the 13 September row's `NextEventID` changed from the removed occurrence to
+  the surviving 27 September occurrence.
+
+This verifies the read-side result of one intentional UI deletion, not a general
+rule that every non-observation is a cancellation. A fresh calendar response
+alone contains no tombstone and cannot distinguish that deletion from a row
+that was never returned. Historical overlap can identify the disappearance,
+and the provider's rewritten `NextEventID` chain is additional evidence, but
+the current mirror does not retain `NextEventID` and neither signal is yet safe
+to turn into an automatic cancellation classification.
+
+The experiment did not retain the UI mutation's endpoint, method, payload or
+response, so the write contract remains unverified. No raw response, provider
+identifier, credential or synthetic-person record is committed to the
+repository. The next controlled experiment is a substitute tutor on one future
+occurrence: compare the before/after event, series and attendance IDs and the
+`TeacherID`/`OriginalTeacherID` fields, and capture the mutation contract if it
+can be done without retaining authentication headers. A one-off time move then
+tests whether MMS mutates the event or replaces it.
 
 ### Phase 3 — Attach Existing Systems to First Chord IDs
 
@@ -379,8 +415,9 @@ last verified parity view.
 ## Phase 2 Questions to Answer with Evidence
 
 - Does MMS preserve `SeriesID` across term changes and permanent slot moves?
-- How are cancelled events represented: status, disappearance, category or a
-  separate source?
+- A one-occurrence UI deletion disappears from calendar search and rewrites the
+  previous row's `NextEventID`; does its mutation response or another MMS audit
+  source provide a durable cancellation tombstone?
 - Can attendance records outlive or refer to calendar events outside the
   selected calendar window?
 - Which provider fields change when tutor cover is used?
