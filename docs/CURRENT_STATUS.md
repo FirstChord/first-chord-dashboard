@@ -30,8 +30,27 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
-- **Tutor WhatsApp groups are now a first-class group type — COMMITTED, NOT
-  DEPLOYED 2026-09-10:** the incoming inbox previously assumed every confirmed
+- **FC student IDs have one owner and one formula — DEPLOYED 2026-09-11:** the
+  dashboard and brain CLI minted `fcStudentId` from `forename:surname:email`
+  while the brain's hourly job recomputed `FC_Students` from `sha256(mms_id)`,
+  so 63 of 210 students carried two IDs and brain lookup could not find them by
+  the one the dashboard shows. **An FC student ID is now minted once from the MMS
+  student ID and then stored; the stored value is authoritative and never
+  recomputed.** The brain reads it (registry → Students cell → derived), raises
+  `FC ID CONFLICT` / `MALFORMED` / `DUPLICATE` instead of overwriting, and stops
+  if the registry ever parses without IDs. Onboarding blocks without an MMS ID.
+  Both repos pin `sdt_WFQ7Js → fc_std_fa157fc5`; the hourly workflow runs brain
+  tests before writing tabs. Verified live: 210/210 match, no `created_at`
+  moved. Manual `generate_fc_ids.py` runs are unnecessary — the hourly job reads
+  `main`. Record: `docs/plans/active/fc-student-id-convergence.md`.
+- **Rerunning a completed onboarding returns its messages — DEPLOYED
+  2026-09-11:** the duplicate guard's 409 carries the welcome and Soundslice
+  messages, and the form reads "Already onboarded — nothing was written" instead
+  of a red wall of eight skipped steps. A partial record (Students row without a
+  registry entry) is excluded and keeps the attention panel, because that one is
+  genuinely unfinished.
+- **Tutor WhatsApp groups are now a first-class group type — DEPLOYED
+  2026-09-10 (confirm-group fix 2026-09-10):** the incoming inbox previously assumed every confirmed
   group was a parent/student lesson group. `Incoming_Message_Inbox` gains
   `group_type` / `matched_tutor_id` / `matched_tutor_name` and
   `WhatsApp_Group_Map` gains `group_type` / `matched_tutor_id`, all appended and
@@ -124,31 +143,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   the stack, so nothing is left open behind the message that was dealt with. A
   differing matched student splits the burst rather than merging two children's
   business; clustering runs after view filtering, so a stack never spans views.
-- **The fortnightly Sheets backup now actually runs itself — LIVE LOCALLY
-  2026-08-28 (`e93a49b`):** `com.firstchord.sheets-backup` had been installed,
-  loaded and enabled since 11 June and had never executed once (`runs = 0`, no
-  launchd logs ever written); every backup in `backups/sheets/` was manual. Two defects: a
-  `StartInterval` restarts its countdown on every load, so a 14-day timer on a
-  machine that reboots never fires; and the job ran `npm`, whose
-  `#!/usr/bin/env node` shebang cannot resolve on launchd's default `PATH`. It
-  now runs `node scripts/backup-sheets-tabs.mjs` on a `StartCalendarInterval` of
-  the 1st and 15th, verified by a forced `launchctl kickstart` (`runs = 1`,
-  exit 0, 36 tabs, 0 failed). The planning reminder moved from 14 to 17 days —
-  the widest gap that schedule can leave — so the card is an alarm that the
-  automation stopped, not a chore that cries wolf monthly. **Check `runs`, not
-  `state`, when asking whether a launchd job works.**
-- **A waiting-list suggestion now keeps its instrument through onboarding —
-  DEPLOYED 2026-08-26 (`d9536cc`):** a sign-up note naming two instruments was parsed
-  as a list by Waiting but collapsed to a single first-match label by
-  onboarding, which then filtered the tutor list server-side and hid the very
-  tutor whose slot was clicked. Both surfaces now share `parseInstrumentList`,
-  the slot link carries the instrument its tutor was matched on, and onboarding
-  trusts that over its own reading of the note. The instrument field is a
-  dropdown over the canonical `STUDENT_INSTRUMENT_OPTIONS` list; the tutor list
-  is filtered in the browser from the full active roster and a tutor who does
-  not teach the newly chosen instrument is cleared rather than silently
-  submitted. `generateFcStudentId` moved to `lib/admin/fc-id.mjs` so the
-  normalisation helpers stay importable by client components.
 ## Current operating contracts
 
 | Area | Current boundary |

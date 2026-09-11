@@ -31,12 +31,19 @@ test('normaliseExperienceLevel handles user-friendly onboarding language', () =>
   assert.equal(normaliseExperienceLevel('unexpected'), 'a complete beginner');
 });
 
-test('generateFcStudentId is deterministic for trimmed, case-insensitive inputs', () => {
-  const a = generateFcStudentId(' Test ', 'Studenty', 'Finn@Example.com ');
-  const b = generateFcStudentId('test', 'studenty', 'finn@example.com');
+// Golden value shared with first-chord-brain test_fc_ids.py. Neither repo can
+// import the other, so if this fails one of them changed the formula alone —
+// which is exactly how 63 students came to carry two different FC student IDs.
+test('generateFcStudentId matches the brain formula for the same MMS ID', () => {
+  assert.equal(generateFcStudentId('sdt_WFQ7Js'), 'fc_std_fa157fc5');
+  assert.equal(generateFcStudentId(' sdt_WFQ7Js '), 'fc_std_fa157fc5');
+});
 
-  assert.equal(a, b);
-  assert.match(a, /^fc_std_[a-f0-9]{8}$/);
+test('generateFcStudentId refuses to mint without an MMS student ID', () => {
+  assert.throws(() => generateFcStudentId(''), /MMS student ID/u);
+  assert.throws(() => generateFcStudentId('Tyler'), /MMS student ID/u);
+  // The retired name/email call shape must fail loudly, not mint a second-formula ID.
+  assert.throws(() => generateFcStudentId('Tyler', 'Beaton', 'tyler@example.com'), /MMS student ID/u);
 });
 
 test('parseInstrumentList keeps every instrument a sign-up note asks for', () => {

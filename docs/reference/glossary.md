@@ -9,6 +9,10 @@ Plain-English explanations of technical terms used in the admin dashboard. This 
 
 - **Path template** — a named ordered list of catalogue song IDs (`lib/config/path-templates.mjs`, canonical hand-edited). "Assign path" instantiates it into per-student `Song_Assignments` rows; the student copy is personal from then on.
 
+## FC student ID
+
+`fc_std_` plus eight hex characters, identifying one student enrolment across First Chord systems. It is **minted once, from the MMS student ID, and then stored** in the registry (with a copy in the Students sheet `FC Student ID` cell). The stored value is authoritative: nothing recomputes it, so it stays stable if a name, email or provider changes, and the brain's FC tabs read it rather than deriving their own. IDs minted before September 2026 came from a name/email seed and are not `sha256(mms_id)` — expected, not an error.
+
 ## Free slot, pinned occurrence, and week bump
 
 A **Free slot** is a weekly recurring MMS calendar event in the `Free` category

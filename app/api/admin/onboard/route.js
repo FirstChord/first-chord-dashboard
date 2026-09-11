@@ -125,7 +125,7 @@ async function appendCanonicalStudent({
   groupPartnerMmsId = '',
   lessonType = 'individual',
 }) {
-  const fcStudentId = generateFcStudentId(student.firstName, student.lastName, parentEmail);
+  const fcStudentId = generateFcStudentId(student.mmsId);
   const friendlyUrl = await generateFriendlyUrl(student.firstName, student.lastName);
   const thetaUsername = student.thetaUsername || `${student.firstName}${student.lastName}fc`.toLowerCase().replace(/[^a-z0-9]/g, '');
   const duplicateState = await getOnboardingDuplicateState({

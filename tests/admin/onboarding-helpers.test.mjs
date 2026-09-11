@@ -256,12 +256,21 @@ test('post-onboarding work waits for the lesson but not ancillary Free-slot clea
 });
 
 const readyCompletionForm = {
+  mmsId: 'sdt_WFQ7Js',
   soundsliceUrl: 'https://www.soundslice.com/courses/16914/',
   humanChecks: {
     paymentTermsExplained: true,
     lessonWhatsappGroupReady: true,
   },
 };
+
+test('completion is blocked without an MMS student ID to mint the FC student ID from', () => {
+  for (const mmsId of ['', '   ', 'Tyler Beaton', undefined]) {
+    const blockers = findOnboardingCompletionBlockers({ ...readyCompletionForm, mmsId });
+    assert.deepEqual(blockers.map((blocker) => blocker.field), ['mmsId']);
+  }
+  assert.deepEqual(findOnboardingCompletionBlockers(readyCompletionForm), []);
+});
 
 test('completion is blocked until a Soundslice URL is present', () => {
   const blockers = findOnboardingCompletionBlockers({
@@ -287,11 +296,12 @@ test('completion requires both human payment and WhatsApp confirmations', () => 
   ]);
   assert.match(missingBoth[0].message, /weekly Stripe subscription/u);
   assert.match(missingBoth[1].message, /assigned tutor, Finn, Tom and Fennella/u);
-  assert.equal(findOnboardingCompletionBlockers({}).length, 3);
-  assert.equal(findOnboardingCompletionBlockers().length, 3);
+  // MMS ID, Soundslice URL, and both human confirmations.
+  assert.equal(findOnboardingCompletionBlockers({}).length, 4);
+  assert.equal(findOnboardingCompletionBlockers().length, 4);
 });
 
-test('Soundslice and both human confirmations clear every completion blocker', () => {
+test('an MMS ID, Soundslice and both human confirmations clear every completion blocker', () => {
   assert.deepEqual(findOnboardingCompletionBlockers(readyCompletionForm), []);
 });
 

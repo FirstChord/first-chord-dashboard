@@ -5,8 +5,8 @@ last_verified: 2026-09-11
 ---
 # FC student ID convergence
 
-**Status:** audit complete, no writes made. **Needs Finn's decision** on the
-direction below before any step starts.
+**Status:** **Finn chose B on 2026-09-11. Steps 1–3 are done and verified.**
+Kept as the record of why the two IDs exist and what was measured.
 **Date:** 2026-09-11
 
 ## Why this exists
@@ -201,4 +201,21 @@ and briefly flagged Tyler as `SHEETS ONLY`.
 
 ## Outcome
 
-_Pending Finn's decision on A vs B._
+**B, decided 2026-09-11, implemented the same day.**
+
+- **Brain** (`31b3225`, `762ec53`, plus a registry-parse guard): stored ID wins;
+  `fc_ids.py` is the single formula home; CLI onboarding mints from the MMS ID;
+  the hourly workflow runs the unit tests before writing tabs. The generation
+  stops outright if the registry parses with no `fcStudentId` values, because a
+  format change would otherwise rekey every stored ID with no flag.
+- **Dashboard:** `generateFcStudentId(mmsId)` with no name/email fallback;
+  onboarding blocks without an MMS ID; the three FC ID flags are classified
+  issues instead of "Unclassified"; the "run `generate_fc_ids.py`" guidance now
+  says the hourly job does it.
+- **Rehearsal matched exactly** once compared row by row: 63 / 208 / 39 / 0. A
+  first keyed diff reported 205 external-ID changes because 47 external values
+  are shared between rows (siblings, shared Soundslice courses) and collapsed;
+  it was a measuring error, not a behaviour difference.
+- **Live, after the manual workflow run:** 210 of 210 `FC_Students` rows equal
+  the registry, `created_at` unchanged on all 211, `Review_Flags` unchanged,
+  and `brain.py lookup fc_std_68c763fb` finds Tyler.

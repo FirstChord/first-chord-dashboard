@@ -37,6 +37,9 @@ test('classifyIssue maps current review flag types into actionable admin metadat
   assert.deepEqual(classifyIssue('SHEETS ONLY').systemsAffected, ['Sheets']);
   assert.deepEqual(classifyIssue('REGISTRY ONLY').systemsAffected, ['Registry']);
   assert.deepEqual(classifyIssue('PAYMENT SETUP PENDING').severity, 'Warning');
+  assert.deepEqual(classifyIssue('FC ID CONFLICT').systemsAffected, ['Registry', 'Sheets']);
+  assert.deepEqual(classifyIssue('FC ID DUPLICATE').severity, 'Needs action');
+  assert.notEqual(classifyIssue('FC ID MALFORMED').summary, 'Unclassified issue');
   assert.deepEqual(classifyIssue('SETUP PENDING STRIPE LINKED').summary, 'Stripe linkage exists but payment expectation is still setup pending');
   assert.deepEqual(classifyIssue('STRIPE SUBSCRIPTION MISSING').systemsAffected, ['Sheets', 'Stripe']);
   assert.deepEqual(classifyIssue('PAYMENT_FAILED').severity, 'Needs action');
