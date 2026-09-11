@@ -16,6 +16,7 @@ policy, or workflow contracts.
 - [Monolith split](./active/monolith-split.md)
 - [Tutor dashboard Google-login pilot](./active/tutor-dashboard-auth-pilot.md)
 - [Tutor-facing payroll](./active/tutor-payroll.md)
+- [FC student ID convergence](./active/fc-student-id-convergence.md)
 
 ## Parked
 
