@@ -31,7 +31,7 @@ delete the oldest — do not archive it here. The chronology is `git log` and th
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
 - **The Message Inbox is a focused, faster processing queue and unknown live
-  groups are recoverable without weakening confirmation — READY TO DEPLOY
+  groups are recoverable without weakening confirmation — DEPLOYED
   2026-09-12:** Libby Brooks's 12:04 absence message for Adam
   reached the bridge cache but not the inbox. Adam's chat ID was absent from the
   228 confirmed groups and from a fresh 366-group WhatsApp snapshot even though
