@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { resolveEnforcedTutorDashboardGuard } from '../../lib/tutor-auth-contract.mjs';
+import { isTutorDashboardAuthEnforced } from '../../lib/tutor-auth-helpers.mjs';
 import { resolveNewsletterTutorAuth } from '../../lib/admin/newsletter-tutor-auth-contract.mjs';
 import {
   buildStudentNotesToken,
@@ -39,6 +40,7 @@ async function authorize({
     token,
     studentId,
     secret,
+    isEnforced: () => isTutorDashboardAuthEnforced(env),
     verifyToken: verifyStudentNotesToken,
     guard: async ({ requestedTutor }) => {
       const session = await resolveEnforcedTutorDashboardGuard({
@@ -70,6 +72,29 @@ test('a perfectly valid token is refused where tutor auth is not enforced', asyn
     assert.equal(result.status, 503);
     assert.equal(result.code, 'tutor_auth_not_enforced');
   }
+});
+
+test('enforcement is refused before any token or secret work happens', async () => {
+  // Ordering, not just outcome. Verifying an HMAC on a service where the route
+  // must not function is wasted work, and — the part that matters — it makes the
+  // two services indistinguishable from outside: both answered `token_required`
+  // when probed without a token, so nothing external could confirm the public one
+  // was actually inert.
+  let tokenVerified = false;
+  const result = await resolveNewsletterTutorAuth({
+    token: deanToken('sdt_abc'),
+    studentId: 'sdt_abc',
+    secret: '',
+    isEnforced: () => false,
+    verifyToken: (...args) => { tokenVerified = true; return verifyStudentNotesToken(...args); },
+    guard: async () => { throw new Error('the session guard must not be reached'); },
+  });
+
+  assert.equal(result.status, 503);
+  assert.equal(result.code, 'tutor_auth_not_enforced');
+  assert.equal(tokenVerified, false, 'no token work on a surface where the route is inert');
+  // Note it reports enforcement, NOT the missing secret it was also given.
+  assert.equal(result.body.code, 'tutor_auth_not_enforced');
 });
 
 test('with auth enforced, a valid token and matching session is allowed', async () => {
