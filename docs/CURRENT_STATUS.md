@@ -32,7 +32,7 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
 
 - **The Message Inbox is a focused, faster processing queue and unknown live
   groups are recoverable without weakening confirmation — DEPLOYED
-  2026-09-12; return-checkpoint refinement built 2026-09-13:** Libby Brooks's
+  2026-09-12; return-checkpoint refinement DEPLOYED 2026-09-13:** Libby Brooks's
   12:04 absence message for Adam
   reached the bridge cache but not the inbox. Adam's chat ID was absent from the
   228 confirmed groups and from a fresh 366-group WhatsApp snapshot even though
