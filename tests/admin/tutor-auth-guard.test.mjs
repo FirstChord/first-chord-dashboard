@@ -8,6 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  resolveEnforcedTutorDashboardGuard,
   resolveTutorDashboardAccess,
   resolveTutorDashboardGuard,
   tutorAuthErrorBody,
@@ -167,4 +168,67 @@ test('resolveTutorDashboardAccess always reports whether enforcement was on', as
   assert.equal(enforced.authorized, false);
   assert.equal(off.enforced, false);
   assert.equal(off.authorized, true);
+});
+
+// --- the enforced gate ------------------------------------------------------
+//
+// The ordinary guard deliberately lets everyone through when auth mode is off,
+// because that is the legacy public dashboard. These cover the stricter gate
+// used by newsletter capture and media upload, which must be inert there.
+
+test('the enforced gate refuses every falsy or typo’d auth mode, and never fetches a session', async () => {
+  for (const mode of ['off', 'enabled', 'true', '1', 'on', 'yes', '', undefined]) {
+    let sessionFetched = false;
+    const result = await resolveEnforcedTutorDashboardGuard({
+      env: { ...ENFORCED, TUTOR_DASHBOARD_AUTH_MODE: mode },
+      requestedTutor: 'Kim',
+      getSession: async () => { sessionFetched = true; return { user: { email: 'kim@firstchord.co.uk' } }; },
+      isAdminEmail: noAdmins,
+    });
+
+    assert.equal(result.ok, false, `mode ${JSON.stringify(mode)} must not pass the enforced gate`);
+    assert.equal(result.status, 503);
+    assert.equal(result.code, 'tutor_auth_not_enforced');
+    assert.equal(result.access.authorized, false);
+    assert.equal(result.access.fullAccess, false, 'the public path must never confer full access here');
+    assert.equal(sessionFetched, false, 'refusal happens before any session lookup');
+  }
+});
+
+test('the enforced gate behaves like the ordinary guard once auth is enforced', async () => {
+  const allowed = await resolveEnforcedTutorDashboardGuard({
+    env: ENFORCED,
+    requestedTutor: 'Kim',
+    getSession: sessionFor('kim@firstchord.co.uk'),
+    isAdminEmail: noAdmins,
+  });
+  assert.equal(allowed.ok, true);
+  assert.equal(allowed.status, 200);
+
+  const wrongTutor = await resolveEnforcedTutorDashboardGuard({
+    env: ENFORCED,
+    requestedTutor: 'Tom',
+    getSession: sessionFor('kim@firstchord.co.uk'),
+    isAdminEmail: noAdmins,
+  });
+  assert.equal(wrongTutor.ok, false);
+  assert.equal(wrongTutor.status, 403, 'a mapped tutor still cannot reach another tutor');
+
+  const signedOut = await resolveEnforcedTutorDashboardGuard({
+    env: ENFORCED,
+    requestedTutor: 'Kim',
+    getSession: sessionFor(''),
+    isAdminEmail: noAdmins,
+  });
+  assert.equal(signedOut.ok, false);
+  assert.equal(signedOut.status, 401);
+});
+
+test('the enforced refusal reads as unavailable, not as a login prompt', () => {
+  const body = tutorAuthErrorBody({ status: 503, code: 'tutor_auth_not_enforced' });
+  assert.equal(body.success, false);
+  assert.equal(body.code, 'tutor_auth_not_enforced');
+  // Telling a tutor to "sign in" on a service that has no sign-in would send
+  // them round a loop with nothing to click.
+  assert.ok(!/sign in/iu.test(body.message), body.message);
 });

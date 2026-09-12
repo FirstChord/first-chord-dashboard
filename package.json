@@ -37,7 +37,8 @@
     "prevalidate": "node scripts/generate-configs.js --no-backup",
     "validate": "node scripts/validate-students.js",
     "generate-configs": "node scripts/generate-configs.js",
-    "preview:email": "node scripts/preview-email.mjs"
+    "preview:email": "node scripts/preview-email.mjs",
+    "newsletter:media-report": "node scripts/newsletter-media-report.mjs"
   },
   "dependencies": {
     "googleapis": "^161.0.0",

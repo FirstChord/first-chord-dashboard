@@ -108,15 +108,28 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   Rollback: mark confirmed tutor groups Review/Ignored *before* reverting, or an
   older build applies parent rules to them; leave the appended columns alone.
 
-- **The available RSL Acoustic 2026 repertoire is on the Song Shelf — DEPLOYED
-  2026-09-03:** 25 playable slices were added: complete Debut and Grade 1 books,
-  four Grade 3 pieces, two Grade 4 pieces and one Grade 5 piece. Grade 2's 2026
-  Soundslice list is still empty. Every new slice has its secret link enabled,
-  passes anonymous playback verification and has a MusicXML cold-storage backup.
-  Existing and 2026 pieces deliberately share grade shelves; plain text under
-  the artist identifies `RSL 2026 syllabus`, `RSL legacy book`, or `RSL 2018 book`
-  without another badge. The available 2026 arrangements have no same-instrument
-  catalogue collision, so the first intake did not duplicate an acoustic work.
+- **Tutors can put photos, voice notes and video straight into First Chord's
+  Drive — BUILT AND DEPLOYED 2026-09-12, INERT UNTIL SWITCHED ON:** the tutor
+  dashboard gains a quiet newsletter strip (month, question, priority names as
+  links — no tick boxes) and a per-student capture panel with text plus camera and
+  voice-note buttons. **Correction to the earlier plan: uploading is not
+  publishing.** Those photos already sat on tutors' personal phones and in
+  WhatsApp with no school control and no retention, so moving them into a
+  controlled Drive folder is a privacy improvement; consent gates *use*, and that
+  gate already exists. The path is bounded: its own `DRIVE_*` credential scoped to
+  **`drive.file` only** (no `GOOGLE_*` fallback, unlike Gmail — a fallback would
+  silently widen the grant), a MIME allowlist, per-kind size caps enforced again
+  against arriving bytes because `Content-Length` is a claim, the body **streamed**
+  to Drive rather than buffered, Drive written before Sheets so a failure leaves
+  recoverable garbage rather than a broken row, and **no deletion anywhere in the
+  code**. `npm run newsletter:media-report` reconciles references against files.
+  Three tutor routes refuse outright unless `TUTOR_DASHBOARD_AUTH_MODE` is
+  enforced — the first routes in the repo to fail closed on a missing auth mode,
+  because the legacy public service still serves `/dashboard` with no login while
+  holding Sheets credentials. **Nothing works until Finn sets
+  `TUTOR_DASHBOARD_EMAIL_MAP` + `AUTH_MODE=required` and the three `DRIVE_*` vars;
+  that is intended.** Full suite (1,609), lint, code-map, docs and build pass.
+  Record: `docs/plans/active/newsletter-loop.md`.
 - **The lesson mirror now has a real read-only calendar and a detailed exception lens —
   DEPLOYED 2026-09-02:** `/admin/lessons/calendar` renders one authenticated week
   from events re-seen in the latest fresh, exactly-counted MMS sweep. It defaults

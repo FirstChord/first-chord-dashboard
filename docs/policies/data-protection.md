@@ -22,7 +22,8 @@ clear access boundaries, and plain-language transparency matter especially.
 | `Student_Portal_Access` | encrypted family notes code, credential verifier/version, and staff rollout confirmations | enrolled; remove through the established leaving/portal-removal flow |
 | `Incoming_Message_Inbox`, `WhatsApp_Group_Map`, local bridge cache | parent messages, phones, group/student mapping for lesson administration | handled/ignored inbox rows 12 months; cache 14 days/2,000 by default; confirmed map while operationally needed |
 | `Proposals` | generated reply body, source-text hash, bounded policy/model metadata, and the admin's use/edit/discard decision; no copied inbox message text | 12-month rolling prune proposed; not yet automated |
-| `Newsletter_Issues`, `Newsletter_Items` | child first/last name, tutor, a tutor's or Fenella's short written observation about a child, and the recorded parental answer about whether a picture of that child may be published | enrolled plus 2 years, aligned with `Practice_Notes_Log`; **never prune a `consent_answer` row while the permission it records is still being relied on** |
+| `Newsletter_Issues`, `Newsletter_Items` | child first/last name, tutor, a tutor's or Fenella's short written observation about a child, the recorded parental answer about whether a picture of that child may be published, and Drive references to uploaded media | enrolled plus 2 years, aligned with `Practice_Notes_Log`; **never prune a `consent_answer` row while the permission it records is still being relied on** |
+| Google Drive `First Chord Newsletter/<YYYY-MM>/` | **photographs, video and audio of children**, uploaded by tutors through the dashboard | proposed enrolled plus 2 years, aligned with `Practice_Notes_Log`. **Deletion is manual and deliberate** — nothing in the code deletes a file, and detaching a reference in `Newsletter_Items` leaves the file in place on purpose. `npm run newsletter:media-report` lists unreferenced files for a human to judge |
 | `Communication_Log`, `Parent_Understanding_State` | copied parent communication and human relationship notes | communications 2 years; review subjective understanding notes yearly |
 | planning, absence, pause, issue and event lanes | named operational workflow and audit evidence | workflow rows while active/useful; `Event_Log` proposed 2 years; never erase evidence to fake recovery |
 | song/path/assignment/request/outcome lanes | student IDs, tutor names, learning telemetry and free-text outcomes | review periodically; do not turn tutor-linked outcomes into performance ranking |
@@ -64,7 +65,21 @@ When a store or purpose is added there, update this map in the same change.
    reel or the website is a separate ask, and no field should be added that would
    let one answer authorise all of them. Slice 1 stores no files: the picture
    stays wherever the tutor sent it, and the upload path is refused server-side.
-6. Pressing **Reply** on an inbox card may send that message's redacted text to
+6. **Tutors can upload photographs, video and audio of children into First
+   Chord's Google Drive from the tutor dashboard.** This is a deliberate
+   improvement on the previous position, where the same files lived on tutors'
+   personal phones and in WhatsApp threads with no school control and no
+   retention at all. Three boundaries make it acceptable: the upload route
+   refuses entirely unless `TUTOR_DASHBOARD_AUTH_MODE` is `pilot`/`required`, so
+   it is inert on the legacy public service; the Drive credential is scoped to
+   `drive.file`, which can only ever touch files this application itself created,
+   not the rest of First Chord's Drive; and **uploading is not publishing** — the
+   existing consent gate still blocks a picture from being selected for an issue
+   until a parent's answer is recorded. Uploaded bytes live in `musiclessons@`'s
+   Drive, shared with Fenella. Outstanding: the parent-facing privacy notice must
+   say the school stores this media and for how long, and the retention window
+   above needs approving.
+7. Pressing **Reply** on an inbox card may send that message's redacted text to
    OpenAI. Unknown names/indirect identifiers can survive deterministic
    redaction. Finn accepted that residual risk for a bounded per-card pilot on
    2026-08-04. There is no bulk/background drafting, and `Proposals` does not
@@ -98,8 +113,13 @@ date or legal exception. Review its output per tab before any manual pruning.
 - include the bounded OpenAI reply-proposal processing in the parent-facing
   privacy notice and verify the applicable provider/DPA settings
 - approve the newsletter media-consent wording, and describe in the parent-facing
-  privacy notice how a picture of a child is requested, recorded and retained —
-  **required before any newsletter media upload ships**
+  privacy notice how a picture of a child is requested, recorded and retained.
+  **The upload path now exists**, so this is owed rather than merely planned; it
+  is gated behind tutor authentication being enforced, which is the practical
+  reason it is not yet live
+- approve the retention window for newsletter media held in Google Drive, and
+  agree who may access that folder (currently `musiclessons@`, shared with
+  Fenella)
 - define and rehearse a reviewed per-student deletion/export procedure
 
 Until then, minimisation improvements that do not destroy required history are

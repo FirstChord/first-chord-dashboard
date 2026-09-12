@@ -7,6 +7,8 @@ import NotesPanel from '@/components/student/NotesPanel';
 import QuickLinks from '@/components/navigation/QuickLinks';
 import TutorSchedulePanel from '@/components/tutor-dashboard/TutorSchedulePanel';
 import SongBrowser from '@/components/tutor-dashboard/SongBrowser';
+import NewsletterStrip from '@/components/tutor-dashboard/NewsletterStrip';
+import NewsletterCapture from '@/components/tutor-dashboard/NewsletterCapture';
 import HeaderGreenery from '@/components/tutor-dashboard/HeaderGreenery';
 import { TutorSignOutButton } from '@/components/tutor-dashboard/TutorAuthButton';
 import TimeOfDaySky from '@/components/shared/TimeOfDaySky';
@@ -661,12 +663,15 @@ export default function DashboardClient({ tutorOptions = [], authAccess = {} }) 
                 </div>
               </div>
 
+              <NewsletterCapture student={selectedStudent} />
+
               <SongBrowser student={selectedStudent} />
 
             </div>
           ) : (
             <div className="flex min-h-full items-center justify-center p-6">
               <div className="flex w-full max-w-3xl flex-col items-center gap-6">
+                <NewsletterStrip students={students} onSelectStudent={handleSelectStudent} />
                 <TutorSchedulePanel
                   tutor={tutor}
                   students={students}

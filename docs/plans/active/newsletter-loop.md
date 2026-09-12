@@ -161,15 +161,27 @@ claim.
 | Slice | Scope | Blocked by |
 |---|---|---|
 | **1a** | Fenella's side: open issue, assign priorities, copyable tutor request text, record contributions, consent ask and answer, mark selected | nothing |
-| **1b** | Tutor capture surface (text only) on `/dashboard` | auth enforcement gate below |
+| **1b** | Tutor surface on `/dashboard`: the reminder strip, text capture, and photo/audio/video upload to Drive — **built 2026-09-12**, inert until tutor auth is enforced | `TUTOR_DASHBOARD_AUTH_MODE` + per-tutor emails |
 | **2** | Editorial assembly: selection, order, intro, deterministic render, AI wording proposals | nothing |
-| **3** | Photo/audio/video upload to Google Drive | consent flow proven in use, tutor auth `required` everywhere, Drive credential, retention decision |
+| ~~3~~ | ~~Media upload as a separate slice~~ — folded into 1b (decided 2026-09-12): the tutor panel, the capability token and the auth gate are shared, so building them twice made no sense |
 | **4** | Render the approved issue as HTML and give Fenella a **Copy HTML** button | slice 2 |
 | ~~5~~ | ~~Production send from the dashboard~~ — **not being built** (decided 2026-09-12) | — |
 
-Assembly (2) deliberately precedes media (3): media is the most blocked piece in
-the design, assembly is blocked on nothing, and doing assembly first means media
-lands into a loop that already works end to end.
+### Uploading is not publishing — corrected 2026-09-12
+
+An earlier version of this plan said consent blocked media upload. That conflated
+two different things and was wrong.
+
+Those photos already exist: on tutors' personal phones and in WhatsApp threads,
+with no school control, no access boundary and no retention at all. Moving them
+into a school-controlled Drive folder is a **privacy improvement**, not a new
+exposure. The consent gate belongs on **publication**, which is where it already
+sits: an item with media cannot be selected for an issue until a parent's answer
+is recorded, re-checked server-side.
+
+So consent does not gate upload. It gates use. What is still genuinely owed is
+retention and a line in the parent-facing privacy notice — real obligations, but
+not reasons to leave the files on personal phones in the meantime.
 
 ### Mailchimp: copy and paste, not an API — decided 2026-09-12
 
@@ -250,19 +262,52 @@ identity, `captured_by` is self-attested. Fenella's screen says **recorded as**,
 not **by**. Binding it to authenticated identity is a 1b/3 gate, per
 [tutor surface security](../../architecture/security/tutor-student-surfaces.md).
 
-### Gates before 3 (media)
+### What switches 1b on
 
-1. `TUTOR_DASHBOARD_AUTH_MODE=required` on every service serving `/dashboard`,
-   individual mapped tutor emails, legacy public dashboard closed or redirected.
-2. The consent flow above in real use, so standing permissions have accumulated
-   from genuine answers rather than a backfill.
-3. Retention chosen for newsletter media (proposal: enrolled plus 2 years,
-   aligned with `Practice_Notes_Log`; deletion stays manual — `data-protection.md`
-   does not authorise automated deletion).
-4. A parent-facing privacy notice that describes it.
+The code is built and deployed but **inert**. Three things, all configuration:
 
-Unknown permission **blocks** the upload rather than warning. The asset is a
-child's image and the consequence is publication to a parent mailing list.
+1. `TUTOR_DASHBOARD_AUTH_MODE=required` on the canonical service.
+2. `TUTOR_DASHBOARD_EMAIL_MAP` with each tutor's Google address → tutor key.
+   Until this exists, the only approved identity is the shared `musiclessons@`
+   account, so no individual tutor can reach their own students.
+3. The legacy public `efficient-sparkle` dashboard closed or redirected. Until
+   then it keeps serving `/dashboard` with no login — the newsletter routes refuse
+   to run there, but it remains the reason they have to.
+
+Plus `DRIVE_CLIENT_ID` / `DRIVE_CLIENT_SECRET` / `DRIVE_REFRESH_TOKEN` for the
+upload half specifically. Without them text capture works and upload returns
+`drive_not_configured`, so the two halves can be switched on independently.
+
+Still owed, not blocking the switch-on: an approved retention window for media in
+Drive, and a parent-facing privacy notice saying the school stores it.
+
+### How the media path is bounded
+
+- **Credential:** its own `DRIVE_*` triple, scope `drive.file` **only** — access
+  to files this app created and nothing else, so a leaked token cannot read the
+  rest of First Chord's Drive. No fallback to `GOOGLE_*`, unlike the Gmail config;
+  a fallback would silently widen the grant. Minted by
+  `scripts/mint-drive-token.mjs`.
+- **Identity:** the Drive **file ID** is stored in `media_json`. Never the folder
+  path or file name, so a human renaming or moving a file breaks nothing. Names
+  (`2026-09_hayley-adams_fc_std_…_a1b2c3d4.jpg`) are for browsing only.
+- **Types:** an allowlist. Photo, audio and video MIME types only — a PDF, an
+  HTML file or an SVG is refused, SVG particularly because it can carry script.
+- **Size:** per kind — 15MB photo, 25MB audio, 60MB video. Enforced twice: once
+  against the declared `Content-Length`, then again by a counter on the bytes as
+  they arrive, because the declared length is a claim. The body **streams** to
+  Drive rather than being buffered; holding a 60MB video in memory is how this
+  feature would take a Railway instance down.
+- **Order:** Drive first, then the Sheets write. An orphaned Drive file is
+  recoverable garbage; a row pointing at a file that does not exist is a broken
+  page. When the write fails the route says so explicitly and tells the tutor
+  **not** to re-upload, and `npm run newsletter:media-report` lists the orphans.
+- **Deletion:** none, anywhere in the code. Detaching a reference leaves the file
+  in place on purpose. Removing a child's photograph is a deliberate human act.
+- **Phone-first:** the photo is on the tutor's phone, not the desktop beside
+  Practice Chat, so the capture control uses `capture` to open the camera
+  directly. If this takes more taps than sending the photo on WhatsApp it will not
+  get used, which is the real risk to watch — not the plumbing.
 
 ### Idempotency keys — two, and no more
 

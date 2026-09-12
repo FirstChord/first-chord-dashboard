@@ -30,7 +30,11 @@ async function discoverRoutes(directory = APP_ROOT) {
 }
 
 const GUARD_PATTERNS = {
-  tutor: /requireTutorDashboardAccess/,
+  // `authorizeNewsletterTutorRequest` is the stricter variant: per-student token
+  // plus a session guard that refuses outright where TUTOR_DASHBOARD_AUTH_MODE is
+  // off, instead of falling back to public access. Listed under `tutor` so the
+  // ordering test below (guard before any data call) covers those routes too.
+  tutor: /requireTutorDashboardAccess|requireEnforcedTutorDashboardAccess|authorizeNewsletterTutorRequest/,
   admin: /user\?\.isAdmin|isAllowedAdminEmail|requireAdmin/,
   token: /verifyStudentNotesToken|verifyStatementToken|verifyStudentNotesSession|authorizeNotesRequest|verifyTutorSurfaceToken|verifyStudentNotesCode/,
   secret: /x-firstchord-[a-z-]+-secret|CRON_SECRET|PRACTICE_CHAT_API_SECRET|authenticatePracticeChatRequest|SCHEDULE_REFRESH_SECRET|createFinanceSnapshotPostHandler|createStripeAmountsPostHandler/,
