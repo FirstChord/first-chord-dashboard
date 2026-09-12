@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
 const inboxClientUrl = new URL('../../components/admin/AdminIncomingMessagesPageClient.js', import.meta.url);
+const inboxRouteUrl = new URL('../../app/api/admin/incoming-messages/route.js', import.meta.url);
 
 test('AI reply drafting is invoked by one card Reply press and has a standard fallback', async () => {
   const source = await readFile(inboxClientUrl, 'utf8');
@@ -21,7 +22,7 @@ test('the inbox has no bulk or background reply-drafting control', async () => {
   assert.doesNotMatch(source, /useEffect\([^)]*onDraftReply|setInterval\([^)]*onDraftReply/u);
 });
 
-test('Reply + Plan copies one reviewed draft, persists it, then opens the linked plan', async () => {
+test('Reply + Plan copies one reviewed draft, persists it, and stays in the inbox', async () => {
   const source = await readFile(inboxClientUrl, 'utf8');
   const copyIndex = source.indexOf('await navigator.clipboard.writeText(reply)');
   const convertIndex = source.indexOf("await onConvert(entry, correctionPayload('converted'))");
@@ -29,7 +30,40 @@ test('Reply + Plan copies one reviewed draft, persists it, then opens the linked
   assert.match(source, /Reply \+ Plan/u);
   assert.match(source, /replyTemplate: replyDraft\.trim\(\)/u);
   assert.ok(copyIndex >= 0 && convertIndex > copyIndex);
-  assert.match(source, /window\.location\.assign\(`\/admin\/planning\?focus=/u);
+  assert.doesNotMatch(source, /window\.location\.assign\(`\/admin\/planning\?focus=/u);
+  assert.match(source, /created and reply copied/u);
+  assert.match(source, /Open full plan/u);
+  assert.match(source, /advanceAfter\(entry\.incomingId\)/u);
+});
+
+test('the inbox uses one selected-message workspace with a mobile return path', async () => {
+  const source = await readFile(inboxClientUrl, 'utf8');
+
+  assert.match(source, /function MessageQueueItem/u);
+  assert.match(source, /aria-label="Message queue"/u);
+  assert.match(source, /aria-label="Selected message"/u);
+  assert.match(source, /Back to \{visibleClusters\.length\} message/u);
+  assert.match(source, /selectedCluster \? \(/u);
+});
+
+test('burst outcomes use compact batched mutations', async () => {
+  const source = await readFile(inboxClientUrl, 'utf8');
+
+  assert.match(source, /mode: 'review_batch'/u);
+  assert.match(source, /mode: 'snooze_batch'/u);
+  assert.match(source, /relatedIncomingIds: burst\.map/u);
+  assert.match(source, /mergeIncomingInboxMutation\(current, data\)/u);
+});
+
+test('completed history is lazy, bounded, and keeps the full count visible', async () => {
+  const [clientSource, routeSource] = await Promise.all([
+    readFile(inboxClientUrl, 'utf8'),
+    readFile(inboxRouteUrl, 'utf8'),
+  ]);
+
+  assert.match(routeSource, /getIncomingMessageInboxPage\(\{ statusScope: 'resolved', limit: 100 \}\)/u);
+  assert.match(clientSource, /Showing the \{visibleInbox\.length\} most recent of \{completedTotal\}/u);
+  assert.match(clientSource, /setDoneTotalCount\(Number\(data\.totalCount\) \|\| 0\)/u);
 });
 
 // The panel offers Student group / Tutor group plus a person selector, but the

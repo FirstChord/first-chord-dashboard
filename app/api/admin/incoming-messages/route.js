@@ -11,14 +11,23 @@ import {
   deleteIncomingMessage,
   getConfirmedGroupChatIds,
   getIncomingMessageInbox,
+  getIncomingMessageInboxPage,
   getWhatsappGroupMap,
   recordBridgeStatus,
   reviewWhatsappGroup,
   snoozeIncomingMessage,
+  snoozeIncomingMessages,
   syncWhatsappGroups,
   updateIncomingMessageReview,
+  updateIncomingMessageReviews,
   updateIncomingMessageText,
 } from '@/lib/admin/incoming-messages';
+import { getActiveTutorOptions } from '@/lib/admin/tutors';
+import {
+  prefetchSheetValues,
+  TUTOR_LIFECYCLE_SHEET,
+  WHATSAPP_GROUP_MAP_SHEET,
+} from '@/lib/admin/sheets';
 
 function hasValidIngestSecret(request) {
   const configured = `${process.env.INCOMING_MESSAGE_INGEST_SECRET || ''}`.trim();
@@ -53,11 +62,25 @@ export async function GET(request) {
   }
 
   try {
-    const [inbox, groupMap] = await Promise.all([
-      getIncomingMessageInbox(),
-      getWhatsappGroupMap(),
-    ]);
-    return Response.json({ success: true, inbox, groupMap });
+    const scope = new URL(request.url).searchParams.get('scope') || 'active';
+    if (scope === 'groups') {
+      await prefetchSheetValues([WHATSAPP_GROUP_MAP_SHEET, TUTOR_LIFECYCLE_SHEET]);
+      const [groupMap, tutors] = await Promise.all([
+        getWhatsappGroupMap(),
+        getActiveTutorOptions(),
+      ]);
+      return Response.json({
+        success: true,
+        groupMap,
+        tutorOptions: tutors.map(({ shortName, fullName }) => ({ shortName, fullName })),
+      });
+    }
+    if (scope === 'done') {
+      const page = await getIncomingMessageInboxPage({ statusScope: 'resolved', limit: 100 });
+      return Response.json({ success: true, ...page });
+    }
+    const inbox = await getIncomingMessageInbox({ statusScope: 'active' });
+    return Response.json({ success: true, inbox });
   } catch (error) {
     return Response.json({ error: error.message || 'Incoming inbox load failed' }, { status: 500 });
   }
@@ -92,7 +115,7 @@ export async function POST(request) {
       if (!isAdmin) {
         return Response.json({ error: 'Admin session required for review changes' }, { status: 401 });
       }
-      await updateIncomingMessageReview({
+      const row = await updateIncomingMessageReview({
         incomingId: `${body?.incomingId || ''}`.trim(),
         status: body?.status || '',
         reviewNote: body?.reviewNote || '',
@@ -101,20 +124,45 @@ export async function POST(request) {
         classificationActionability: body?.classificationActionability || '',
         actorEmail: session.user.email || '',
       });
+      extra = { ...extra, updatedMessages: [row] };
+    } else if (mode === 'review_batch') {
+      if (!isAdmin) {
+        return Response.json({ error: 'Admin session required for review changes' }, { status: 401 });
+      }
+      const rows = await updateIncomingMessageReviews({
+        incomingIds: Array.isArray(body?.incomingIds) ? body.incomingIds : [],
+        status: body?.status || '',
+        reviewNote: body?.reviewNote || '',
+        resolutionType: body?.resolutionType || '',
+        classificationActionability: body?.classificationActionability || '',
+        actorEmail: session.user.email || '',
+      });
+      extra = { ...extra, updatedMessages: rows };
     } else if (mode === 'snooze') {
       if (!isAdmin) {
         return Response.json({ error: 'Admin session required to move messages to Later' }, { status: 401 });
       }
-      await snoozeIncomingMessage({
+      const row = await snoozeIncomingMessage({
         incomingId: `${body?.incomingId || ''}`.trim(),
         snoozedUntil: `${body?.snoozedUntil || ''}`.trim(),
         actorEmail: session.user.email || '',
       });
+      extra = { ...extra, updatedMessages: [row] };
+    } else if (mode === 'snooze_batch') {
+      if (!isAdmin) {
+        return Response.json({ error: 'Admin session required to move messages to Later' }, { status: 401 });
+      }
+      const rows = await snoozeIncomingMessages({
+        incomingIds: Array.isArray(body?.incomingIds) ? body.incomingIds : [],
+        snoozedUntil: `${body?.snoozedUntil || ''}`.trim(),
+        actorEmail: session.user.email || '',
+      });
+      extra = { ...extra, updatedMessages: rows };
     } else if (mode === 'correct') {
       if (!isAdmin) {
         return Response.json({ error: 'Admin session required for message correction' }, { status: 401 });
       }
-      await correctIncomingMessage({
+      const row = await correctIncomingMessage({
         incomingId: `${body?.incomingId || ''}`.trim(),
         category: body?.category || '',
         actionability: body?.actionability || '',
@@ -124,15 +172,17 @@ export async function POST(request) {
         actorEmail: session.user.email || '',
         status: body?.status || 'needs_review',
       });
+      extra = { ...extra, updatedMessages: [row] };
     } else if (mode === 'update_text') {
       if (!isAdmin) {
         return Response.json({ error: 'Admin session required to edit message text' }, { status: 401 });
       }
-      await updateIncomingMessageText({
+      const row = await updateIncomingMessageText({
         incomingId: `${body?.incomingId || ''}`.trim(),
         messageText: body?.messageText || '',
         actorEmail: session.user.email || '',
       });
+      extra = { ...extra, updatedMessages: [row] };
     } else if (mode === 'sync_groups') {
       // Bridge (secret) or admin can push the group dump.
       const result = await syncWhatsappGroups({
@@ -177,7 +227,21 @@ export async function POST(request) {
         reviewedReply: Object.hasOwn(body || {}, 'replyTemplate') ? body.replyTemplate : null,
         actorEmail: session.user.email || '',
       });
-      extra = { planningId: result.planningId, replyTemplate: result.replyTemplate };
+      const relatedIncomingIds = Array.isArray(body?.relatedIncomingIds)
+        ? body.relatedIncomingIds.filter((id) => `${id || ''}`.trim() && `${id || ''}`.trim() !== result.row.incomingId)
+        : [];
+      const siblings = relatedIncomingIds.length
+        ? await updateIncomingMessageReviews({
+          incomingIds: relatedIncomingIds,
+          status: 'converted',
+          actorEmail: session.user.email || '',
+        })
+        : [];
+      extra = {
+        planningId: result.planningId,
+        replyTemplate: result.replyTemplate,
+        updatedMessages: [result.row, ...siblings],
+      };
     } else if (mode === 'delete') {
       if (!isAdmin) {
         return Response.json({ error: 'Admin session required for message deletion' }, { status: 401 });
@@ -185,6 +249,7 @@ export async function POST(request) {
       await deleteIncomingMessage({
         incomingId: `${body?.incomingId || ''}`.trim(),
       });
+      extra = { ...extra, deletedIncomingIds: [`${body?.incomingId || ''}`.trim()].filter(Boolean) };
     } else {
       await captureIncomingMessage(body?.message || body || {}, {
         actorEmail: isAdmin ? session.user.email || '' : 'incoming-message-bridge',
@@ -202,8 +267,12 @@ export async function POST(request) {
       }));
     }
 
+    if (body?.compact === true) {
+      return Response.json({ success: true, ...extra });
+    }
+
     const [inbox, groupMap] = await Promise.all([
-      getIncomingMessageInbox(),
+      getIncomingMessageInbox({ statusScope: 'active' }),
       getWhatsappGroupMap(),
     ]);
     return Response.json({ success: true, inbox, groupMap, ...extra });

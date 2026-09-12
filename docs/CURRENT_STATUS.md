@@ -30,8 +30,9 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
-- **An unknown live WhatsApp group is recoverable without weakening confirmation
-  — READY TO DEPLOY 2026-09-12:** Libby Brooks's 12:04 absence message for Adam
+- **The Message Inbox is a focused, faster processing queue and unknown live
+  groups are recoverable without weakening confirmation — READY TO DEPLOY
+  2026-09-12:** Libby Brooks's 12:04 absence message for Adam
   reached the bridge cache but not the inbox. Adam's chat ID was absent from the
   228 confirmed groups and from a fresh 366-group WhatsApp snapshot even though
   the account received its live event. The bridge now retains only that live
@@ -40,6 +41,15 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   the pending message on the next ten-minute refresh; the dashboard's stable
   message identity makes retries a no-op. The title never enables capture,
   history batches are never replayed, and non-First-Chord groups remain local.
+  The everyday UI now keeps a compact queue beside one selected message, opens
+  the same detail with a sticky return control on mobile, and keeps Reply + Plan
+  in the inbox: a successful copy/create advances to the adjacent message and
+  leaves Open full plan as an optional link. Burst outcomes are one batched
+  write; ordinary mutations return changed rows instead of rebuilding the whole
+  inbox. Done loads only when opened, returns the 100 most recent rows while
+  preserving the full 906-row count, and skips the unused 840-row Planning
+  join; the 485-row group map also waits for its panel. The active inbox tabs
+  are prefetched together.
 - **FC student IDs have one owner and one formula — DEPLOYED 2026-09-11:** the
   dashboard and brain CLI minted `fcStudentId` from `forename:surname:email`
   while the brain's hourly job recomputed `FC_Students` from `sha256(mms_id)`,

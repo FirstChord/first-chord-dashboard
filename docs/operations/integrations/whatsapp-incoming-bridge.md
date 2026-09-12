@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ---
 # WhatsApp Incoming Bridge
 
@@ -69,21 +69,27 @@ the human-final decision so accepted/corrected outcomes can be measured without
 calling untouched guesses knowledge. Neither result authorises a payment,
 pause, attendance, archive, planning, or messaging action.
 
-The daily card leads with student/sender, time and the original message. Tutor-group cards lead with the linked tutor and a compact **Tutor** badge.
+The everyday inbox is a queue/detail workspace: a compact message queue remains
+visible beside one selected card on desktop, while mobile opens that card with a
+sticky **Back to messages** control. Completing, snoozing or planning one item
+selects the adjacent message, so a review run does not lose its place.
+The detail card leads with student/sender, time and the original message. Tutor-group cards lead with the linked tutor and a compact **Tutor** badge.
 Consecutive messages from the same sender, chat and matched student sent within
 five minutes are one card: the burst is shown oldest-first under a single
 header, and Handled / No action / Later / Delete apply to every message in it.
 Reply and Reply + Plan work from the burst's **lead** — the non-placeholder
 message with the highest actionability — while date extraction and the plan
 draft read the whole burst. Clustering is display and outcome scope only; the
-sheet keeps one row per WhatsApp message and each row is still written
-individually.
+sheet keeps one row per WhatsApp message. One human burst decision is persisted
+as one batched Sheets write and returned to the browser as changed rows only.
 **Reply + Plan** opens one pre-write preview: plan type and student are
 prefilled, extracted first/return dates are visible and editable, and a short
-deterministic parent reply is editable beside them. **Copy reply & open plan**
-copies that exact wording, stores it in the linked Planning item, and navigates
-to the idempotent plan only after the write succeeds. Clearing a false date
-clears it from the draft. A failed Planning write cannot create false closure.
+deterministic parent reply is editable beside them. **Copy reply & create plan**
+copies that exact wording, stores it in the linked Planning item, closes the
+inbox burst and advances to the adjacent message only after the write succeeds.
+A compact confirmation keeps **Open full plan** available without forcing a
+context switch. Clearing a false date clears it from the draft. A failed
+Planning write cannot create false closure.
 For a structured pause, the saved reply is the card's final **Copy & open
 WhatsApp** handoff after the payment tool. The admin must still confirm it was
 sent before marking the pause complete; clipboard/log evidence alone is not
@@ -110,6 +116,15 @@ from today's Inbox and Overview count, and resurfaces it after the chosen time.
 The Open, Later and Done filters keep those meanings distinct. **Done** records
 handled-without-a-plan; **No action needed** remains a separate outcome under
 More. Neither performs a provider action or sends a reply.
+
+The active inbox is the initial read path. **Done** loads only when opened,
+returns the 100 most recent completed rows with the full history count, and
+does not read Planning because the inbox card already stores the plan link it
+needs. The large WhatsApp group map plus tutor list load only when **WhatsApp
+group connections** is opened. The initial tabs are prefetched in one Sheets
+batch. Ordinary corrections, outcomes and plan conversions return compact row
+patches instead of reloading the inbox, Planning and group map after every
+press.
 
 ## Confirmed-Group Gate
 

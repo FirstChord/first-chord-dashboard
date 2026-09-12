@@ -7,7 +7,7 @@ import TutorMessageBadge from './TutorMessageBadge';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Check, Clock3, Ellipsis, RefreshCw, Reply, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Clock3, Ellipsis, RefreshCw, Reply, RotateCcw, X } from 'lucide-react';
 import { ActionButton } from '@/components/admin/ui/ActionButton';
 import {
   assessBridgeHealth,
@@ -18,6 +18,7 @@ import {
   INCOMING_MESSAGE_ACTIONABILITY,
   INCOMING_MESSAGE_CATEGORIES,
   isAutoArchivedMessage,
+  mergeIncomingInboxMutation,
   isIncomingPlaceholderText,
   labelIncomingCategory,
   labelIncomingActionability,
@@ -25,6 +26,8 @@ import {
   labelIncomingResolutionType,
   labelIncomingStatus,
   resolveIncomingPlanningAction,
+  retainIncomingSelection,
+  selectAdjacentIncomingId,
 } from '@/lib/admin/incoming-message-helpers.mjs';
 import { formatFriendlyDate } from '@/lib/admin/incoming-date-helpers.mjs';
 import { logCommunicationCopy } from '@/lib/admin/log-communication-copy.js';
@@ -113,9 +116,7 @@ function PlanPanel({ entry, studentOptions = [], onCorrect, onConvert, isPending
       source: 'incoming_planning_reply',
     });
     const result = await onConvert(entry, correctionPayload('converted'));
-    if (result?.planningId) {
-      window.location.assign(`/admin/planning?focus=${encodeURIComponent(result.planningId)}`);
-    }
+    if (result?.planningId) onOpenChange(false);
   }
 
   if (!isOpen) return null;
@@ -209,7 +210,7 @@ function PlanPanel({ entry, studentOptions = [], onCorrect, onConvert, isPending
           onClick={createPlanWithReply}
           className="min-h-11 rounded-full bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
         >
-          {isPending ? 'Opening plan…' : 'Copy reply & open plan'}
+          {isPending ? 'Creating plan…' : 'Copy reply & create plan'}
         </button>
         <details className="rounded-xl border border-blue-100 bg-white/70 px-3 py-2">
           <summary className="cursor-pointer text-xs font-semibold text-slate-600">More plan details</summary>
@@ -563,10 +564,51 @@ function LaterChoices({ entries, onSnooze, isPending, onClose }) {
   );
 }
 
+function MessageQueueItem({ cluster, selected = false, onSelect }) {
+  const { lead: entry, entries } = cluster;
+  const newest = entries[entries.length - 1] || entry;
+  const label = entry.groupType === 'tutor'
+    ? entry.matchedTutorName || entry.senderName || 'Tutor message'
+    : entry.matchedStudentName || entry.senderName || 'Check student';
+  const preview = entries.map((message) => message.messageText).filter(Boolean).join(' ');
+  const needsCheck = entries.some((message) => (
+    message.status === 'needs_review'
+    || message.classificationActionability === 'uncertain'
+    || message.classificationConfidence === 'low'
+  )) || (entry.groupType !== 'tutor' && (!entry.matchedMmsId || entry.matchConfidence !== 'high'));
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      aria-current={selected ? 'true' : undefined}
+      className={`group w-full rounded-2xl border px-3 py-3 text-left transition ${selected
+        ? 'border-[#2F6B3D]/35 bg-green-50/80 shadow-sm'
+        : 'border-transparent bg-white/70 hover:border-slate-200 hover:bg-white'}`}
+    >
+      <span className="flex items-start gap-3">
+        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${needsCheck ? 'bg-amber-400' : 'bg-emerald-400'}`} aria-hidden="true" />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-start justify-between gap-2">
+            <span className="truncate text-sm font-semibold text-slate-900">{label}</span>
+            <span className="shrink-0 text-[10px] text-slate-400">{formatMessageStamp(newest.messageAt || newest.capturedAt)}</span>
+          </span>
+          <span className="mt-1 block truncate text-xs leading-5 text-slate-500">{preview}</span>
+          <span className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5">{labelIncomingCategory(entry.suspectedCategory)}</span>
+            {entries.length > 1 ? <span>{entries.length} messages</span> : null}
+          </span>
+        </span>
+        <ChevronRight aria-hidden="true" className={`mt-4 h-4 w-4 shrink-0 ${selected ? 'text-[#2F6B3D]' : 'text-slate-300 group-hover:text-slate-500'}`} />
+      </span>
+    </button>
+  );
+}
+
 // `entry` is the burst's lead message — the one that carries the signal, and
 // the one Reply and Reply + Plan work from. `entries` is the whole burst,
 // oldest first; outcome actions apply to all of it so nothing is left behind.
-function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, conversion, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply }) {
+function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply }) {
   const isPending = entries.some((message) => pendingId === message.incomingId);
   const isBurst = entries.length > 1;
   const [isPlanOpen, setIsPlanOpen] = useState(false);
@@ -721,7 +763,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
             {isPending ? 'Moving…' : 'Bring back'}
           </button>
         ) : null}
-        {!entry.isSnoozed && entry.createdPlanningId && !conversion ? (
+        {!entry.isSnoozed && entry.createdPlanningId ? (
           <Link
             href={`/admin/planning?focus=${encodeURIComponent(entry.createdPlanningId)}`}
             className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm"
@@ -729,7 +771,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
             Open plan
           </Link>
         ) : null}
-        {!entry.isSnoozed && planningAction !== 'none' && !entry.createdPlanningId && !conversion ? (
+        {!entry.isSnoozed && planningAction !== 'none' && !entry.createdPlanningId ? (
           <button
             type="button"
             disabled={isPending}
@@ -857,7 +899,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
         onOpenChange={setIsPlanOpen}
       />
 
-      {isReplyOpen && !conversion ? (
+      {isReplyOpen ? (
         <ReplyPanel
           entry={entry}
           initialReply={buildIncomingReplyTemplate({
@@ -871,15 +913,6 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
         />
       ) : null}
 
-      {conversion ? (
-        <ReplyPanel
-          entry={entry}
-          initialReply={conversion.replyTemplate || ''}
-          planningId={conversion.planningId || ''}
-          title="Plan made · reply ready"
-          source="incoming_planning_reply"
-        />
-      ) : null}
     </article>
   );
 }
@@ -887,6 +920,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
 export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, error = '', initialReplyProposals = {}, replyDraftingAvailable = false }) {
   const [inbox, setInbox] = useState(initialInbox);
   const [groupMap, setGroupMap] = useState(initialGroupMap);
+  const [groupTutorOptions, setGroupTutorOptions] = useState(tutorOptions);
   const [replyProposals, setReplyProposals] = useState(initialReplyProposals);
   const [decidedReplies, setDecidedReplies] = useState({});
   const [messageText, setMessageText] = useState('');
@@ -900,7 +934,20 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const [duplicatePlanningId, setDuplicatePlanningId] = useState('');
   const [inboxView, setInboxView] = useState('open');
   const [showCapture, setShowCapture] = useState(false);
-  const [conversions, setConversions] = useState({});
+  const [showGroupMap, setShowGroupMap] = useState(false);
+  const [groupsLoaded, setGroupsLoaded] = useState(initialGroupMap.length > 0);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [doneLoaded, setDoneLoaded] = useState(initialInbox.some((entry) => ['converted', 'ignored'].includes(entry.status)));
+  const [doneLoading, setDoneLoading] = useState(false);
+  const [doneTotalCount, setDoneTotalCount] = useState(0);
+  const [doneAutoArchivedCount, setDoneAutoArchivedCount] = useState(0);
+  const [selectedIncomingId, setSelectedIncomingId] = useState(() => (
+    clusterIncomingMessages(initialInbox.filter((entry) => (
+      ['inbox', 'needs_review'].includes(entry.status) && !entry.isSnoozed
+    )))[0]?.lead?.incomingId || ''
+  ));
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const [completedPlan, setCompletedPlan] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fresh data whenever the (installed) app is opened or the tab regains
@@ -908,11 +955,21 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const refreshInbox = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch('/api/admin/incoming-messages');
+      const scope = inboxView === 'done' ? 'done' : 'active';
+      const response = await fetch(`/api/admin/incoming-messages?scope=${scope}`);
       const data = await response.json().catch(() => ({}));
       if (response.ok && data.success) {
-        setInbox(data.inbox || []);
-        if (Array.isArray(data.groupMap)) setGroupMap(data.groupMap);
+        setInbox((current) => {
+          const keep = current.filter((entry) => (scope === 'done'
+            ? !['converted', 'ignored'].includes(entry.status)
+            : !['inbox', 'needs_review'].includes(entry.status)));
+          return [...(data.inbox || []), ...keep];
+        });
+        if (scope === 'done') {
+          setDoneTotalCount(Number(data.totalCount) || 0);
+          setDoneAutoArchivedCount(Number(data.autoArchivedCount) || 0);
+          setDoneLoaded(true);
+        }
       }
       if (replyDraftingAvailable) {
         const proposalsResponse = await fetch('/api/admin/incoming-messages/reply-proposals');
@@ -924,7 +981,49 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     } catch {} finally {
       setIsRefreshing(false);
     }
-  }, [replyDraftingAvailable]);
+  }, [inboxView, replyDraftingAvailable]);
+
+  async function loadGroupMap() {
+    if (groupsLoaded || groupsLoading) return;
+    setGroupsLoading(true);
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/admin/incoming-messages?scope=groups');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'WhatsApp groups failed to load');
+      setGroupMap(data.groupMap || []);
+      setGroupTutorOptions(data.tutorOptions || []);
+      setGroupsLoaded(true);
+    } catch (caught) {
+      setSubmitError(caught.message || 'WhatsApp groups failed to load');
+    } finally {
+      setGroupsLoading(false);
+    }
+  }
+
+  async function changeInboxView(value) {
+    setInboxView(value);
+    setMobileDetailOpen(false);
+    if (value !== 'done' || doneLoaded || doneLoading) return;
+    setDoneLoading(true);
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/admin/incoming-messages?scope=done');
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'Completed messages failed to load');
+      setInbox((current) => [
+        ...current.filter((entry) => !['converted', 'ignored'].includes(entry.status)),
+        ...(data.inbox || []),
+      ]);
+      setDoneTotalCount(Number(data.totalCount) || 0);
+      setDoneAutoArchivedCount(Number(data.autoArchivedCount) || 0);
+      setDoneLoaded(true);
+    } catch (caught) {
+      setSubmitError(caught.message || 'Completed messages failed to load');
+    } finally {
+      setDoneLoading(false);
+    }
+  }
 
   async function handleDraftReply(entry) {
     setSubmitError('');
@@ -998,6 +1097,8 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const absenceCount = useMemo(() => inbox.filter((entry) => ABSENCE_CATEGORIES.has(entry.suspectedCategory) && ['inbox', 'needs_review'].includes(entry.status) && !entry.isSnoozed).length, [inbox]);
   const archivedCount = useMemo(() => inbox.filter((entry) => ['converted', 'ignored'].includes(entry.status)).length, [inbox]);
   const autoArchivedCount = useMemo(() => inbox.filter(isAutoArchivedMessage).length, [inbox]);
+  const completedTotal = doneLoaded ? Math.max(doneTotalCount, archivedCount) : 0;
+  const completedAutomatically = doneLoaded ? Math.max(doneAutoArchivedCount, autoArchivedCount) : 0;
   const visibleInbox = useMemo(() => {
     if (inboxView === 'later') {
       return inbox.filter((entry) => ['inbox', 'needs_review'].includes(entry.status) && entry.isSnoozed);
@@ -1006,28 +1107,54 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       return inbox.filter((entry) => ['converted', 'ignored'].includes(entry.status));
     }
     return inbox.filter((entry) => (
-      (['inbox', 'needs_review'].includes(entry.status) && !entry.isSnoozed)
-      || conversions[entry.incomingId]
+      ['inbox', 'needs_review'].includes(entry.status) && !entry.isSnoozed
     ));
-  }, [inbox, inboxView, conversions]);
+  }, [inbox, inboxView]);
   // One card per burst: consecutive messages from one sender in one chat are a
   // single thing to deal with. Clustering after filtering keeps each view's
   // stack limited to the messages that view is showing.
   const visibleClusters = useMemo(() => clusterIncomingMessages(visibleInbox), [visibleInbox]);
+  const selectedCluster = useMemo(() => (
+    visibleClusters.find((cluster) => cluster.lead.incomingId === selectedIncomingId)
+    || visibleClusters[0]
+    || null
+  ), [selectedIncomingId, visibleClusters]);
 
-  async function postPayload(payload) {
+  useEffect(() => {
+    setSelectedIncomingId((current) => retainIncomingSelection(visibleClusters, current));
+    if (!visibleClusters.length) setMobileDetailOpen(false);
+  }, [visibleClusters]);
+
+  function selectMessage(incomingId) {
+    setSelectedIncomingId(incomingId);
+    setMobileDetailOpen(true);
+  }
+
+  function advanceAfter(incomingId) {
+    setSelectedIncomingId(selectAdjacentIncomingId(visibleClusters, incomingId));
+    // Keep the detail workspace open on mobile so a run of messages feels like
+    // one queue, while the sticky Back control always returns to the list.
+    setMobileDetailOpen(visibleClusters.length > 1);
+  }
+
+  async function postPayload(payload, { compact = false } = {}) {
     const response = await fetch('/api/admin/incoming-messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, compact }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw planningSaveClientError(data, 'Incoming message save failed');
     }
-    setInbox(data.inbox || []);
+    if (Array.isArray(data.inbox)) {
+      setInbox(data.inbox);
+    } else if (Array.isArray(data.updatedMessages) || Array.isArray(data.deletedIncomingIds)) {
+      setInbox((current) => mergeIncomingInboxMutation(current, data));
+    }
     if (Array.isArray(data.groupMap)) {
       setGroupMap(data.groupMap);
+      setGroupsLoaded(true);
     }
     return data;
   }
@@ -1058,21 +1185,15 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     }
   }
 
-  // One outcome for a whole burst. Each row still gets its own write — the
-  // sheet stays one row per WhatsApp message — but the admin ticks once and
-  // no sibling message is left open behind the one they handled. Writes run in
-  // sequence because each POST returns the rebuilt inbox.
+  // One human outcome for a whole burst, persisted in one Sheets batch and
+  // returned as a compact patch rather than rebuilding the complete inbox.
   async function reviewBurst(entries, nextStatus) {
-    for (const message of entries) {
-      await postPayload({
-        mode: 'review',
-        incomingId: message.incomingId,
-        status: nextStatus,
-        classificationActionability: nextStatus === 'ignored'
-          ? 'no_action'
-          : message.classificationActionability,
-      });
-    }
+    return postPayload({
+      mode: 'review_batch',
+      incomingIds: entries.map((message) => message.incomingId),
+      status: nextStatus,
+      classificationActionability: nextStatus === 'ignored' ? 'no_action' : '',
+    }, { compact: true });
   }
 
   async function handleReview(entries, nextStatus) {
@@ -1081,6 +1202,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     setPendingId(entries[0].incomingId);
     try {
       await reviewBurst(entries, nextStatus);
+      advanceAfter(entries[0].incomingId);
     } catch (caught) {
       setSubmitError(caught.message || 'Review update failed');
     } finally {
@@ -1093,13 +1215,12 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     setDuplicatePlanningId('');
     setPendingId(entries[0].incomingId);
     try {
-      for (const message of entries) {
-        await postPayload({
-          mode: 'snooze',
-          incomingId: message.incomingId,
-          snoozedUntil,
-        });
-      }
+      await postPayload({
+        mode: 'snooze_batch',
+        incomingIds: entries.map((message) => message.incomingId),
+        snoozedUntil,
+      }, { compact: true });
+      advanceAfter(entries[0].incomingId);
     } catch (caught) {
       setSubmitError(caught.message || 'Later update failed');
     } finally {
@@ -1122,8 +1243,9 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         await postPayload({
           mode: 'delete',
           incomingId: message.incomingId,
-        });
+        }, { compact: true });
       }
+      advanceAfter(first.incomingId);
     } catch (caught) {
       setSubmitError(caught.message || 'Delete failed');
     } finally {
@@ -1140,7 +1262,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         mode: 'correct',
         incomingId: entry.incomingId,
         ...correction,
-      });
+      }, { compact: true });
     } catch (caught) {
       setSubmitError(caught.message || 'Correction failed');
     } finally {
@@ -1194,7 +1316,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         mode: 'update_text',
         incomingId: entry.incomingId,
         messageText,
-      });
+      }, { compact: true });
     } catch (caught) {
       setSubmitError(caught.message || 'Message text update failed');
     } finally {
@@ -1210,21 +1332,14 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       const data = await postPayload({
         mode: 'convert',
         incomingId: entry.incomingId,
+        relatedIncomingIds: burst.map((message) => message.incomingId),
         ...correction,
+      }, { compact: true });
+      setCompletedPlan({
+        planningId: data.planningId || '',
+        studentName: entry.matchedStudentName || 'Message',
       });
-      // The plan covers the whole burst, so close the rest of it too. They are
-      // marked `secondary` so the open view keeps showing them and the stack
-      // stays intact while the reply is on screen.
-      const siblings = burst.filter((message) => message.incomingId !== entry.incomingId);
-      await reviewBurst(siblings, 'converted');
-      setConversions((current) => ({
-        ...current,
-        ...Object.fromEntries(siblings.map((message) => [message.incomingId, { secondary: true }])),
-        [entry.incomingId]: {
-          planningId: data.planningId || '',
-          replyTemplate: data.replyTemplate || '',
-        },
-      }));
+      advanceAfter(entry.incomingId);
       return data;
     } catch (caught) {
       setSubmitError(caught.message || 'Conversion failed');
@@ -1264,6 +1379,30 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
       {submitError ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><PlanningSaveError message={submitError} duplicatePlanningId={duplicatePlanningId} /></div>
+      ) : null}
+
+      {completedPlan ? (
+        <div aria-live="polite" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-900 shadow-sm">
+          <p><span className="font-semibold">Plan for {completedPlan.studentName} created and reply copied.</span> The next message is ready.</p>
+          <div className="flex items-center gap-2">
+            {completedPlan.planningId ? (
+              <Link
+                href={`/admin/planning?focus=${encodeURIComponent(completedPlan.planningId)}`}
+                className="rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900"
+              >
+                Open full plan
+              </Link>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setCompletedPlan(null)}
+              aria-label="Dismiss confirmation"
+              className="flex h-8 w-8 items-center justify-center rounded-full text-emerald-800 hover:bg-emerald-100"
+            >
+              <X aria-hidden="true" className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       ) : null}
 
       <BridgeStatusStrip bridgeStatus={bridgeStatus} inbox={inbox} />
@@ -1338,71 +1477,132 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
           ) : null}
         </div>
 
-        <div className="standalone-hide">
-          <GroupMapPanel
-            groups={groupMap}
-            tutorOptions={tutorOptions}
-            studentOptions={studentOptions}
-            onReviewGroup={handleReviewGroup}
-            onAddGroupStudent={handleAddGroupStudent}
-            pendingChatId={pendingChatId}
-          />
-        </div>
-
-        {laterCount || archivedCount ? (
-          <div className="flex justify-end">
-            <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm" role="group" aria-label="Inbox view">
-              {[
-                ['open', 'Open', openCount, 'Messages that need attention now'],
-                ['later', 'Later', laterCount, 'Messages parked until a chosen date'],
-                ['done', 'Done', archivedCount, `${archivedCount} completed messages; ${autoArchivedCount} cleared automatically`],
-              ].map(([value, label, count, title]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setInboxView(value)}
-                  aria-pressed={inboxView === value}
-                  title={title}
-                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${inboxView === value ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
-                >
-                  {label}{count ? ` ${count}` : ''}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
-        <div className="space-y-3">
-          {visibleClusters.map((cluster) => (
-            <MessageCard
-              key={cluster.clusterId}
-              entry={cluster.lead}
-              entries={cluster.entries}
-              studentOptions={studentOptions}
-              pendingId={pendingId}
-              conversion={conversions[cluster.lead.incomingId]}
-              onReview={handleReview}
-              onSnooze={handleSnooze}
-              onDelete={handleDelete}
-              onCorrect={handleCorrect}
-              onConvert={handleConvert}
-              onUpdateText={handleUpdateText}
-              replyProposal={replyProposals[cluster.lead.incomingId]}
-              decidedReply={decidedReplies[cluster.lead.incomingId]}
-              replyDraftingAvailable={replyDraftingAvailable}
-              onDraftReply={handleDraftReply}
-              onDecideReply={handleDecideReply}
-            />
-          ))}
-          {!visibleInbox.length ? (
-            <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 px-4 py-5 text-sm text-emerald-800">
-              {inboxView === 'later'
-                ? 'Nothing is waiting for later.'
-                : inboxView === 'done'
-                  ? 'No completed messages yet.'
-                  : 'All caught up. New requests and questions will appear here.'}
+        <div className="standalone-hide rounded-2xl border border-slate-200 bg-white/80 shadow-[0_12px_36px_rgba(15,23,42,0.04)]">
+          <button
+            type="button"
+            onClick={() => {
+              const opening = !showGroupMap;
+              setShowGroupMap(opening);
+              if (opening) loadGroupMap();
+            }}
+            aria-expanded={showGroupMap}
+            className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+          >
+            <span>
+              <span className="block text-sm font-semibold text-slate-800">WhatsApp group connections</span>
+              <span className="mt-0.5 block text-xs text-slate-500">Open only when a student or tutor group needs checking.</span>
+            </span>
+            <span className="text-xs font-semibold text-slate-500">{showGroupMap ? 'Close' : groupsLoading ? 'Loading…' : 'Manage'}</span>
+          </button>
+          {showGroupMap ? (
+            <div className="border-t border-slate-100 p-3">
+              {groupsLoading && !groupsLoaded ? (
+                <p className="px-1 py-3 text-sm text-slate-500">Loading WhatsApp groups…</p>
+              ) : (
+                <GroupMapPanel
+                  groups={groupMap}
+                  tutorOptions={groupTutorOptions}
+                  studentOptions={studentOptions}
+                  onReviewGroup={handleReviewGroup}
+                  onAddGroupStudent={handleAddGroupStudent}
+                  pendingChatId={pendingChatId}
+                />
+              )}
             </div>
           ) : null}
+        </div>
+
+        <div className="flex justify-end">
+          <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm" role="group" aria-label="Inbox view">
+            {[
+              ['open', 'Open', openCount, 'Messages that need attention now'],
+              ['later', 'Later', laterCount, 'Messages parked until a chosen date'],
+              ['done', doneLoading ? 'Loading…' : 'Done', completedTotal, doneLoaded ? `${completedTotal} completed messages; ${completedAutomatically} cleared automatically` : 'Load completed messages'],
+            ].map(([value, label, count, title]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => changeInboxView(value)}
+                aria-pressed={inboxView === value}
+                title={title}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${inboxView === value ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                {label}{count ? ` ${count}` : ''}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(17rem,0.72fr)_minmax(0,1.28fr)]">
+          <aside className={`${mobileDetailOpen ? 'hidden lg:block' : 'block'} lg:sticky lg:top-40`} aria-label="Message queue">
+            <div className="rounded-2xl border border-white/70 bg-white/55 p-2 shadow-[0_12px_36px_rgba(15,23,42,0.04)] backdrop-blur-sm lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto">
+              <div className="flex items-center justify-between px-2 pb-2 pt-1">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                  {inboxView === 'done' ? 'Completed' : inboxView === 'later' ? 'For later' : 'To handle'}
+                </p>
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">{visibleClusters.length}</span>
+              </div>
+              {inboxView === 'done' && completedTotal > visibleInbox.length ? (
+                <p className="px-2 pb-2 text-xs text-slate-500">Showing the {visibleInbox.length} most recent of {completedTotal}.</p>
+              ) : null}
+              <div className="space-y-1">
+                {visibleClusters.map((cluster) => (
+                  <MessageQueueItem
+                    key={cluster.clusterId}
+                    cluster={cluster}
+                    selected={selectedCluster?.lead?.incomingId === cluster.lead.incomingId}
+                    onSelect={() => selectMessage(cluster.lead.incomingId)}
+                  />
+                ))}
+              </div>
+              {!visibleInbox.length ? (
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-4 text-sm text-emerald-800">
+                  {inboxView === 'later'
+                    ? 'Nothing is waiting for later.'
+                    : inboxView === 'done'
+                      ? doneLoading ? 'Loading completed messages…' : 'No completed messages yet.'
+                      : 'All caught up. New requests and questions will appear here.'}
+                </div>
+              ) : null}
+            </div>
+          </aside>
+
+          <section className={`${mobileDetailOpen ? 'block' : 'hidden lg:block'} min-w-0`} aria-label="Selected message">
+            <div className="sticky top-2 z-10 mb-2 flex items-center rounded-full border border-slate-200 bg-white/95 px-2 py-1.5 shadow-sm backdrop-blur lg:hidden">
+              <button
+                type="button"
+                onClick={() => setMobileDetailOpen(false)}
+                className="flex min-h-9 items-center gap-1 rounded-full px-2 text-xs font-semibold text-slate-700"
+              >
+                <ArrowLeft aria-hidden="true" className="h-4 w-4" />
+                Back to {visibleClusters.length} message{visibleClusters.length === 1 ? '' : 's'}
+              </button>
+            </div>
+            {selectedCluster ? (
+              <MessageCard
+                key={selectedCluster.clusterId}
+                entry={selectedCluster.lead}
+                entries={selectedCluster.entries}
+                studentOptions={studentOptions}
+                pendingId={pendingId}
+                onReview={handleReview}
+                onSnooze={handleSnooze}
+                onDelete={handleDelete}
+                onCorrect={handleCorrect}
+                onConvert={handleConvert}
+                onUpdateText={handleUpdateText}
+                replyProposal={replyProposals[selectedCluster.lead.incomingId]}
+                decidedReply={decidedReplies[selectedCluster.lead.incomingId]}
+                replyDraftingAvailable={replyDraftingAvailable}
+                onDraftReply={handleDraftReply}
+                onDecideReply={handleDecideReply}
+              />
+            ) : (
+              <div className="hidden rounded-2xl border border-white/70 bg-white/65 px-6 py-12 text-center text-sm text-slate-500 lg:block">
+                Select a message from the queue.
+              </div>
+            )}
+          </section>
         </div>
       </section>
     </div>

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { parsePauseWindowsFromPlanning } from '../../lib/admin/pause-forecast.mjs';
 import {
   applyIncomingClassificationReview,
+  applyIncomingMessageReview,
   clusterIncomingMessages,
   applyIncomingMessageSnooze,
   applyIncomingMessageTextUpdate,
@@ -35,11 +36,14 @@ import {
   matchTutorSenderName,
   matchIncomingMessageToStudent,
   mergeIncomingCapture,
+  mergeIncomingInboxMutation,
   labelIncomingResolutionType,
   normaliseIncomingMessagePayload,
   normalisePhone,
   resolveIncomingPlanningAction,
   resolveReviewedIncomingReply,
+  retainIncomingSelection,
+  selectAdjacentIncomingId,
   selectReplyEvidenceTarget,
 } from '../../lib/admin/incoming-message-helpers.mjs';
 import { isPausePlanningItem } from '../../lib/admin/planning-client-helpers.mjs';
@@ -68,6 +72,56 @@ const students = [
     contactNumber: '07800 111222',
   },
 ];
+
+test('compact inbox mutations preserve untouched rows and apply server outcomes', () => {
+  const now = new Date('2026-09-12T12:00:00Z');
+  const rows = [
+    { incomingId: 'newest', capturedAt: '2026-09-12T11:00:00Z', status: 'inbox', messageText: 'One' },
+    { incomingId: 'middle', capturedAt: '2026-09-12T10:00:00Z', status: 'inbox', messageText: 'Two' },
+    { incomingId: 'oldest', capturedAt: '2026-09-12T09:00:00Z', status: 'inbox', messageText: 'Three' },
+  ];
+  const next = mergeIncomingInboxMutation(rows, {
+    updatedMessages: [{ ...rows[0], status: 'converted', createdPlanningId: 'planning_newest' }],
+    deletedIncomingIds: ['middle'],
+    now,
+  });
+
+  assert.deepEqual(next.map((row) => row.incomingId), ['newest', 'oldest']);
+  assert.equal(next[0].status, 'converted');
+  assert.equal(next[0].createdPlanningId, 'planning_newest');
+  assert.equal(next[1].messageText, rows[2].messageText);
+});
+
+test('queue selection advances to the adjacent message and survives ordinary refreshes', () => {
+  const clusters = ['a', 'b', 'c'].map((incomingId) => ({ lead: { incomingId } }));
+  assert.equal(selectAdjacentIncomingId(clusters, 'a'), 'b');
+  assert.equal(selectAdjacentIncomingId(clusters, 'b'), 'c');
+  assert.equal(selectAdjacentIncomingId(clusters, 'c'), 'b');
+  assert.equal(retainIncomingSelection(clusters, 'b'), 'b');
+  assert.equal(retainIncomingSelection(clusters, 'missing'), 'a');
+});
+
+test('a batched human review keeps classification and audit semantics', () => {
+  const row = {
+    incomingId: 'incoming_1',
+    status: 'inbox',
+    suspectedCategory: 'general',
+    proposedCategory: 'general',
+    classificationActionability: 'uncertain',
+    proposedActionability: 'uncertain',
+  };
+  const reviewed = applyIncomingMessageReview(row, {
+    status: 'ignored',
+    actorEmail: 'admin@example.com',
+    now: new Date('2026-09-12T12:30:00Z'),
+  });
+
+  assert.equal(reviewed.status, 'ignored');
+  assert.equal(reviewed.classificationActionability, 'no_action');
+  assert.equal(reviewed.classificationDecision, 'corrected');
+  assert.equal(reviewed.reviewedBy, 'admin@example.com');
+  assert.equal(reviewed.reviewedAt, '2026-09-12T12:30:00.000Z');
+});
 
 test('normalisePhone makes UK mobile forms comparable', () => {
   assert.equal(normalisePhone('+44 7788 626616'), '07788626616');

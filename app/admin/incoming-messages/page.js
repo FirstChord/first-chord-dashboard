@@ -1,34 +1,44 @@
-import { getActiveTutorOptions } from '@/lib/admin/tutors';
 import AdminIncomingMessagesPageClient from '@/components/admin/AdminIncomingMessagesPageClient';
-import { getBridgeStatus, getIncomingMessageInbox, getWhatsappGroupMap } from '@/lib/admin/incoming-messages';
+import { getBridgeStatus, getIncomingMessageInbox } from '@/lib/admin/incoming-messages';
 import { getIncomingReplyProposals } from '@/lib/admin/incoming-reply-proposals';
 import { isIncomingReplyDraftingConfigured } from '@/lib/admin/incoming-reply-ai-provider.mjs';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
+import {
+  BRIDGE_STATUS_SHEET,
+  INCOMING_MESSAGE_INBOX_SHEET,
+  prefetchSheetValues,
+  PROPOSALS_SHEET,
+  WAITING_LIST_STATE_SHEET,
+} from '@/lib/admin/sheets';
 
 export default async function AdminIncomingMessagesPage() {
   let inbox = [];
-  let groupMap = [];
   let students = [];
-  let tutors = [];
   let bridgeStatus = null;
   let replyProposals = {};
   let error = '';
   const replyDraftingAvailable = isIncomingReplyDraftingConfigured();
   try {
     let proposalsResult;
-    [inbox, groupMap, students, bridgeStatus, proposalsResult, tutors] = await Promise.all([
-      getIncomingMessageInbox(),
-      getWhatsappGroupMap(),
+    // Warm the everyday inbox in one Sheets request. Planning history and the
+    // large group map are loaded only if the reviewer opens those views.
+    await prefetchSheetValues([
+      INCOMING_MESSAGE_INBOX_SHEET,
+      PROPOSALS_SHEET,
+      BRIDGE_STATUS_SHEET,
+      'Students',
+      'Review_Flags',
+      "'Pause History'",
+      WAITING_LIST_STATE_SHEET,
+    ]);
+    [inbox, students, bridgeStatus, proposalsResult] = await Promise.all([
+      getIncomingMessageInbox({ statusScope: 'active' }),
       getOperationalAdminStudents(),
       getBridgeStatus().catch(() => null),
       // Always load existing proposals. Turning the model flag off is the
       // rollback path for new drafts; it must not strand suggestions that
       // still need a human use/edit/discard decision.
       getIncomingReplyProposals().catch(() => ({ openByIncomingId: {} })),
-      getActiveTutorOptions().catch(() => {
-        error = 'Tutor list unavailable. Refresh to link tutor groups; existing messages are still shown.';
-        return [];
-      }),
     ]);
     replyProposals = proposalsResult.openByIncomingId || {};
   } catch (caught) {
@@ -47,9 +57,7 @@ export default async function AdminIncomingMessagesPage() {
   return (
     <AdminIncomingMessagesPageClient
       initialInbox={inbox}
-      initialGroupMap={groupMap}
       studentOptions={studentOptions}
-      tutorOptions={tutors.map(({ shortName, fullName }) => ({ shortName, fullName }))}
       bridgeStatus={bridgeStatus}
       error={error}
       initialReplyProposals={replyProposals}
