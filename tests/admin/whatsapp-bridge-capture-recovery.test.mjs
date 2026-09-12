@@ -96,3 +96,23 @@ test('targeted discovery syncs only likely First Chord groups and refreshes the 
   }]);
   assert.equal(refreshed, 1);
 });
+
+test('restart recovery resumes discovery once per pending unknown group', async () => {
+  const bridge = bridgeHarness();
+  bridge.recentMessages.set('123@g.us::older', {
+    cacheKey: '123@g.us::older', chatId: '123@g.us', messageAt: '2026-09-12T10:00:00Z', pendingAutoCapture: true,
+  });
+  bridge.recentMessages.set('123@g.us::newer', {
+    cacheKey: '123@g.us::newer', chatId: '123@g.us', messageAt: '2026-09-12T11:00:00Z', pendingAutoCapture: true,
+  });
+  bridge.recentMessages.set('confirmed@g.us::message', {
+    cacheKey: 'confirmed@g.us::message', chatId: 'confirmed@g.us', messageAt: '2026-09-12T11:30:00Z', pendingAutoCapture: true,
+  });
+  bridge.confirmedChatIds.add('confirmed@g.us');
+  const discovered = [];
+  bridge.discoverGroupForCapture = async (chatId, messageAt) => discovered.push({ chatId, messageAt });
+
+  await bridge.resumePendingGroupDiscovery();
+
+  assert.deepEqual(discovered, [{ chatId: '123@g.us', messageAt: '2026-09-12T11:00:00Z' }]);
+});

@@ -37,7 +37,8 @@ the bridge asks WhatsApp for that exact group's metadata. A likely First Chord
 title is synced to the dashboard immediately for human review. Confirmation
 releases that specific pending message on the next confirmed-group refresh;
 the stable message ID keeps the retry idempotent. The message is never posted
-before confirmation. It skips:
+before confirmation. A bridge restart resumes targeted discovery for persisted
+pending messages rather than stranding them. It skips:
 
 - history/append batches and unconfirmed chats that have not been reviewed
 - duplicate message IDs already posted by that process

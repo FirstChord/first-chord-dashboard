@@ -506,6 +506,20 @@ class WhatsAppIncomingBridge {
     return discovery;
   }
 
+  async resumePendingGroupDiscovery() {
+    const pendingByChat = new Map();
+    for (const cached of this.recentMessages.values()) {
+      if (!cached.pendingAutoCapture || this.confirmedChatIds.has(cached.chatId)) continue;
+      const current = pendingByChat.get(cached.chatId);
+      if (!current || `${cached.messageAt || ''}` > `${current.messageAt || ''}`) {
+        pendingByChat.set(cached.chatId, cached);
+      }
+    }
+    for (const cached of pendingByChat.values()) {
+      await this.discoverGroupForCapture(cached.chatId, cached.messageAt);
+    }
+  }
+
   scheduleConfirmedGroupsRefresh() {
     if (!this.autoCaptureEnabled || this.confirmedGroupsTimer) return;
     this.confirmedGroupsTimer = setInterval(() => {
@@ -676,6 +690,7 @@ class WhatsAppIncomingBridge {
         // Heartbeat straight after the group refresh so the first status row
         // carries the real list size, not zero.
         this.refreshConfirmedGroups()
+          .then(() => this.resumePendingGroupDiscovery())
           .then(() => this.sendBridgeStatus())
           .catch(() => {});
         this.scheduleConfirmedGroupsRefresh();
