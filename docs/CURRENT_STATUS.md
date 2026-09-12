@@ -126,9 +126,16 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   Three tutor routes refuse outright unless `TUTOR_DASHBOARD_AUTH_MODE` is
   enforced — the first routes in the repo to fail closed on a missing auth mode,
   because the legacy public service still serves `/dashboard` with no login while
-  holding Sheets credentials. **Nothing works until Finn sets
-  `TUTOR_DASHBOARD_EMAIL_MAP` + `AUTH_MODE=required` and the three `DRIVE_*` vars;
-  that is intended.** Full suite (1,609), lint, code-map, docs and build pass.
+  holding Sheets credentials. **Boundary verified live 2026-09-12:** the legacy
+  service answers `503 tutor_auth_not_enforced` and the canonical one `401
+  token_required` — the first time this has been confirmed in production rather
+  than only by test, and only possible because enforcement is now checked before
+  any token work. That 401 also means **tutor auth is already enforced on
+  canonical (pilot mode), so the strip and text capture are live today for the
+  shared `musiclessons@` account**; `TUTOR_DASHBOARD_EMAIL_MAP` is needed for
+  individual tutors to reach their own students, not for Finn to try it. Media
+  upload remains genuinely inert, returning `drive_not_configured` until the three
+  `DRIVE_*` vars are set. Full suite (1,609), lint, code-map, docs and build pass.
   Record: `docs/plans/active/newsletter-loop.md`.
 - **The lesson mirror now has a real read-only calendar and a detailed exception lens —
   DEPLOYED 2026-09-02:** `/admin/lessons/calendar` renders one authenticated week

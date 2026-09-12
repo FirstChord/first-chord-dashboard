@@ -264,9 +264,17 @@ not **by**. Binding it to authenticated identity is a 1b/3 gate, per
 
 ### What switches 1b on
 
-The code is built and deployed but **inert**. Three things, all configuration:
+Verified live on 2026-09-12: the legacy public service answers `503
+tutor_auth_not_enforced`, the canonical one `401 token_required`. That second
+result means tutor auth is **already enforced on canonical** (pilot mode), so the
+strip and text capture work today for the shared `musiclessons@` account. What is
+still genuinely switched off is per-tutor access and media upload.
 
-1. `TUTOR_DASHBOARD_AUTH_MODE=required` on the canonical service.
+Three things, all configuration:
+
+1. `TUTOR_DASHBOARD_AUTH_MODE=required` on the canonical service. Already `pilot`
+   there, which the enforced gate accepts — so this step is a hardening of the
+   existing pilot, not a prerequisite for trying the feature.
 2. `TUTOR_DASHBOARD_EMAIL_MAP` with each tutor's Google address → tutor key.
    Until this exists, the only approved identity is the shared `musiclessons@`
    account, so no individual tutor can reach their own students.
