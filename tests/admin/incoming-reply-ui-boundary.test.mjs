@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 
 const inboxClientUrl = new URL('../../components/admin/AdminIncomingMessagesPageClient.js', import.meta.url);
 const inboxRouteUrl = new URL('../../app/api/admin/incoming-messages/route.js', import.meta.url);
+const inboxServiceUrl = new URL('../../lib/admin/incoming-messages.js', import.meta.url);
 
 test('AI reply drafting is invoked by one card Reply press and has a standard fallback', async () => {
   const source = await readFile(inboxClientUrl, 'utf8');
@@ -31,9 +32,55 @@ test('Reply + Plan copies one reviewed draft, persists it, and stays in the inbo
   assert.match(source, /replyTemplate: replyDraft\.trim\(\)/u);
   assert.ok(copyIndex >= 0 && convertIndex > copyIndex);
   assert.doesNotMatch(source, /window\.location\.assign\(`\/admin\/planning\?focus=/u);
-  assert.match(source, /created and reply copied/u);
-  assert.match(source, /Open full plan/u);
+  assert.match(source, /alreadyResolved: true/u);
+  assert.match(source, /Reply for \$\{label\} is ready/u);
+  assert.match(source, /Open plan/u);
   assert.match(source, /advanceAfter\(entry\.incomingId\)/u);
+});
+
+test('reply handoff keeps the inbox open and requires a human sent confirmation', async () => {
+  const source = await readFile(inboxClientUrl, 'utf8');
+
+  assert.match(source, /window\.open\(url, '_blank'/u);
+  assert.match(source, /Sent — finish & next/u);
+  assert.match(source, /The inbox will only finish this message when you confirm it was sent/u);
+  assert.match(source, /await handleReview\(entries, 'converted', 'Reply marked sent'\)/u);
+  assert.match(source, /window\.sessionStorage\.setItem\(HANDOFF_STORAGE_KEY/u);
+});
+
+test('conversation context and queue continuity are lazy and locally remembered', async () => {
+  const [source, routeSource] = await Promise.all([
+    readFile(inboxClientUrl, 'utf8'),
+    readFile(inboxRouteUrl, 'utf8'),
+  ]);
+
+  assert.match(source, /scope=context&incomingId=/u);
+  assert.match(source, /Earlier in this chat/u);
+  assert.match(source, /QUEUE_SELECTION_KEY/u);
+  assert.match(source, /QUEUE_SCROLL_KEY/u);
+  assert.match(routeSource, /scope === 'context'/u);
+});
+
+test('handled and Later outcomes offer optimistic-concurrency Undo', async () => {
+  const [source, routeSource, serviceSource] = await Promise.all([
+    readFile(inboxClientUrl, 'utf8'),
+    readFile(inboxRouteUrl, 'utf8'),
+    readFile(inboxServiceUrl, 'utf8'),
+  ]);
+
+  assert.match(source, /buildIncomingUndoSnapshot/u);
+  assert.match(source, /mode: 'restore_batch'/u);
+  assert.match(source, /expectedReviewedAt/u);
+  assert.match(routeSource, /restoreIncomingMessageReviews/u);
+  assert.match(serviceSource, /row\.reviewedAt !== snapshot\.expectedReviewedAt/u);
+  assert.match(serviceSource, /error\.status = 409/u);
+});
+
+test('an unhealthy bridge prevents a misleading all-caught-up empty state', async () => {
+  const source = await readFile(inboxClientUrl, 'utf8');
+
+  assert.match(source, /No captured messages are waiting, but WhatsApp capture needs attention above/u);
+  assert.match(source, /Until the green tick returns, paste anything urgent manually/u);
 });
 
 test('the inbox uses one selected-message workspace with a mobile return path', async () => {

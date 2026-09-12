@@ -32,7 +32,8 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
 
 - **The Message Inbox is a focused, faster processing queue and unknown live
   groups are recoverable without weakening confirmation — DEPLOYED
-  2026-09-12:** Libby Brooks's 12:04 absence message for Adam
+  2026-09-12; return-checkpoint refinement built 2026-09-13:** Libby Brooks's
+  12:04 absence message for Adam
   reached the bridge cache but not the inbox. Adam's chat ID was absent from the
   228 confirmed groups and from a fresh 366-group WhatsApp snapshot even though
   the account received its live event. The bridge now retains only that live
@@ -49,7 +50,13 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   inbox. Done loads only when opened, returns the 100 most recent rows while
   preserving the full 906-row count, and skips the unused 840-row Planning
   join; the 485-row group map also waits for its panel. The active inbox tabs
-  are prefetched together.
+  are prefetched together. The next narrow refinement keeps WhatsApp opening
+  separate from the queue and requires a human **Sent — finish & next** on
+  return; a session-only handoff preserves the reply and optional plan link.
+  Selection and scroll survive refreshes on this device, the queue shows x of y,
+  four earlier same-chat messages load only for the selected card, and a stale
+  bridge prevents a false **All caught up**. Handled/Later gain a 12-second Undo
+  guarded by the row's latest review timestamp and by any linked plan.
 - **Practice note quality has a baseline and a rubric, measured 2026-09-11:**
   Practice Chat has held ~100 notes/week for five weeks, so adoption is finished
   and the open question is whether the writing is worth a family's attention.

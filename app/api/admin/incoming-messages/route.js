@@ -10,10 +10,12 @@ import {
   correctIncomingMessage,
   deleteIncomingMessage,
   getConfirmedGroupChatIds,
+  getIncomingMessageConversationContext,
   getIncomingMessageInbox,
   getIncomingMessageInboxPage,
   getWhatsappGroupMap,
   recordBridgeStatus,
+  restoreIncomingMessageReviews,
   reviewWhatsappGroup,
   snoozeIncomingMessage,
   snoozeIncomingMessages,
@@ -79,8 +81,14 @@ export async function GET(request) {
       const page = await getIncomingMessageInboxPage({ statusScope: 'resolved', limit: 100 });
       return Response.json({ success: true, ...page });
     }
-    const inbox = await getIncomingMessageInbox({ statusScope: 'active' });
-    return Response.json({ success: true, inbox });
+    if (scope === 'context') {
+      const incomingId = new URL(request.url).searchParams.get('incomingId') || '';
+      if (!incomingId) return Response.json({ error: 'incomingId is required' }, { status: 400 });
+      const context = await getIncomingMessageConversationContext({ incomingId, limit: 4 });
+      return Response.json({ success: true, context });
+    }
+    const page = await getIncomingMessageInboxPage({ statusScope: 'active', limit: 0 });
+    return Response.json({ success: true, ...page });
   } catch (error) {
     return Response.json({ error: error.message || 'Incoming inbox load failed' }, { status: 500 });
   }
@@ -155,6 +163,15 @@ export async function POST(request) {
       const rows = await snoozeIncomingMessages({
         incomingIds: Array.isArray(body?.incomingIds) ? body.incomingIds : [],
         snoozedUntil: `${body?.snoozedUntil || ''}`.trim(),
+        actorEmail: session.user.email || '',
+      });
+      extra = { ...extra, updatedMessages: rows };
+    } else if (mode === 'restore_batch') {
+      if (!isAdmin) {
+        return Response.json({ error: 'Admin session required to undo inbox changes' }, { status: 401 });
+      }
+      const rows = await restoreIncomingMessageReviews({
+        snapshots: Array.isArray(body?.snapshots) ? body.snapshots : [],
         actorEmail: session.user.email || '',
       });
       extra = { ...extra, updatedMessages: rows };

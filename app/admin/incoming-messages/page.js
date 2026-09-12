@@ -1,5 +1,5 @@
 import AdminIncomingMessagesPageClient from '@/components/admin/AdminIncomingMessagesPageClient';
-import { getBridgeStatus, getIncomingMessageInbox } from '@/lib/admin/incoming-messages';
+import { getBridgeStatus, getIncomingMessageInboxPage } from '@/lib/admin/incoming-messages';
 import { getIncomingReplyProposals } from '@/lib/admin/incoming-reply-proposals';
 import { isIncomingReplyDraftingConfigured } from '@/lib/admin/incoming-reply-ai-provider.mjs';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
@@ -15,11 +15,11 @@ export default async function AdminIncomingMessagesPage() {
   let inbox = [];
   let students = [];
   let bridgeStatus = null;
+  let lastAutoCaptureAt = '';
   let replyProposals = {};
   let error = '';
   const replyDraftingAvailable = isIncomingReplyDraftingConfigured();
   try {
-    let proposalsResult;
     // Warm the everyday inbox in one Sheets request. Planning history and the
     // large group map are loaded only if the reviewer opens those views.
     await prefetchSheetValues([
@@ -31,8 +31,8 @@ export default async function AdminIncomingMessagesPage() {
       "'Pause History'",
       WAITING_LIST_STATE_SHEET,
     ]);
-    [inbox, students, bridgeStatus, proposalsResult] = await Promise.all([
-      getIncomingMessageInbox({ statusScope: 'active' }),
+    const [inboxPage, loadedStudents, loadedBridgeStatus, loadedProposals] = await Promise.all([
+      getIncomingMessageInboxPage({ statusScope: 'active', limit: 0 }),
       getOperationalAdminStudents(),
       getBridgeStatus().catch(() => null),
       // Always load existing proposals. Turning the model flag off is the
@@ -40,7 +40,11 @@ export default async function AdminIncomingMessagesPage() {
       // still need a human use/edit/discard decision.
       getIncomingReplyProposals().catch(() => ({ openByIncomingId: {} })),
     ]);
-    replyProposals = proposalsResult.openByIncomingId || {};
+    inbox = inboxPage.inbox;
+    lastAutoCaptureAt = inboxPage.lastAutoCaptureAt || '';
+    students = loadedStudents;
+    bridgeStatus = loadedBridgeStatus;
+    replyProposals = loadedProposals.openByIncomingId || {};
   } catch (caught) {
     error = caught.message || 'Could not load incoming messages';
   }
@@ -59,6 +63,7 @@ export default async function AdminIncomingMessagesPage() {
       initialInbox={inbox}
       studentOptions={studentOptions}
       bridgeStatus={bridgeStatus}
+      lastAutoCaptureAt={lastAutoCaptureAt}
       error={error}
       initialReplyProposals={replyProposals}
       replyDraftingAvailable={replyDraftingAvailable}

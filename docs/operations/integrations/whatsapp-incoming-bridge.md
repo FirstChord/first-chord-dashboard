@@ -71,8 +71,12 @@ pause, attendance, archive, planning, or messaging action.
 
 The everyday inbox is a queue/detail workspace: a compact message queue remains
 visible beside one selected card on desktop, while mobile opens that card with a
-sticky **Back to messages** control. Completing, snoozing or planning one item
-selects the adjacent message, so a review run does not lose its place.
+sticky **Back to messages** control. The queue shows **x of y**, remembers the
+selected message and scroll position on this device, and selects the adjacent
+message after an outcome, so a review run does not lose its place. **Earlier in
+this chat** is a collapsed, four-message context read made only when a card is
+selected; it reads the cached inbox tab and does not join Planning, students,
+the group map, or `Communication_Log`.
 The detail card leads with student/sender, time and the original message. Tutor-group cards lead with the linked tutor and a compact **Tutor** badge.
 Consecutive messages from the same sender, chat and matched student sent within
 five minutes are one card: the burst is shown oldest-first under a single
@@ -87,8 +91,11 @@ prefilled, extracted first/return dates are visible and editable, and a short
 deterministic parent reply is editable beside them. **Copy reply & create plan**
 copies that exact wording, stores it in the linked Planning item, closes the
 inbox burst and advances to the adjacent message only after the write succeeds.
-A compact confirmation keeps **Open full plan** available without forcing a
-context switch. Clearing a false date clears it from the draft. A failed
+A persistent **Reply ready** handoff stays at the top of the inbox with the
+reviewed text and optional **Open plan** link. It survives an accidental page
+reload for this browser session. Opening WhatsApp never claims delivery: the
+reviewer either confirms **Sent — finish & next** or deliberately chooses
+**Leave with plan**. Clearing a false date clears it from the draft. A failed
 Planning write cannot create false closure.
 For a structured pause, the saved reply is the card's final **Copy & open
 WhatsApp** handoff after the payment tool. The admin must still confirm it was
@@ -102,9 +109,12 @@ generation. Ambiguous policy evidence never reaches the model. If the provider,
 timeout or validator fails—or the flag is off—the same button opens the standard
 editable template. **Copy & open WhatsApp** records the copy in
 `Communication_Log` and opens WhatsApp's chat chooser with the final text
-prefilled. WhatsApp does not expose a supported deep link to a private lesson
-group, so the admin still chooses the chat and taps Send. Copied remains intent
-to send, not delivery evidence.
+prefilled in a separate surface. The inbox remains open and shows the reviewed
+reply plus the lesson-group reminder. WhatsApp does not expose a supported deep
+link to a private lesson group, so the admin still chooses the chat and taps
+Send. Only the explicit **Sent — finish & next** press resolves the inbox item;
+**Not yet** returns the handoff to its ready state. Copied and opened remain
+intent to send, not delivery evidence.
 
 Classifier labels, evidence, correction, no-action and test-row deletion stay
 behind the single More disclosure. A later school message is shown as a compact
@@ -117,6 +127,11 @@ The Open, Later and Done filters keep those meanings distinct. **Done** records
 handled-without-a-plan; **No action needed** remains a separate outcome under
 More. Neither performs a provider action or sends a reply.
 
+**Handled** and **Later** offer a 12-second Undo. Undo carries the prior workflow
+fields, reloads the current Sheet row, and applies only if its review timestamp
+still matches; another person's later decision wins. Planning-linked outcomes
+cannot be undone from the inbox.
+
 The active inbox is the initial read path. **Done** loads only when opened,
 returns the 100 most recent completed rows with the full history count, and
 does not read Planning because the inbox card already stores the plan link it
@@ -124,7 +139,9 @@ needs. The large WhatsApp group map plus tutor list load only when **WhatsApp
 group connections** is opened. The initial tabs are prefetched in one Sheets
 batch. Ordinary corrections, outcomes and plan conversions return compact row
 patches instead of reloading the inbox, Planning and group map after every
-press.
+press. When bridge health is stale, an empty Open queue is explicitly
+untrusted—never presented as an ordinary **All caught up**—and the recovery
+steps remain available behind a small disclosure.
 
 ## Confirmed-Group Gate
 

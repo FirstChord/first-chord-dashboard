@@ -14,6 +14,7 @@ import {
   extractIncomingMessageDates,
   buildIncomingMessageId,
   buildIncomingMessageRecord,
+  buildIncomingUndoSnapshot,
   buildIncomingPlanningDraft,
   buildIncomingReplyTemplate,
   buildWhatsappShareUrl,
@@ -42,7 +43,9 @@ import {
   normalisePhone,
   resolveIncomingPlanningAction,
   resolveReviewedIncomingReply,
+  restoreIncomingMessageWorkflowState,
   retainIncomingSelection,
+  selectIncomingConversationContext,
   selectAdjacentIncomingId,
   selectReplyEvidenceTarget,
 } from '../../lib/admin/incoming-message-helpers.mjs';
@@ -99,6 +102,53 @@ test('queue selection advances to the adjacent message and survives ordinary ref
   assert.equal(selectAdjacentIncomingId(clusters, 'c'), 'b');
   assert.equal(retainIncomingSelection(clusters, 'b'), 'b');
   assert.equal(retainIncomingSelection(clusters, 'missing'), 'a');
+});
+
+test('recent conversation context excludes the current burst and stays bounded', () => {
+  const rows = [
+    { incomingId: 'current_2', chatId: 'family@g.us', senderPhone: '07700111222', matchedMmsId: 'sdt_a', messageAt: '2026-09-13T10:02:00Z', messageText: 'It is next week' },
+    { incomingId: 'current_1', chatId: 'family@g.us', senderPhone: '07700111222', matchedMmsId: 'sdt_a', messageAt: '2026-09-13T10:00:00Z', messageText: 'Can we change the lesson?' },
+    { incomingId: 'other_chat', chatId: 'other@g.us', senderPhone: '07700999999', matchedMmsId: 'sdt_b', messageAt: '2026-09-12T12:00:00Z', messageText: 'Unrelated' },
+    { incomingId: 'earlier_2', chatId: 'family@g.us', senderPhone: '07700111222', matchedMmsId: 'sdt_a', messageAt: '2026-09-12T11:00:00Z', messageText: 'Tuesday could work' },
+    { incomingId: 'earlier_1', chatId: 'family@g.us', senderPhone: '07700111222', matchedMmsId: 'sdt_a', messageAt: '2026-09-11T11:00:00Z', messageText: 'What times are free?' },
+  ];
+
+  const context = selectIncomingConversationContext(rows, 'current_1', { limit: 1 });
+  assert.deepEqual(context.map((row) => row.incomingId), ['earlier_2']);
+});
+
+test('Undo restores open workflow state but refuses to erase linked Planning work', () => {
+  const before = {
+    incomingId: 'incoming_undo',
+    status: 'needs_review',
+    snoozedUntil: '',
+    classificationActionability: 'uncertain',
+    classificationDecision: 'unreviewed',
+    reviewNote: 'Check the date',
+  };
+  const snapshot = buildIncomingUndoSnapshot(before);
+  const restored = restoreIncomingMessageWorkflowState({
+    ...before,
+    status: 'converted',
+    resolutionType: 'handled_no_plan',
+    classificationActionability: 'action_needed',
+    classificationDecision: 'corrected',
+    reviewedAt: '2026-09-13T10:01:00.000Z',
+  }, snapshot, {
+    actorEmail: 'finn@example.com',
+    now: new Date('2026-09-13T10:02:00.000Z'),
+  });
+
+  assert.equal(restored.status, 'needs_review');
+  assert.equal(restored.resolutionType, '');
+  assert.equal(restored.classificationActionability, 'uncertain');
+  assert.equal(restored.classificationDecision, 'unreviewed');
+  assert.equal(restored.reviewNote, 'Check the date');
+  assert.equal(restored.reviewedBy, 'finn@example.com');
+  assert.throws(() => restoreIncomingMessageWorkflowState({
+    ...before,
+    createdPlanningId: 'planning_1',
+  }, snapshot), /linked to Planning/u);
 });
 
 test('a batched human review keeps classification and audit semantics', () => {

@@ -6,11 +6,12 @@ import GroupMapPanel from './IncomingGroupMapPanel';
 import TutorMessageBadge from './TutorMessageBadge';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock3, Ellipsis, RefreshCw, Reply, RotateCcw, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Check, ChevronRight, Clock3, Ellipsis, RefreshCw, Reply, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/admin/ui/ActionButton';
 import {
   assessBridgeHealth,
+  buildIncomingUndoSnapshot,
   buildIncomingReplyTemplate,
   buildWhatsappShareUrl,
   clusterIncomingMessages,
@@ -46,9 +47,138 @@ function formatDateTime(value) {
 }
 
 const ABSENCE_CATEGORIES = new Set(['one_off_absence', 'extended_absence', 'summer_break', 'absence_pause']);
+const HANDOFF_STORAGE_KEY = 'first-chord-incoming-handoff';
+const QUEUE_SELECTION_KEY = 'first-chord-incoming-selection';
+const QUEUE_SCROLL_KEY = 'first-chord-incoming-scroll';
+const HANDOFF_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+function openWhatsappSurface(message = '') {
+  const url = buildWhatsappShareUrl(message);
+  const opened = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!opened) window.location.assign(url);
+}
+
+function readStoredHandoff() {
+  try {
+    const stored = JSON.parse(window.sessionStorage.getItem(HANDOFF_STORAGE_KEY) || 'null');
+    const createdMs = new Date(stored?.createdAt || '').getTime();
+    if (!stored?.reply || !Number.isFinite(createdMs) || Date.now() - createdMs > HANDOFF_MAX_AGE_MS) {
+      window.sessionStorage.removeItem(HANDOFF_STORAGE_KEY);
+      return null;
+    }
+    return stored;
+  } catch {
+    return null;
+  }
+}
 
 function isWhatsappGroup(chatId = '') {
   return `${chatId || ''}`.trim().endsWith('@g.us');
+}
+
+function ConversationContext({ messages = [], loading = false }) {
+  if (loading) {
+    return <p className="mt-3 text-xs text-slate-400">Checking recent conversation…</p>;
+  }
+  if (!messages.length) return null;
+
+  return (
+    <details className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2">
+      <summary className="cursor-pointer text-xs font-semibold text-slate-600">
+        Earlier in this chat · {messages.length}
+      </summary>
+      <div className="mt-2 space-y-2 border-t border-slate-200 pt-2">
+        {messages.map((message) => (
+          <div key={message.incomingId} className="text-xs leading-5 text-slate-600">
+            <p className="flex items-center justify-between gap-3 text-[11px] text-slate-400">
+              <span>{message.senderName || message.matchedStudentName || 'Earlier message'}</span>
+              <time dateTime={message.messageAt || message.capturedAt || undefined}>
+                {formatMessageStamp(message.messageAt || message.capturedAt)}
+              </time>
+            </p>
+            <p className="mt-0.5 whitespace-pre-line">{message.messageText}</p>
+          </div>
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function HandoffTray({ handoff, onOpenWhatsapp, onConfirmSent, onDismiss, isPending }) {
+  if (!handoff) return null;
+  const label = handoff.studentName || handoff.senderName || 'this conversation';
+  const hasOpened = Boolean(handoff.openedAt);
+
+  return (
+    <div aria-live="polite" className="sticky top-2 z-30 rounded-2xl border border-violet-200 bg-violet-50/95 px-4 py-3 text-sm text-violet-950 shadow-lg backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-semibold">
+            {hasOpened ? `Did that reply go to ${label}?` : `Reply for ${label} is ready.`}
+          </p>
+          <p className="mt-0.5 text-xs text-violet-800/80">
+            {handoff.alreadyResolved
+              ? 'The plan is safe; confirm the WhatsApp handoff or leave the reply with the plan.'
+              : 'The inbox will only finish this message when you confirm it was sent.'}
+            {handoff.chatName ? ` Choose “${handoff.chatName}” in WhatsApp.` : ''}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {hasOpened ? (
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={onConfirmSent}
+              className="min-h-10 rounded-full bg-violet-700 px-4 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
+            >
+              {isPending ? 'Finishing…' : handoff.alreadyResolved ? 'Sent — done' : 'Sent — finish & next'}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={onOpenWhatsapp}
+            className="min-h-10 rounded-full border border-violet-200 bg-white px-3 text-xs font-semibold text-violet-800 disabled:opacity-60"
+          >
+            {hasOpened ? 'Open WhatsApp again' : 'Open WhatsApp'}
+          </button>
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={onDismiss}
+            className="min-h-10 rounded-full px-3 text-xs font-semibold text-violet-700 disabled:opacity-60"
+          >
+            {handoff.alreadyResolved ? 'Leave with plan' : 'Not yet'}
+          </button>
+          {handoff.planningId ? (
+            <Link
+              href={`/admin/planning?focus=${encodeURIComponent(handoff.planningId)}`}
+              className="min-h-10 rounded-full px-3 py-2.5 text-xs font-semibold text-violet-700"
+            >
+              Open plan
+            </Link>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function UndoToast({ action, onUndo, isPending }) {
+  if (!action) return null;
+  return (
+    <div aria-live="polite" className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-slate-900 px-4 py-2.5 text-sm text-white shadow-xl sm:bottom-6">
+      <span>{action.label}</span>
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={onUndo}
+        className="font-semibold text-emerald-300 disabled:opacity-60"
+      >
+        {isPending ? 'Undoing…' : 'Undo'}
+      </button>
+    </div>
+  );
 }
 
 
@@ -273,7 +403,7 @@ function PlanPanel({ entry, studentOptions = [], onCorrect, onConvert, isPending
   );
 }
 
-function ReplyPanel({ entry, initialReply = '', planningId = '', title = 'Reply', onClose = null, source = 'incoming_message_reply' }) {
+function ReplyPanel({ entry, entries = [entry], initialReply = '', planningId = '', title = 'Reply', onClose = null, onBeginHandoff, source = 'incoming_message_reply' }) {
   const [reply, setReply] = useState(initialReply);
 
   async function handleWhatsApp() {
@@ -295,7 +425,14 @@ function ReplyPanel({ entry, initialReply = '', planningId = '', title = 'Reply'
         source,
       });
     }
-    window.location.assign(buildWhatsappShareUrl(reply));
+    onBeginHandoff({
+      entry,
+      entries,
+      reply,
+      planningId,
+      alreadyResolved: Boolean(planningId),
+      openNow: true,
+    });
   }
 
   return (
@@ -338,7 +475,7 @@ function ReplyPanel({ entry, initialReply = '', planningId = '', title = 'Reply'
 // The feature-gated suggested-reply block: one editable draft and one explicit
 // WhatsApp handoff. The server records whether the proposal was used or edited;
 // nothing sends until the admin chooses a chat and taps Send in WhatsApp.
-function SuggestedReplyBlock({ entry, proposal, onDecideReply, isPending }) {
+function SuggestedReplyBlock({ entry, entries = [entry], proposal, onDecideReply, onBeginHandoff, isPending }) {
   const [text, setText] = useState(proposal.proposalBody || '');
   const edited = text.trim() !== (proposal.proposalBody || '').trim();
   const suggestionLabel = `${proposal.createdBy || ''}`.startsWith('model:') ? 'AI draft' : 'Standard reply';
@@ -351,7 +488,9 @@ function SuggestedReplyBlock({ entry, proposal, onDecideReply, isPending }) {
       return;
     }
     const decided = await onDecideReply(entry, proposal, edited ? { decision: 'edit', finalBody: text } : { decision: 'use' });
-    if (decided) window.location.assign(buildWhatsappShareUrl(text));
+    if (decided) {
+      onBeginHandoff({ entry, entries, reply: text, alreadyResolved: false, openNow: true });
+    }
   }
 
   function handleDiscard() {
@@ -438,10 +577,7 @@ function describeSpottedDates(entry) {
 // One-line bridge health: slate when fine, amber with the reasons when not.
 // The heavy diagnostics stay in the bridge's local logs — this is just enough
 // to tell "down", "connected but capturing nothing", and "quiet" apart.
-function BridgeStatusStrip({ bridgeStatus, inbox = [] }) {
-  const lastAutoCaptureAt = inbox
-    .filter((entry) => entry.source === 'whatsapp_group_auto')
-    .reduce((latest, entry) => ((entry.capturedAt || '') > latest ? entry.capturedAt : latest), '');
+function BridgeStatusStrip({ bridgeStatus, lastAutoCaptureAt = '' }) {
   const health = assessBridgeHealth(bridgeStatus, { lastAutoCaptureAt });
 
   if (health.state === 'none') return null;
@@ -450,6 +586,10 @@ function BridgeStatusStrip({ bridgeStatus, inbox = [] }) {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-2 text-xs leading-5 text-amber-900">
         <span className="font-semibold">WhatsApp bridge needs a look:</span> {health.problems.join(' · ')}
+        <details className="mt-1">
+          <summary className="cursor-pointer font-semibold">Recovery</summary>
+          <p className="mt-1">Check that the bridge terminal is running and WhatsApp is linked, then refresh this page. Until the green tick returns, paste anything urgent manually.</p>
+        </details>
       </div>
     );
   }
@@ -608,7 +748,7 @@ function MessageQueueItem({ cluster, selected = false, onSelect }) {
 // `entry` is the burst's lead message — the one that carries the signal, and
 // the one Reply and Reply + Plan work from. `entries` is the whole burst,
 // oldest first; outcome actions apply to all of it so nothing is left behind.
-function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply }) {
+function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false }) {
   const isPending = entries.some((message) => pendingId === message.incomingId);
   const isBurst = entries.length > 1;
   const [isPlanOpen, setIsPlanOpen] = useState(false);
@@ -729,6 +869,8 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
         ))}
       </div>
 
+      <ConversationContext messages={conversationContext} loading={contextLoading} />
+
       {entry.schoolRepliedAt ? (
         <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500" title={`School activity seen ${formatDateTime(entry.schoolRepliedAt)}. This shows engagement, not confirmed resolution.`}>
           <Reply aria-hidden="true" className="h-3.5 w-3.5" />
@@ -739,8 +881,10 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
       {replyProposal ? (
         <SuggestedReplyBlock
           entry={entry}
+          entries={entries}
           proposal={replyProposal}
           onDecideReply={onDecideReply}
+          onBeginHandoff={onBeginHandoff}
           isPending={isPending}
         />
       ) : null}
@@ -902,6 +1046,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
       {isReplyOpen ? (
         <ReplyPanel
           entry={entry}
+          entries={entries}
           initialReply={buildIncomingReplyTemplate({
             groupType: entry.groupType,
             category: entry.suspectedCategory,
@@ -910,6 +1055,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
             studentName: entry.matchedStudentName || studentOptions.find((student) => student.mmsId === entry.matchedMmsId)?.fullName || '',
           })}
           onClose={() => setIsReplyOpen(false)}
+          onBeginHandoff={onBeginHandoff}
         />
       ) : null}
 
@@ -917,7 +1063,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
   );
 }
 
-export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, error = '', initialReplyProposals = {}, replyDraftingAvailable = false }) {
+export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false }) {
   const [inbox, setInbox] = useState(initialInbox);
   const [groupMap, setGroupMap] = useState(initialGroupMap);
   const [groupTutorOptions, setGroupTutorOptions] = useState(tutorOptions);
@@ -947,8 +1093,70 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     )))[0]?.lead?.incomingId || ''
   ));
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  const [completedPlan, setCompletedPlan] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [latestAutoCaptureAt, setLatestAutoCaptureAt] = useState(lastAutoCaptureAt);
+  const [conversationContexts, setConversationContexts] = useState({});
+  const [contextLoadingId, setContextLoadingId] = useState('');
+  const [pendingHandoff, setPendingHandoff] = useState(null);
+  const [undoAction, setUndoAction] = useState(null);
+  const [undoPending, setUndoPending] = useState(false);
+  const queueScrollRef = useRef(null);
+
+  useEffect(() => {
+    setPendingHandoff(readStoredHandoff());
+  }, []);
+
+  useEffect(() => {
+    if (!undoAction) return undefined;
+    const timeoutId = window.setTimeout(() => setUndoAction(null), 12_000);
+    return () => window.clearTimeout(timeoutId);
+  }, [undoAction]);
+
+  function rememberHandoff(handoff) {
+    const next = { ...handoff, createdAt: handoff.createdAt || new Date().toISOString() };
+    setPendingHandoff(next);
+    try {
+      window.sessionStorage.setItem(HANDOFF_STORAGE_KEY, JSON.stringify(next));
+    } catch {}
+    return next;
+  }
+
+  function clearHandoff() {
+    setPendingHandoff(null);
+    try {
+      window.sessionStorage.removeItem(HANDOFF_STORAGE_KEY);
+    } catch {}
+  }
+
+  function beginHandoff({ entry, entries = [entry], reply = '', planningId = '', alreadyResolved = false, openNow = false }) {
+    const handoff = rememberHandoff({
+      incomingIds: entries.map((message) => message.incomingId).filter(Boolean),
+      leadIncomingId: entry.incomingId,
+      studentName: entry.matchedStudentName || '',
+      senderName: entry.senderName || '',
+      chatName: entry.chatName || '',
+      reply,
+      planningId,
+      alreadyResolved,
+      openedAt: openNow ? new Date().toISOString() : '',
+    });
+    if (openNow) openWhatsappSurface(handoff.reply);
+  }
+
+  function openPendingHandoff() {
+    if (!pendingHandoff?.reply) return;
+    rememberHandoff({ ...pendingHandoff, openedAt: new Date().toISOString() });
+    openWhatsappSurface(pendingHandoff.reply);
+  }
+
+  function dismissPendingHandoff() {
+    if (!pendingHandoff) return;
+    if (pendingHandoff.alreadyResolved) {
+      clearHandoff();
+      return;
+    }
+    rememberHandoff({ ...pendingHandoff, openedAt: '' });
+  }
 
   // Fresh data whenever the (installed) app is opened or the tab regains
   // focus, plus the manual refresh button
@@ -970,6 +1178,8 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
           setDoneAutoArchivedCount(Number(data.autoArchivedCount) || 0);
           setDoneLoaded(true);
         }
+        if (Object.hasOwn(data, 'lastAutoCaptureAt')) setLatestAutoCaptureAt(data.lastAutoCaptureAt || '');
+        setConversationContexts({});
       }
       if (replyDraftingAvailable) {
         const proposalsResponse = await fetch('/api/admin/incoming-messages/reply-proposals');
@@ -1017,6 +1227,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       ]);
       setDoneTotalCount(Number(data.totalCount) || 0);
       setDoneAutoArchivedCount(Number(data.autoArchivedCount) || 0);
+      if (Object.hasOwn(data, 'lastAutoCaptureAt')) setLatestAutoCaptureAt(data.lastAutoCaptureAt || '');
       setDoneLoaded(true);
     } catch (caught) {
       setSubmitError(caught.message || 'Completed messages failed to load');
@@ -1119,11 +1330,65 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     || visibleClusters[0]
     || null
   ), [selectedIncomingId, visibleClusters]);
+  const selectedPosition = selectedCluster
+    ? visibleClusters.findIndex((cluster) => cluster.lead.incomingId === selectedCluster.lead.incomingId) + 1
+    : 0;
+  const bridgeHealth = useMemo(
+    () => assessBridgeHealth(bridgeStatus, { lastAutoCaptureAt: latestAutoCaptureAt }),
+    [bridgeStatus, latestAutoCaptureAt],
+  );
 
   useEffect(() => {
-    setSelectedIncomingId((current) => retainIncomingSelection(visibleClusters, current));
+    let remembered = '';
+    try {
+      remembered = window.localStorage.getItem(`${QUEUE_SELECTION_KEY}:${inboxView}`) || '';
+    } catch {}
+    setSelectedIncomingId((current) => retainIncomingSelection(
+      visibleClusters,
+      visibleClusters.some((cluster) => cluster.lead.incomingId === current) ? current : remembered,
+    ));
     if (!visibleClusters.length) setMobileDetailOpen(false);
-  }, [visibleClusters]);
+  }, [inboxView, visibleClusters]);
+
+  useEffect(() => {
+    if (!selectedIncomingId || !visibleClusters.some((cluster) => cluster.lead.incomingId === selectedIncomingId)) return;
+    try {
+      window.localStorage.setItem(`${QUEUE_SELECTION_KEY}:${inboxView}`, selectedIncomingId);
+    } catch {}
+  }, [inboxView, selectedIncomingId, visibleClusters]);
+
+  useEffect(() => {
+    const element = queueScrollRef.current;
+    if (!element) return;
+    let stored = 0;
+    try {
+      stored = Number(window.localStorage.getItem(`${QUEUE_SCROLL_KEY}:${inboxView}`)) || 0;
+    } catch {}
+    const frame = window.requestAnimationFrame(() => { element.scrollTop = stored; });
+    return () => window.cancelAnimationFrame(frame);
+  }, [inboxView, visibleClusters.length]);
+
+  useEffect(() => {
+    const incomingId = selectedCluster?.lead?.incomingId || '';
+    if (!incomingId || Object.hasOwn(conversationContexts, incomingId)) return undefined;
+    const controller = new AbortController();
+    setContextLoadingId(incomingId);
+    fetch(`/api/admin/incoming-messages?scope=context&incomingId=${encodeURIComponent(incomingId)}`, {
+      signal: controller.signal,
+    })
+      .then((response) => response.json().then((data) => ({ response, data })))
+      .then(({ response, data }) => {
+        if (!response.ok || !data.success) throw new Error(data.error || 'Conversation context failed to load');
+        setConversationContexts((current) => ({ ...current, [incomingId]: data.context || [] }));
+      })
+      .catch((caught) => {
+        if (caught.name !== 'AbortError') {
+          setConversationContexts((current) => ({ ...current, [incomingId]: [] }));
+        }
+      })
+      .finally(() => setContextLoadingId((current) => (current === incomingId ? '' : current)));
+    return () => controller.abort();
+  }, [conversationContexts, selectedCluster]);
 
   function selectMessage(incomingId) {
     setSelectedIncomingId(incomingId);
@@ -1196,15 +1461,40 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     }, { compact: true });
   }
 
-  async function handleReview(entries, nextStatus) {
+  function armUndo(entries, data, label) {
+    const updates = new Map((data.updatedMessages || []).map((row) => [row.incomingId, row]));
+    const snapshots = entries.map((entry) => ({
+      ...buildIncomingUndoSnapshot(entry),
+      expectedReviewedAt: updates.get(entry.incomingId)?.reviewedAt || '',
+    }));
+    if (snapshots.every((snapshot) => snapshot.expectedReviewedAt)) {
+      const entryIds = new Set(entries.map((entry) => entry.incomingId));
+      setUndoAction({
+        label,
+        snapshots,
+        incomingId: entries[0]?.incomingId || '',
+        handoff: pendingHandoff?.incomingIds?.some((incomingId) => entryIds.has(incomingId))
+          ? pendingHandoff
+          : null,
+      });
+    }
+  }
+
+  async function handleReview(entries, nextStatus, undoLabel = '') {
     setSubmitError('');
     setDuplicatePlanningId('');
     setPendingId(entries[0].incomingId);
     try {
-      await reviewBurst(entries, nextStatus);
+      const data = await reviewBurst(entries, nextStatus);
+      armUndo(entries, data, undoLabel || (nextStatus === 'ignored' ? 'Marked no action needed' : 'Marked handled'));
+      if (pendingHandoff?.incomingIds?.some((incomingId) => entries.some((entry) => entry.incomingId === incomingId))) {
+        clearHandoff();
+      }
       advanceAfter(entries[0].incomingId);
+      return true;
     } catch (caught) {
       setSubmitError(caught.message || 'Review update failed');
+      return false;
     } finally {
       setPendingId('');
     }
@@ -1215,17 +1505,56 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     setDuplicatePlanningId('');
     setPendingId(entries[0].incomingId);
     try {
-      await postPayload({
+      const data = await postPayload({
         mode: 'snooze_batch',
         incomingIds: entries.map((message) => message.incomingId),
         snoozedUntil,
       }, { compact: true });
+      armUndo(entries, data, snoozedUntil ? 'Moved to Later' : 'Brought back to Open');
+      if (pendingHandoff?.incomingIds?.some((incomingId) => entries.some((entry) => entry.incomingId === incomingId))) {
+        clearHandoff();
+      }
       advanceAfter(entries[0].incomingId);
     } catch (caught) {
       setSubmitError(caught.message || 'Later update failed');
     } finally {
       setPendingId('');
     }
+  }
+
+  async function handleUndo() {
+    if (!undoAction?.snapshots?.length) return;
+    setUndoPending(true);
+    setSubmitError('');
+    try {
+      await postPayload({ mode: 'restore_batch', snapshots: undoAction.snapshots }, { compact: true });
+      setInboxView('open');
+      setSelectedIncomingId(undoAction.incomingId);
+      setMobileDetailOpen(true);
+      if (undoAction.handoff) rememberHandoff({ ...undoAction.handoff, openedAt: '' });
+      setUndoAction(null);
+    } catch (caught) {
+      setSubmitError(caught.message || 'Undo failed');
+    } finally {
+      setUndoPending(false);
+    }
+  }
+
+  async function confirmPendingHandoff() {
+    if (!pendingHandoff) return;
+    if (pendingHandoff.alreadyResolved) {
+      clearHandoff();
+      return;
+    }
+    const entries = pendingHandoff.incomingIds
+      .map((incomingId) => inbox.find((entry) => entry.incomingId === incomingId))
+      .filter((entry) => entry && ['inbox', 'needs_review'].includes(entry.status));
+    if (!entries.length) {
+      clearHandoff();
+      return;
+    }
+    const finished = await handleReview(entries, 'converted', 'Reply marked sent');
+    if (finished) clearHandoff();
   }
 
   async function handleDelete(entries) {
@@ -1244,6 +1573,9 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
           mode: 'delete',
           incomingId: message.incomingId,
         }, { compact: true });
+      }
+      if (pendingHandoff?.incomingIds?.some((incomingId) => entries.some((entry) => entry.incomingId === incomingId))) {
+        clearHandoff();
       }
       advanceAfter(first.incomingId);
     } catch (caught) {
@@ -1335,9 +1667,13 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         relatedIncomingIds: burst.map((message) => message.incomingId),
         ...correction,
       }, { compact: true });
-      setCompletedPlan({
+      beginHandoff({
+        entry,
+        entries: burst,
+        reply: data.replyTemplate || correction.replyTemplate || '',
         planningId: data.planningId || '',
-        studentName: entry.matchedStudentName || 'Message',
+        alreadyResolved: true,
+        openNow: false,
       });
       advanceAfter(entry.incomingId);
       return data;
@@ -1358,7 +1694,9 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
           <p className="mt-1 text-sm text-slate-500">
             {openCount
               ? `${openCount} open item${openCount === 1 ? '' : 's'}${absenceCount ? ` · ${absenceCount} absence-related` : ''}${laterCount ? ` · ${laterCount} later` : ''}`
-              : laterCount
+              : bridgeHealth.state === 'warn'
+                ? 'No captured messages waiting · capture needs attention'
+                : laterCount
                 ? `Nothing open · ${laterCount} later`
                 : 'Nothing open'}
           </p>
@@ -1381,31 +1719,15 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"><PlanningSaveError message={submitError} duplicatePlanningId={duplicatePlanningId} /></div>
       ) : null}
 
-      {completedPlan ? (
-        <div aria-live="polite" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-900 shadow-sm">
-          <p><span className="font-semibold">Plan for {completedPlan.studentName} created and reply copied.</span> The next message is ready.</p>
-          <div className="flex items-center gap-2">
-            {completedPlan.planningId ? (
-              <Link
-                href={`/admin/planning?focus=${encodeURIComponent(completedPlan.planningId)}`}
-                className="rounded-full border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900"
-              >
-                Open full plan
-              </Link>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setCompletedPlan(null)}
-              aria-label="Dismiss confirmation"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-emerald-800 hover:bg-emerald-100"
-            >
-              <X aria-hidden="true" className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <HandoffTray
+        handoff={pendingHandoff}
+        onOpenWhatsapp={openPendingHandoff}
+        onConfirmSent={confirmPendingHandoff}
+        onDismiss={dismissPendingHandoff}
+        isPending={Boolean(pendingId)}
+      />
 
-      <BridgeStatusStrip bridgeStatus={bridgeStatus} inbox={inbox} />
+      <BridgeStatusStrip bridgeStatus={bridgeStatus} lastAutoCaptureAt={latestAutoCaptureAt} />
 
       <section className="space-y-4">
         {/* Manual paste is the fallback now that auto-capture handles confirmed
@@ -1535,12 +1857,22 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(17rem,0.72fr)_minmax(0,1.28fr)]">
           <aside className={`${mobileDetailOpen ? 'hidden lg:block' : 'block'} lg:sticky lg:top-40`} aria-label="Message queue">
-            <div className="rounded-2xl border border-white/70 bg-white/55 p-2 shadow-[0_12px_36px_rgba(15,23,42,0.04)] backdrop-blur-sm lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto">
+            <div
+              ref={queueScrollRef}
+              onScroll={(event) => {
+                try {
+                  window.localStorage.setItem(`${QUEUE_SCROLL_KEY}:${inboxView}`, `${event.currentTarget.scrollTop}`);
+                } catch {}
+              }}
+              className="rounded-2xl border border-white/70 bg-white/55 p-2 shadow-[0_12px_36px_rgba(15,23,42,0.04)] backdrop-blur-sm lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto"
+            >
               <div className="flex items-center justify-between px-2 pb-2 pt-1">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                   {inboxView === 'done' ? 'Completed' : inboxView === 'later' ? 'For later' : 'To handle'}
                 </p>
-                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">{visibleClusters.length}</span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">
+                  {selectedPosition ? `${selectedPosition} of ${visibleClusters.length}` : visibleClusters.length}
+                </span>
               </div>
               {inboxView === 'done' && completedTotal > visibleInbox.length ? (
                 <p className="px-2 pb-2 text-xs text-slate-500">Showing the {visibleInbox.length} most recent of {completedTotal}.</p>
@@ -1556,12 +1888,14 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                 ))}
               </div>
               {!visibleInbox.length ? (
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-4 text-sm text-emerald-800">
+                <div className={`rounded-xl border px-3 py-4 text-sm ${inboxView === 'open' && bridgeHealth.state === 'warn' ? 'border-amber-200 bg-amber-50/70 text-amber-900' : 'border-emerald-100 bg-emerald-50/70 text-emerald-800'}`}>
                   {inboxView === 'later'
                     ? 'Nothing is waiting for later.'
                     : inboxView === 'done'
                       ? doneLoading ? 'Loading completed messages…' : 'No completed messages yet.'
-                      : 'All caught up. New requests and questions will appear here.'}
+                      : bridgeHealth.state === 'warn'
+                        ? 'No captured messages are waiting, but WhatsApp capture needs attention above.'
+                        : 'All caught up. New requests and questions will appear here.'}
                 </div>
               ) : null}
             </div>
@@ -1577,6 +1911,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                 <ArrowLeft aria-hidden="true" className="h-4 w-4" />
                 Back to {visibleClusters.length} message{visibleClusters.length === 1 ? '' : 's'}
               </button>
+              {selectedPosition ? <span className="ml-auto pr-2 text-[11px] font-semibold text-slate-400">{selectedPosition} of {visibleClusters.length}</span> : null}
             </div>
             {selectedCluster ? (
               <MessageCard
@@ -1596,6 +1931,9 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                 replyDraftingAvailable={replyDraftingAvailable}
                 onDraftReply={handleDraftReply}
                 onDecideReply={handleDecideReply}
+                onBeginHandoff={beginHandoff}
+                conversationContext={conversationContexts[selectedCluster.lead.incomingId] || []}
+                contextLoading={contextLoadingId === selectedCluster.lead.incomingId}
               />
             ) : (
               <div className="hidden rounded-2xl border border-white/70 bg-white/65 px-6 py-12 text-center text-sm text-slate-500 lg:block">
@@ -1605,6 +1943,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
           </section>
         </div>
       </section>
+      <UndoToast action={undoAction} onUndo={handleUndo} isPending={undoPending} />
     </div>
   );
 }
