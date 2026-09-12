@@ -31,9 +31,15 @@ launch-target correction must be removed and installed again.
 ## Active Capture Contract
 
 The bridge posts only `messages.upsert` events with `type === "notify"` whose
-chat ID is in its dashboard-supplied confirmed-group set. It skips:
+chat ID is in its dashboard-supplied confirmed-group set. A live text message
+from an unknown group is retained as pending in the bounded local cache while
+the bridge asks WhatsApp for that exact group's metadata. A likely First Chord
+title is synced to the dashboard immediately for human review. Confirmation
+releases that specific pending message on the next confirmed-group refresh;
+the stable message ID keeps the retry idempotent. The message is never posted
+before confirmation. It skips:
 
-- history/append batches, unconfirmed chats, and an empty confirmed set
+- history/append batches and unconfirmed chats that have not been reviewed
 - duplicate message IDs already posted by that process
 - media with no extractable text or caption
 
@@ -129,6 +135,14 @@ corresponding person selector. Known tutor names followed by **First Chord**
 first name stays ambiguous and needs an explicit selection. The title is only a
 proposal; neither it nor participant membership enables capture by itself.
 
+The periodic full-group snapshot is not assumed complete. When WhatsApp emits a
+live message for a chat absent from the confirmed set, the bridge performs a
+rate-limited targeted `groupMetadata` lookup. This closes the gap where a group
+can deliver messages to the linked account yet be absent from
+`groupFetchAllParticipating()`. Non-First-Chord titles remain local cache only;
+likely lesson/tutor titles appear in group review, and only a human confirmation
+allows their pending live messages through.
+
 The map stores explicit `group_type` (`student` / `tutor`) and
 `matched_tutor_id` (the roster short name). Missing legacy types mean student.
 A tutor-group confirmation clears student, sibling and parent links; selecting a
@@ -222,9 +236,11 @@ Recovery order:
 ## Local Cache And Privacy
 
 The JSON cache defaults to 2,000 messages and 14 days. It contains message text
-and identity metadata, is gitignored, and currently supports diagnostics and
-heartbeat counts—not replay or recovery. Treat it as sensitive and consider its
-removal if those diagnostics no longer justify retaining message bodies.
+and identity metadata, is gitignored, and supports diagnostics, heartbeat
+counts, and the narrow retry of a live message held while its group awaits
+confirmation. History/append batches are never marked pending and are not
+replayed. Treat the cache as sensitive and consider its removal if those uses no
+longer justify retaining message bodies.
 
 Structured operational logs default to `logs/bridge.log`. They exclude message
 text, message/chat IDs, sender details, group samples, and dashboard response

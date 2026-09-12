@@ -30,6 +30,16 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **An unknown live WhatsApp group is recoverable without weakening confirmation
+  — READY TO DEPLOY 2026-09-12:** Libby Brooks's 12:04 absence message for Adam
+  reached the bridge cache but not the inbox. Adam's chat ID was absent from the
+  228 confirmed groups and from a fresh 366-group WhatsApp snapshot even though
+  the account received its live event. The bridge now retains only that live
+  message as pending, performs a rate-limited targeted metadata lookup, and
+  surfaces a likely First Chord group for human review. Confirmation releases
+  the pending message on the next ten-minute refresh; the dashboard's stable
+  message identity makes retries a no-op. The title never enables capture,
+  history batches are never replayed, and non-First-Chord groups remain local.
 - **FC student IDs have one owner and one formula — DEPLOYED 2026-09-11:** the
   dashboard and brain CLI minted `fcStudentId` from `forename:surname:email`
   while the brain's hourly job recomputed `FC_Students` from `sha256(mms_id)`,
@@ -131,18 +141,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   count buckets `Waiting_List_State.updated_at`, not the first lesson date, so
   the onboarding flow is the measurement: a student set up outside it is
   uncounted until a row is written deliberately.
-- **A burst of messages from one parent is now one card — DEPLOYED 2026-08-29
-  (`b76ab93`):** The bridge posts one inbox row per WhatsApp message and that
-  stays canonical, but three messages sent in one breath were three cards to
-  tick. The view now clusters consecutive messages from the same sender, chat
-  and matched student within five minutes into one stack shown oldest-first.
-  The **lead** — the non-placeholder message with the highest actionability —
-  is what Reply and Reply + Plan work from, while date extraction and the plan
-  draft read the whole burst, because "Amy can't come" and "on Thursday" are
-  often two messages. Handled / No action / Later / Delete apply to every row in
-  the stack, so nothing is left open behind the message that was dealt with. A
-  differing matched student splits the burst rather than merging two children's
-  business; clustering runs after view filtering, so a stack never spans views.
 ## Current operating contracts
 
 | Area | Current boundary |

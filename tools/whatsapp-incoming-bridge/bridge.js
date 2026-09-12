@@ -174,6 +174,9 @@ class WhatsAppIncomingBridge {
     this.recentMessages = new Map();
     this.recentChatTimestamps = new Map();
     this.sentMessageIds = new Set();
+    this.groupDiscoveryInFlight = new Map();
+    this.groupDiscoveryLastCheckedAt = new Map();
+    this.pendingCaptureFlush = null;
     this.groupSyncInFlight = false;
     this.signalHandlersBound = false;
     this.startupSyncDone = false;
@@ -289,7 +292,7 @@ class WhatsAppIncomingBridge {
     return chatId;
   }
 
-  cacheMessage(message) {
+  cacheMessage(message, { pendingAutoCapture = false } = {}) {
     if (!message?.key?.id || !message?.key?.remoteJid) return null;
 
     const { text, type } = extractMessageContent(message);
@@ -301,6 +304,7 @@ class WhatsAppIncomingBridge {
       : message.key.participantPn || message.key.senderPn || senderJid;
     const timestamp = Number(message.messageTimestamp || Date.now() / 1000);
     const cacheKey = messageCacheKey(message.key);
+    const existing = this.recentMessages.get(cacheKey) || {};
     const cached = {
       cacheKey,
       messageId: message.key.id,
@@ -312,6 +316,8 @@ class WhatsAppIncomingBridge {
       messageType: type,
       messageAt: new Date(timestamp * 1000).toISOString(),
       fromMe: Boolean(message.key.fromMe),
+      pendingAutoCapture: Boolean(pendingAutoCapture || existing.pendingAutoCapture),
+      autoCapturedAt: existing.autoCapturedAt || '',
       cachedAt: nowIso(),
     };
 
@@ -319,6 +325,17 @@ class WhatsAppIncomingBridge {
     this.trimCache();
     this.scheduleCacheSave();
     return cached;
+  }
+
+  markCacheCaptureComplete(cached = {}) {
+    if (!cached.cacheKey) return;
+    this.recentMessages.set(cached.cacheKey, {
+      ...cached,
+      pendingAutoCapture: false,
+      autoCapturedAt: nowIso(),
+      cachedAt: nowIso(),
+    });
+    this.scheduleCacheSave();
   }
 
   async buildPayload(data = {}) {
@@ -382,6 +399,7 @@ class WhatsAppIncomingBridge {
       const chatIds = Array.isArray(response.data?.chatIds) ? response.data.chatIds : [];
       this.confirmedChatIds = new Set(chatIds);
       this.logInfo('Refreshed confirmed group list for auto-capture', { confirmedGroups: chatIds.length });
+      await this.flushPendingConfirmedMessages();
     } catch (error) {
       this.logWarn('Could not refresh confirmed group list — auto-capture keeps the previous list', { error: error.message });
       // A failed fetch with no previous list means auto-capture is dead until
@@ -396,6 +414,96 @@ class WhatsAppIncomingBridge {
         this.logInfo('Auto-capture list is empty — retrying in 10 minutes');
       }
     }
+  }
+
+  async postCachedAutoCapture(cached = {}) {
+    if (!cached.cacheKey || !cached.messageId || !cached.chatId) return false;
+    if (this.sentMessageIds.has(cached.cacheKey)) return false;
+    if (!cached.messageText || cached.messageText === '[Media or unsupported message]') return false;
+
+    const payload = await this.buildPayload({ ...cached, cacheHit: true });
+    payload.source = 'whatsapp_group_auto';
+    payload.from_me = Boolean(cached.fromMe);
+    await this.sendPayload(payload);
+    this.sentMessageIds.add(cached.cacheKey);
+    this.markCacheCaptureComplete(cached);
+    this.markHealthy();
+    return true;
+  }
+
+  async flushPendingConfirmedMessages() {
+    if (!this.autoCaptureEnabled || this.dryRun || !this.confirmedChatIds.size) return;
+    if (this.pendingCaptureFlush) return this.pendingCaptureFlush;
+
+    this.pendingCaptureFlush = (async () => {
+      const pending = Array.from(this.recentMessages.values()).filter((cached) => (
+        cached.pendingAutoCapture && this.confirmedChatIds.has(cached.chatId)
+      ));
+      let delivered = 0;
+      for (const cached of pending) {
+        try {
+          if (await this.postCachedAutoCapture(cached)) delivered += 1;
+        } catch (error) {
+          // Keep the pending marker. The next confirmed-group refresh retries
+          // with the same stable message id, and the dashboard is idempotent.
+          this.logWarn('Pending auto-capture delivery failed', { error: error.message });
+        }
+      }
+      if (pending.length) {
+        this.logInfo('Flushed pending messages for confirmed groups', {
+          pendingMessages: pending.length,
+          deliveredMessages: delivered,
+        });
+      }
+    })();
+
+    try {
+      await this.pendingCaptureFlush;
+    } finally {
+      this.pendingCaptureFlush = null;
+    }
+  }
+
+  async discoverGroupForCapture(chatId = '', messageAt = '') {
+    if (!chatId.endsWith('@g.us') || !this.sock) return;
+    const lastCheckedAt = this.groupDiscoveryLastCheckedAt.get(chatId) || 0;
+    if (Date.now() - lastCheckedAt < this.confirmedGroupsRefreshMs) return;
+    if (this.groupDiscoveryInFlight.has(chatId)) {
+      return this.groupDiscoveryInFlight.get(chatId);
+    }
+
+    const discovery = (async () => {
+      const metadata = await this.sock.groupMetadata(chatId);
+      const chatName = clean(metadata?.subject);
+      if (!titleLooksLikeFcGroup(chatName)) {
+        this.groupDiscoveryLastCheckedAt.set(chatId, Date.now());
+        this.logInfo('Targeted group discovery ignored a non-First-Chord title');
+        return;
+      }
+      const participantPhones = (metadata?.participants || [])
+        .map((participant) => phoneFromJid(participant.jid || participant.id))
+        .filter(Boolean)
+        .slice(0, 50);
+      await this.sendGroupSync([{
+        chatId: metadata?.id || chatId,
+        chatName,
+        participantPhones,
+        lastActiveAt: messageAt || nowIso(),
+      }]);
+      this.groupDiscoveryLastCheckedAt.set(chatId, Date.now());
+      this.logInfo('Targeted group discovery synced one candidate group');
+      // If this was an already-confirmed group missing only from the bridge's
+      // stale local set, the refresh immediately releases the pending message.
+      // A genuinely new group stays pending until a human confirms it.
+      await this.refreshConfirmedGroups();
+    })().catch((error) => {
+      this.logWarn('Targeted group discovery failed', { error: error.message });
+    }).finally(() => {
+      this.groupDiscoveryInFlight.delete(chatId);
+    });
+
+    this.groupDiscoveryInFlight.set(chatId, discovery);
+    return discovery;
   }
 
   scheduleConfirmedGroupsRefresh() {
@@ -489,23 +597,23 @@ class WhatsAppIncomingBridge {
   // sentMessageIds dedupes within a session so a re-delivered message id is
   // only posted once.
   async maybeAutoCapture(message) {
-    if (!this.autoCaptureEnabled || !this.confirmedChatIds.size) return;
+    if (!this.autoCaptureEnabled || this.dryRun) return;
     const chatId = message.key?.remoteJid || '';
     const messageId = message.key?.id || '';
-    if (!chatId || !messageId || !this.confirmedChatIds.has(chatId)) return;
-    if (this.sentMessageIds.has(messageId)) return;
+    const cacheKey = messageCacheKey(message.key || {});
+    if (!chatId || !messageId || this.sentMessageIds.has(cacheKey)) return;
 
     const { text } = extractMessageContent(message);
     if (!text) return; // media without a caption carries nothing to classify
 
-    const cached = this.cacheMessage(message) || {};
-    const payload = await this.buildPayload({ ...cached, cacheHit: true });
-    payload.source = 'whatsapp_group_auto';
-    payload.from_me = Boolean(message.key?.fromMe);
+    if (!this.confirmedChatIds.has(chatId)) {
+      const pending = this.cacheMessage(message, { pendingAutoCapture: true }) || {};
+      await this.discoverGroupForCapture(chatId, pending.messageAt);
+      return;
+    }
 
-    await this.sendPayload(payload);
-    this.sentMessageIds.add(messageId);
-    this.markHealthy(); // a live message flowed through — definitively alive
+    const cached = this.cacheMessage(message) || {};
+    await this.postCachedAutoCapture(cached);
   }
 
   // `kill -USR1 <pid>` on the running bridge triggers a group sync on the live
