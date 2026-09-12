@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-03
+last_verified: 2026-09-11
 ---
 # Admin current status
 
@@ -50,6 +50,25 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   preserving the full 906-row count, and skips the unused 840-row Planning
   join; the 485-row group map also waits for its panel. The active inbox tabs
   are prefetched together.
+- **Practice note quality has a baseline and a rubric, measured 2026-09-11:**
+  Practice Chat has held ~100 notes/week for five weeks, so adoption is finished
+  and the open question is whether the writing is worth a family's attention.
+  Across the 195 scored notes of the most recent 200: **92%** carry all three
+  sections, **73%** read as prose rather than a verbatim transcript, **31%** of
+  practice goals name something checkable, and **29%** carry a confirmed song
+  link — up from 1-in-14 on 2026-08-07, so the selector's adoption problem is
+  half solved. The consequential finding is that **`ratingAccuracy`,
+  `ratingComment` and `priorUsefulness` are empty on all 612 session rows and
+  `ratingPrompted` is never set** — the usefulness instrument was built and
+  never switched on, so every quality judgement available today is structural.
+  Two further defects: notes written without headings (Hamish, Matthew) store
+  three blank structured columns because `parsePracticeNoteSections` needs a
+  heading, which leaves those tutors invisible to the tutor card, insights and
+  summaries while looking normal to parents; and a shared sibling lesson written
+  as one row leaves the second sibling with no notes at all. Verbatim-dialogue
+  notes are **growing** (12% June → 29% September) and capture is not the cause
+  — zero ASR errors and zero re-records across 612 sessions. Baseline, ranking
+  and dated goals: `docs/plans/active/practice-note-quality.md`.
 - **FC student IDs have one owner and one formula — DEPLOYED 2026-09-11:** the
   dashboard and brain CLI minted `fcStudentId` from `forename:surname:email`
   while the brain's hourly job recomputed `FC_Students` from `sha256(mms_id)`,
@@ -120,37 +139,30 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   current Free rows retain only older student links, so they stay free in the
   calendar. None of those counts means cancelled and the surfaces perform no MMS
   or workflow write.
-- **Issues now open as detective case files with a bounded one-button resolution
-  — DEPLOYED 2026-09-01:** **Ask the detective** always loads the checked,
-  redacted rule and evidence; when the existing AI flag/key are configured, that
-  same explicit click also adds one validated generated opinion. The model never
-  chooses the action. `getDetectiveResolution` offers **Yes, solve it** only for
-  the existing deterministic primary correction on `PAUSE EXPECTATION MISMATCH`
-  and `PAUSE EXPECTATION STALE`, while a source-cleared case can be closed with
-  the same reviewed gesture. Every other case says it still needs judgement and
-  leaves the established action in place. Payment fixes now carry the payment
-  mode/expectation the card was prepared from, and source-cleared closure carries
-  expected `source_present = false`; either endpoint returns 409 rather than
-  applying a stale decision. **No, reconsider** freezes the proposal and records
-  only a fixed correction enum against the opaque AI request ID. Those pilot
-  runtime logs can guide reviewed rule/test changes; they are not durable
-  training data and the detective does not retrain itself. Vince character and
-  visual identity are deliberately a later pass over this working contract.
-- **Tutor banners in the Students sheet are merged cells, and the growth figure
-  runs off `updated_at` — DEPLOYED 2026-08-31:** Michael Gemmell joined the
-  roster (canonical `first-chord-brain/tutors.py`, regenerated into
-  `lib/admin/tutors-data.js`), and adding his first students exposed two
-  contracts now written down in [state tabs](./architecture/data/state-tabs.md).
-  Each orange tutor bar is a merged range two rows deep across columns A–I, so
-  the row beneath a banner is not a blank student row: the Sheets API accepts
-  writes to A–G there, reports the cells updated, and keeps nothing. Add rows
-  through `addStudentSheetRow`, which inserts a real row instead. Separately,
-  `findTutorInsertRow` appends at the bottom of the sheet for a tutor with no
-  existing rows, which is why a new tutor's first student lands outside their
-  block until one row is moved under the banner by hand. The monthly joiner
-  count buckets `Waiting_List_State.updated_at`, not the first lesson date, so
-  the onboarding flow is the measurement: a student set up outside it is
-  uncounted until a row is written deliberately.
+- **Fenella's half of the newsletter loop is a real workflow — 2026-09-12:** the
+  monthly newsletter existed only in Fenella's memory and a WhatsApp message she
+  retyped. `/admin/newsletter` now holds the issue (month, question of the month,
+  deadline), the priority students she asked about, what has arrived, what is
+  outstanding, what turned up unprompted, and what she has chosen to use — plus
+  one derived sentence answering *what is still preventing this issue from being
+  ready*. **Neither new tab has a status column:** `requested`, `captured`,
+  `declined`, `selected`/`not_selected` and `needs_review` are computed on read
+  from `requested_at`, `captured_at`, `tutor_response` and `editorial`, so a
+  stale write cannot leave a row claiming something untrue, and the four
+  different facts a checkbox would have conflated stay separate. Items key on the
+  **stored** `fcStudentId`; the workflow resolves it and refuses
+  (`fc_identity_unresolved` / `fc_identity_conflict`) rather than filing a child's
+  story under a name — `tests/admin/newsletter-identity-boundary.test.mjs` pins
+  that no newsletter module can import the minting helper. **Media consent now
+  has a home for the first time:** nothing in this repo, the brain or MMS recorded
+  that a parent had agreed to their child's photo being published. It is asked per
+  picture, answered `no` / `yes` / `yes + future`, and standing permission is
+  derived from a real `yes_ongoing` answer — deliberately newsletter-scoped, not a
+  general media release. A picture cannot be selected until consent is cleared,
+  re-checked server-side. Nothing is sent: tutor requests and consent asks are
+  copy-to-send via `Communication_Log`, and the upload path is refused
+  (`media_not_supported`) until the Slice 3 gates close. Design and slice gates:
+  `docs/plans/active/newsletter-loop.md`.
 ## Current operating contracts
 
 | Area | Current boundary |

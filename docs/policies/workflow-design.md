@@ -187,6 +187,7 @@ Legacy area values remain readable and editable so existing rows round-trip.
 | First-lesson follow-up | One Planning card composes bounded evidence, persists explicit human confirmations, and server-gates closure; it never interprets attendance or changes Stripe/WhatsApp | [State tabs](../architecture/data/state-tabs.md) |
 | Pause completion | Requires confirmation, logs progress and `Event_Log`, then aligns expectation through the existing route | [Payments](./payments.md) |
 | Payroll | Review and export prepare provider work; a human pays in Wise | [Paying tutors](../workflows/finance/paying-tutors.md) |
+| Newsletter | Request/capture/editorial state with no status column — every state derives from a stored fact. Nothing is sent: tutor requests and media-consent asks are copied to send. A picture cannot be selected until permission is recorded | [Newsletter loop](../plans/active/newsletter-loop.md) |
 | Incoming messages | Capture, match, classify, and draft are proposals; no automatic school action or send | [WhatsApp bridge](../operations/integrations/whatsapp-incoming-bridge.md) |
 | Practice Chat | Recipient-specific confirmation, narrow tutor/student check, and delivery-key claim precede MMS/Gmail work | [Delivery contract](../workflows/practice-chat/delivery.md) |
 

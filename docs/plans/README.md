@@ -17,6 +17,8 @@ policy, or workflow contracts.
 - [Tutor dashboard Google-login pilot](./active/tutor-dashboard-auth-pilot.md)
 - [Tutor-facing payroll](./active/tutor-payroll.md)
 - [FC student ID convergence](./active/fc-student-id-convergence.md)
+- [Practice note quality baseline and goals](./active/practice-note-quality.md)
+- [Newsletter loop](./active/newsletter-loop.md)
 
 ## Parked
 

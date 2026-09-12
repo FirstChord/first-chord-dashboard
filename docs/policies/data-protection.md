@@ -22,6 +22,7 @@ clear access boundaries, and plain-language transparency matter especially.
 | `Student_Portal_Access` | encrypted family notes code, credential verifier/version, and staff rollout confirmations | enrolled; remove through the established leaving/portal-removal flow |
 | `Incoming_Message_Inbox`, `WhatsApp_Group_Map`, local bridge cache | parent messages, phones, group/student mapping for lesson administration | handled/ignored inbox rows 12 months; cache 14 days/2,000 by default; confirmed map while operationally needed |
 | `Proposals` | generated reply body, source-text hash, bounded policy/model metadata, and the admin's use/edit/discard decision; no copied inbox message text | 12-month rolling prune proposed; not yet automated |
+| `Newsletter_Issues`, `Newsletter_Items` | child first/last name, tutor, a tutor's or Fenella's short written observation about a child, and the recorded parental answer about whether a picture of that child may be published | enrolled plus 2 years, aligned with `Practice_Notes_Log`; **never prune a `consent_answer` row while the permission it records is still being relied on** |
 | `Communication_Log`, `Parent_Understanding_State` | copied parent communication and human relationship notes | communications 2 years; review subjective understanding notes yearly |
 | planning, absence, pause, issue and event lanes | named operational workflow and audit evidence | workflow rows while active/useful; `Event_Log` proposed 2 years; never erase evidence to fake recovery |
 | song/path/assignment/request/outcome lanes | student IDs, tutor names, learning telemetry and free-text outcomes | review periodically; do not turn tutor-linked outcomes into performance ranking |
@@ -52,7 +53,18 @@ When a store or purpose is added there, update this map in the same change.
 4. The Practice Chat transcription relay currently exposes its raw OpenAI key to
    browsers. Follow the active staged cutover and rotate that key; this is a
    credential exposure, not a retention-policy choice.
-5. Pressing **Reply** on an inbox card may send that message's redacted text to
+5. **Newsletter media consent is recorded per picture, and is newsletter-scoped.**
+   There was previously no record anywhere in this repository, the brain, or MMS
+   that a parent had agreed to their child's photo being published — the school
+   asked informally and remembered. `Newsletter_Items` now stores the answer
+   (`no` / `yes_once` / `yes_ongoing`) with the date it was given and the issue it
+   was given for. Standing permission is derived from a real `yes_ongoing`
+   answer; a decline is never inferred into a standing refusal. The permission
+   covers **newsletters only** — reusing an asset on social media, a showcase
+   reel or the website is a separate ask, and no field should be added that would
+   let one answer authorise all of them. Slice 1 stores no files: the picture
+   stays wherever the tutor sent it, and the upload path is refused server-side.
+6. Pressing **Reply** on an inbox card may send that message's redacted text to
    OpenAI. Unknown names/indirect identifiers can survive deterministic
    redaction. Finn accepted that residual risk for a bounded per-card pilot on
    2026-08-04. There is no bulk/background drafting, and `Proposals` does not
@@ -85,6 +97,9 @@ date or legal exception. Review its output per tab before any manual pruning.
 - confirm repository access and FileVault/off-machine backup protection
 - include the bounded OpenAI reply-proposal processing in the parent-facing
   privacy notice and verify the applicable provider/DPA settings
+- approve the newsletter media-consent wording, and describe in the parent-facing
+  privacy notice how a picture of a child is requested, recorded and retained —
+  **required before any newsletter media upload ships**
 - define and rehearse a reviewed per-student deletion/export procedure
 
 Until then, minimisation improvements that do not destroy required history are

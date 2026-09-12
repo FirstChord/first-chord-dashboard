@@ -12,6 +12,8 @@ import {
   INCOMING_MESSAGE_INBOX_HEADERS,
   WHATSAPP_GROUP_MAP_HEADERS,
   LIFECYCLE_SNAPSHOT_HEADERS,
+  NEWSLETTER_ISSUES_HEADERS,
+  NEWSLETTER_ITEMS_HEADERS,
   PRACTICE_CHAT_SESSIONS_HEADERS,
   PRACTICE_NOTES_LOG_HEADERS,
   PROPOSALS_HEADERS,
@@ -37,6 +39,10 @@ import {
   buildSongStatusLogSheetRow,
 } from '../../lib/admin/sheets/song-assignments.mjs';
 import { buildProposalSheetRow } from '../../lib/admin/sheets/proposals.mjs';
+import {
+  buildNewsletterIssueSheetRow,
+  buildNewsletterItemSheetRow,
+} from '../../lib/admin/sheets/newsletter.mjs';
 import { buildStudentPortalAccessSheetRow } from '../../lib/admin/sheets/student-portal-access.mjs';
 import { buildStripeForecastRow } from '../../lib/admin/stripe-forecast-helpers.mjs';
 import { BACKUP_TABS, NON_BACKED_UP_TABS } from '../../lib/admin/backup-tabs.mjs';
@@ -113,6 +119,8 @@ const BUILDER_CONTRACTS = [
   ['Incoming_Message_Inbox', INCOMING_MESSAGE_INBOX_HEADERS, buildIncomingMessageSheetRow],
   ['Practice_Notes_Log', PRACTICE_NOTES_LOG_HEADERS, buildPracticeNoteLogSheetRow],
   ['Practice_Chat_Sessions', PRACTICE_CHAT_SESSIONS_HEADERS, buildPracticeChatSessionSheetRow],
+  ['Newsletter_Issues', NEWSLETTER_ISSUES_HEADERS, buildNewsletterIssueSheetRow],
+  ['Newsletter_Items', NEWSLETTER_ITEMS_HEADERS, buildNewsletterItemSheetRow],
 ];
 
 test('row builders emit exactly their sheet headers', () => {
@@ -148,4 +156,47 @@ test('Incoming messages store Later as wake-up state, not a resolution status', 
     buildIncomingMessageSheetRow({ snoozedUntil: '2026-08-05T08:00:00.000Z' }).snoozed_until,
     '2026-08-05T08:00:00.000Z',
   );
+});
+
+test('the newsletter lane stores facts, not a status column', () => {
+  // The design derives requested/captured/declined/selected/needs_review from
+  // the fields below. A `status` or `state` column appearing here would mean
+  // somebody reintroduced a second, manually-advanced source of truth.
+  for (const header of [...NEWSLETTER_ITEMS_HEADERS, ...NEWSLETTER_ISSUES_HEADERS]) {
+    assert.ok(
+      !['status', 'state', 'workflow_status', 'item_status'].includes(header),
+      `Newsletter lane must not carry a "${header}" column — state is derived on read`,
+    );
+  }
+
+  // The facts every derived state depends on.
+  for (const required of ['requested_at', 'captured_at', 'tutor_response', 'editorial']) {
+    assert.ok(
+      NEWSLETTER_ITEMS_HEADERS.includes(required),
+      `Newsletter_Items must keep "${required}" — a derived state depends on it`,
+    );
+  }
+});
+
+test('newsletter identity is the FC student id, with provider ids as provenance only', () => {
+  assert.ok(NEWSLETTER_ITEMS_HEADERS.includes('fc_student_id'));
+  assert.ok(NEWSLETTER_ITEMS_HEADERS.includes('fc_tutor_id'));
+  // Provider/display columns are allowed, but must not be the only identity:
+  // fc_student_id comes first among the identity block so the durable key is
+  // what a reader sees first.
+  assert.ok(
+    NEWSLETTER_ITEMS_HEADERS.indexOf('fc_student_id') < NEWSLETTER_ITEMS_HEADERS.indexOf('mms_id'),
+    'the FC id is the identity; the MMS id is provenance beside it',
+  );
+});
+
+test('the newsletter consent record keeps the answer and when it was given', () => {
+  // Standing consent is derived from these three, so losing any one of them
+  // would turn a recorded permission into an unverifiable claim.
+  for (const required of ['has_media', 'consent_asked_at', 'consent_answer', 'consent_recorded_at']) {
+    assert.ok(
+      NEWSLETTER_ITEMS_HEADERS.includes(required),
+      `Newsletter_Items must keep "${required}" — consent state is derived from it`,
+    );
+  }
 });

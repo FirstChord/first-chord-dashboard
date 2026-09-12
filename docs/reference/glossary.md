@@ -9,6 +9,18 @@ Plain-English explanations of technical terms used in the admin dashboard. This 
 
 - **Path template** — a named ordered list of catalogue song IDs (`lib/config/path-templates.mjs`, canonical hand-edited). "Assign path" instantiates it into per-student `Song_Assignments` rows; the student copy is personal from then on.
 
+## Newsletter issue, item, and priority request
+
+A **newsletter issue** is one month (`Newsletter_Issues`, keyed `YYYY-MM`): the question of the month, the deadline, and Fenella's intro. A **newsletter item** is one contribution (`Newsletter_Items`) — and the same row shape covers both a **priority request** (a student Fenella asked about, before anything has arrived) and an unsolicited **extra** (something a tutor noticed for a student who was never on the list). Which one a row is, is derived, not stored: `requested_at` set with no `captured_at` is a request; `captured_at` set with no `requested_at` is an extra.
+
+Neither tab has a status column. `requested`, `captured`, `declined`, `selected`/`not_selected` and `needs_review` are all computed on read from four fields, so a stale write cannot leave a row claiming something untrue. "Arrived" means material: a tutor's **nothing this month** reply closes the uncertainty without counting as a contribution.
+
+## Newsletter media consent (and standing consent)
+
+The school asks a parent before putting a picture of their child in the newsletter, per picture. The answer is recorded on the item as one of three values: `no` (not this time — *not* a standing refusal), `yes_once`, or `yes_ongoing` ("yes, and future newsletters too"). **Standing consent** is not a separate register: a student has it when any newsletter item for their `fc_student_id` carries `yes_ongoing`, which keeps the date and the issue the permission was actually given for attached to it.
+
+It is deliberately **newsletter-scoped**. A parent who agreed to future newsletters has not agreed to social media, a showcase reel, or the website; each of those would be a fresh ask. An item marked as having a picture cannot be selected for the issue until consent is cleared, and that guard is re-checked server-side.
+
 ## FC student ID
 
 `fc_std_` plus eight hex characters, identifying one student enrolment across First Chord systems. It is **minted once, from the MMS student ID, and then stored** in the registry (with a copy in the Students sheet `FC Student ID` cell). The stored value is authoritative: nothing recomputes it, so it stays stable if a name, email or provider changes, and the brain's FC tabs read it rather than deriving their own. IDs minted before September 2026 came from a name/email seed and are not `sha256(mms_id)` — expected, not an error.

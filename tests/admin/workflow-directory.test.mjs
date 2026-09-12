@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 
 import { WORKFLOW_DIRECTORY_GROUPS } from '../../lib/admin/workflow-directory.mjs';
 
-const previousDestinations = [
+// Every destination the directory must carry. This started as the V3 list, so
+// nothing was lost in the V4 rewrite; a genuinely new workflow is added here
+// deliberately, which is what makes an accidental removal still fail.
+const expectedDestinations = [
+  '/admin/newsletter',
   '/admin/lessons',
   '/admin/tutors',
   '/admin/waiting',
@@ -22,7 +26,7 @@ test('workflow directory groups every existing destination exactly once', () => 
   const destinations = WORKFLOW_DIRECTORY_GROUPS
     .flatMap((group) => group.items.map((item) => item.href));
 
-  assert.deepEqual([...destinations].sort(), previousDestinations);
+  assert.deepEqual([...destinations].sort(), expectedDestinations);
   assert.equal(new Set(destinations).size, destinations.length);
 });
 
