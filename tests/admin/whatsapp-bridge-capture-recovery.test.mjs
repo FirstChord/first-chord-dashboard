@@ -3,7 +3,31 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { WhatsAppIncomingBridge } = require('../../tools/whatsapp-incoming-bridge/bridge.js');
+// CI installs the dashboard package, not the separately deployed bridge package.
+// These dependencies are not exercised by the pure recovery-method tests, so
+// provide inert import-time shapes instead of making the root install duplicate
+// the bridge's socket stack.
+const Module = require('node:module');
+const originalLoad = Module._load;
+Module._load = function loadBridgeDependency(request, parent, isMain) {
+  if (request === '@whiskeysockets/baileys') {
+    return {
+      default: () => ({}), DisconnectReason: {},
+      useMultiFileAuthState: async () => ({ state: {}, saveCreds: () => {} }),
+      fetchLatestBaileysVersion: async () => ({ version: [0], isLatest: true }),
+    };
+  }
+  if (request === 'axios') return { get: async () => ({}), post: async () => ({}) };
+  if (request === 'pino') return () => ({ info() {}, warn() {}, error() {} });
+  if (request === 'qrcode-terminal') return { generate() {} };
+  return originalLoad.call(this, request, parent, isMain);
+};
+let WhatsAppIncomingBridge;
+try {
+  ({ WhatsAppIncomingBridge } = require('../../tools/whatsapp-incoming-bridge/bridge.js'));
+} finally {
+  Module._load = originalLoad;
+}
 
 function bridgeHarness() {
   const bridge = Object.create(WhatsAppIncomingBridge.prototype);
