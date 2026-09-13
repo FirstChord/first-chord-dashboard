@@ -1856,7 +1856,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         </div>
 
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(17rem,0.72fr)_minmax(0,1.28fr)]">
-          <aside className={`${mobileDetailOpen ? 'hidden lg:block' : 'block'} lg:sticky lg:top-40`} aria-label="Message queue">
+          <aside className={`${mobileDetailOpen ? 'hidden lg:block' : 'block'} min-w-0 lg:sticky lg:top-40`} aria-label="Message queue">
             <div
               ref={queueScrollRef}
               onScroll={(event) => {
