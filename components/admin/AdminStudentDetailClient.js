@@ -6,6 +6,7 @@ import { Field, Input, Select } from '@/components/admin/ui/fields';
 import { buildPauseWorkflowSummary } from '@/lib/admin/pause-workflow-helpers.mjs';
 import { labelCommunicationCategory } from '@/lib/admin/communications-helpers.mjs';
 import PracticeTimelineSection from '@/components/admin/PracticeTimelineSection';
+import StudentTimelineSection from '@/components/admin/StudentTimelineSection';
 import {
   PAYMENT_EXPECTATION_OPTIONS,
   STUDENT_INSTRUMENT_OPTIONS,
@@ -39,6 +40,7 @@ export default function AdminStudentDetailClient({
   recentPracticeNotes = [],
   practiceTimeline = null,
   recentCommunications = [],
+  studentTimeline = null,
   timeWithSchool = '',
 }) {
   const [form, setForm] = useState({
@@ -574,9 +576,11 @@ export default function AdminStudentDetailClient({
         </section>
       ) : null}
 
+      <StudentTimelineSection timeline={studentTimeline} />
+
       <PracticeTimelineSection timeline={practiceTimeline} />
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section id="practice-notes" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Recent practice notes</h3>
@@ -651,7 +655,7 @@ export default function AdminStudentDetailClient({
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section id="messages-logged" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Messages logged</h3>
@@ -931,7 +935,7 @@ export default function AdminStudentDetailClient({
       </section>
 
       {student.pauseSummary?.hasPauseHistory ? (
-        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <section id="pause-state" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-slate-50 p-5">
           <h3 className="text-sm font-semibold text-slate-900">Pause state</h3>
             <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <ReadOnlyField label="Currently paused" value={student.pauseSummary.currentlyPaused ? 'Yes' : 'No'} />

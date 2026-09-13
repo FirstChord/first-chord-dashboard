@@ -2,27 +2,26 @@ import { notFound } from 'next/navigation';
 import { getAdminStudentByMmsId } from '@/lib/admin/students';
 import { getActiveTutorOptions } from '@/lib/admin/tutors';
 import { getPlanningDashboard } from '@/lib/admin/planning';
-import { getPracticeNoteLogRows } from '@/lib/admin/sheets';
-import { getCommunicationLogForStudent } from '@/lib/admin/communications';
 import { buildStudentPracticeTimeline } from '@/lib/admin/practice-timeline-helpers.mjs';
-import { getStudentLifecycleRow } from '@/lib/admin/sheets/student-lifecycle.mjs';
+import { getStudentTimelineProjection } from '@/lib/admin/student-timeline.js';
 import { formatTimeWithSchool } from '@/lib/admin/student-lifecycle.mjs';
 import AdminStudentDetailClient from '@/components/admin/AdminStudentDetailClient';
 
 export default async function AdminStudentDetailPage({ params }) {
   const resolvedParams = await params;
-  const [student, planning, recentPracticeNotes, recentCommunications, lifecycleRow] = await Promise.all([
+  const [student, planning] = await Promise.all([
     getAdminStudentByMmsId(resolvedParams.mmsId),
     getPlanningDashboard(),
-    getPracticeNoteLogRows(resolvedParams.mmsId),
-    getCommunicationLogForStudent(resolvedParams.mmsId, { limit: 5 }),
-    getStudentLifecycleRow(resolvedParams.mmsId),
   ]);
-  const tutorOptions = await getActiveTutorOptions();
 
   if (!student) {
     notFound();
   }
+
+  const [tutorOptions, history] = await Promise.all([
+    getActiveTutorOptions(),
+    getStudentTimelineProjection({ student }),
+  ]);
 
   const linkedPlanningItems = (planning.items || [])
     .filter((item) => (item.linkedStudentIds || [item.linkedStudentId]).includes(student.mmsId))
@@ -39,17 +38,18 @@ export default async function AdminStudentDetailPage({ params }) {
       momentumLabel: item.momentumLabel,
     }));
 
-  const practiceTimeline = buildStudentPracticeTimeline(recentPracticeNotes);
+  const practiceTimeline = buildStudentPracticeTimeline(history.practiceNotes);
 
   return (
     <AdminStudentDetailClient
       student={student}
       tutorOptions={tutorOptions}
       linkedPlanningItems={linkedPlanningItems}
-      recentPracticeNotes={recentPracticeNotes.slice(0, 5)}
+      recentPracticeNotes={history.recentPracticeNotes}
       practiceTimeline={practiceTimeline}
-      recentCommunications={recentCommunications}
-      timeWithSchool={formatTimeWithSchool(lifecycleRow || {})}
+      recentCommunications={history.recentCommunications}
+      studentTimeline={history.timeline}
+      timeWithSchool={formatTimeWithSchool(history.lifecycleRow || {})}
     />
   );
 }
