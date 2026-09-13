@@ -24,6 +24,13 @@ const PAYMENT_MODE_OPTIONS = [
   { value: 'manual', label: 'Manual' },
   { value: 'unknown', label: 'Unknown' },
 ];
+
+const STUDENT_DETAIL_VIEWS = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'activity', label: 'Activity' },
+  { key: 'record', label: 'Record' },
+];
+
 function ReadOnlyField({ label, value }) {
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4">
@@ -43,6 +50,7 @@ export default function AdminStudentDetailClient({
   studentTimeline = null,
   timeWithSchool = '',
 }) {
+  const [activeView, setActiveView] = useState('overview');
   const [form, setForm] = useState({
     firstName: student.firstName || '',
     lastName: student.lastName || '',
@@ -99,6 +107,37 @@ export default function AdminStudentDetailClient({
       scheduleState.scheduleContext.teacherName ? `with ${scheduleState.scheduleContext.teacherName}` : '',
     ].filter(Boolean).join(' ')
     : 'No cached schedule context';
+  const headerMeta = [
+    form.instrument,
+    form.tutor || form.registryTutor,
+    form.lessonLength ? `${form.lessonLength} minutes` : '',
+    timeWithSchool,
+  ].filter(Boolean);
+  const nextLessonLabel = scheduleState.scheduleContext?.nextLessonAt
+    ? formatDateTime(scheduleState.scheduleContext.nextLessonAt)
+    : 'Not cached';
+  const overviewPlanningItems = linkedPlanningItems.slice(0, 2);
+
+  function showView(view, anchor = '') {
+    setActiveView(view);
+    if (anchor) {
+      window.setTimeout(() => {
+        document.querySelector(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 0);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function handleTimelineNavigate(href, event) {
+    if (href === '#practice-notes' || href === '#messages-logged') {
+      event.preventDefault();
+      showView('activity', href);
+    } else if (href === '#pause-state') {
+      event.preventDefault();
+      showView('record', href);
+    }
+  }
 
   function updateField(key, value) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -455,19 +494,49 @@ export default function AdminStudentDetailClient({
   }
 
   return (
-    <div className="space-y-8">
-      <section>
-        <h2 className="text-2xl font-semibold text-slate-900">{student.fullName || student.mmsId}</h2>
-        {/* Context, not a control. Tenure never asks for an action on its own —
-            it changes how everything else on this page should be read. Absent
-            rather than placeholdered when unknown. */}
-        {timeWithSchool ? (
-          <p className="mt-1 text-sm text-slate-500">{timeWithSchool}</p>
-        ) : null}
-        <p className="mt-2 text-sm text-slate-600">
-          Editable student detail. Sheets-lane fields and registry-lane fields are saved separately behind one form.
-        </p>
+    <div className="space-y-6">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <Link href="/admin/students" className="text-xs font-medium text-slate-500 hover:text-slate-800">
+            ← Students
+          </Link>
+          <h2 className="mt-2 text-2xl font-semibold text-slate-900">{student.fullName || student.mmsId}</h2>
+          {headerMeta.length ? (
+            <p className="mt-1 text-sm text-slate-600">{headerMeta.join(' · ')}</p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => showView('record')}
+          className="self-start rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 sm:self-auto"
+        >
+          Edit record
+        </button>
       </section>
+
+      <nav
+        aria-label="Student detail views"
+        className="inline-flex w-full rounded-full bg-slate-200/80 p-1 sm:w-auto"
+      >
+        {STUDENT_DETAIL_VIEWS.map((view) => {
+          const selected = activeView === view.key;
+          return (
+            <button
+              key={view.key}
+              type="button"
+              aria-pressed={selected}
+              onClick={() => showView(view.key)}
+              className={`flex-1 rounded-full px-5 py-2 text-sm font-medium transition sm:flex-none ${
+                selected
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:bg-white/70 hover:text-slate-900'
+              }`}
+            >
+              {view.label}
+            </button>
+          );
+        })}
+      </nav>
 
       {serverState.success || serverState.error ? (
         <section className={`rounded-2xl border p-4 text-sm ${
@@ -480,7 +549,55 @@ export default function AdminStudentDetailClient({
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      {activeView === 'overview' && student.hasFlags ? (
+        <Link
+          href="/admin/flags"
+          className="flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-amber-950 transition hover:border-amber-300 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <span>
+            <strong className="block text-sm font-semibold">
+              {student.flags.length} {student.flags.length === 1 ? 'thing needs' : 'things need'} attention
+            </strong>
+            <span className="mt-1 block text-sm text-amber-800">
+              {student.flags[0]?.detail || 'Open Issues to review the current evidence.'}
+            </span>
+          </span>
+          <span className="shrink-0 text-sm font-semibold">Review {student.flags.length === 1 ? 'issue' : 'issues'} →</span>
+        </Link>
+      ) : null}
+
+      {activeView === 'overview' ? (
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-200 shadow-sm" aria-label="Student status summary">
+          <div className="grid gap-px sm:grid-cols-2 xl:grid-cols-4">
+            <div className="bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Lifecycle</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{student.lifecycleLabel || 'Needs review'}</p>
+              <p className="mt-1 text-xs text-slate-500">{student.lifecycleConfidence || 'Low'} confidence</p>
+            </div>
+            <div className="bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Next lesson</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{nextLessonLabel}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {scheduleState.scheduleContext?.confidence
+                  ? `${scheduleState.scheduleContext.confidence} confidence`
+                  : 'Refresh only if the slot changed'}
+              </p>
+            </div>
+            <div className="bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Payment</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{paymentExpectationLabel(form.paymentExpectation)}</p>
+              <p className="mt-1 text-xs capitalize text-slate-500">{form.paymentMode || 'Mode unknown'}</p>
+            </div>
+            <div className="bg-white p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Portal</p>
+              <p className="mt-2 text-sm font-semibold text-slate-900">{exitState.registryPresent ? 'Ready' : 'Missing'}</p>
+              <p className="mt-1 text-xs text-slate-500">{student.registry?.friendlyUrl || 'No friendly URL'}</p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
+      <section hidden={activeView !== 'record'} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Lifecycle</h3>
@@ -524,7 +641,7 @@ export default function AdminStudentDetailClient({
       </section>
 
       {student.hasFlags ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+        <section hidden={activeView !== 'record'} className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
           <h3 className="text-sm font-semibold text-amber-900">Review flags</h3>
           <ul className="mt-3 space-y-2 text-sm text-amber-950">
             {student.flags.map((flag, index) => (
@@ -537,7 +654,7 @@ export default function AdminStudentDetailClient({
       ) : null}
 
       {linkedPlanningItems.length ? (
-        <section className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
+        <section hidden={activeView !== 'overview'} className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h3 className="text-sm font-semibold text-slate-900">Open planning</h3>
@@ -551,7 +668,7 @@ export default function AdminStudentDetailClient({
             </Link>
           </div>
           <div className="mt-4 space-y-3">
-            {linkedPlanningItems.map((item) => (
+            {overviewPlanningItems.map((item) => (
               <div key={item.planningId} className="rounded-xl border border-blue-100 bg-white p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
@@ -572,15 +689,31 @@ export default function AdminStudentDetailClient({
                 ) : null}
               </div>
             ))}
+            {linkedPlanningItems.length > overviewPlanningItems.length ? (
+              <Link href="/admin/planning?filter=linked" className="inline-flex text-sm font-semibold text-blue-900 hover:underline">
+                View all {linkedPlanningItems.length} linked planning items →
+              </Link>
+            ) : null}
           </div>
         </section>
       ) : null}
 
-      <StudentTimelineSection timeline={studentTimeline} />
+      {activeView === 'overview' ? (
+        <StudentTimelineSection
+          timeline={studentTimeline}
+          onNavigate={handleTimelineNavigate}
+          eventLimit={3}
+          onViewAll={() => showView('activity')}
+        />
+      ) : null}
 
-      <PracticeTimelineSection timeline={practiceTimeline} />
+      {activeView === 'activity' ? (
+        <StudentTimelineSection timeline={studentTimeline} onNavigate={handleTimelineNavigate} />
+      ) : null}
 
-      <section id="practice-notes" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      {activeView === 'activity' ? <PracticeTimelineSection timeline={practiceTimeline} /> : null}
+
+      <section hidden={activeView !== 'activity'} id="practice-notes" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Recent practice notes</h3>
@@ -655,7 +788,7 @@ export default function AdminStudentDetailClient({
         )}
       </section>
 
-      <section id="messages-logged" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section hidden={activeView !== 'activity'} id="messages-logged" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Messages logged</h3>
@@ -693,7 +826,14 @@ export default function AdminStudentDetailClient({
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <details hidden={activeView !== 'record'} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900">
+          <span className="flex items-center justify-between gap-3">
+            <span>Student exit / archive</span>
+            <span className="text-xs font-medium text-slate-500">Rare action · open details</span>
+          </span>
+        </summary>
+      <section className="mt-4 border-t border-slate-200 pt-5">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Student exit / archive</h3>
@@ -808,9 +948,10 @@ export default function AdminStudentDetailClient({
           </p>
         </div>
       </section>
+      </details>
 
       {(student.tutor || student.registryTutor) ? (
-        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <section hidden={activeView !== 'record'} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
           <h3 className="text-sm font-semibold text-slate-900">Tutor state</h3>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <ReadOnlyField label="Sheets tutor" value={student.tutor} />
@@ -819,7 +960,7 @@ export default function AdminStudentDetailClient({
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section hidden={activeView !== 'record'} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Schedule</h3>
@@ -884,7 +1025,7 @@ export default function AdminStudentDetailClient({
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section hidden={activeView !== 'record'} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Payment value</h3>
@@ -935,7 +1076,7 @@ export default function AdminStudentDetailClient({
       </section>
 
       {student.pauseSummary?.hasPauseHistory ? (
-        <section id="pause-state" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+        <section hidden={activeView !== 'record'} id="pause-state" className="scroll-mt-24 rounded-2xl border border-slate-200 bg-slate-50 p-5">
           <h3 className="text-sm font-semibold text-slate-900">Pause state</h3>
             <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <ReadOnlyField label="Currently paused" value={student.pauseSummary.currentlyPaused ? 'Yes' : 'No'} />
@@ -1025,7 +1166,7 @@ export default function AdminStudentDetailClient({
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+      <section hidden={activeView !== 'record'} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-sm font-semibold text-slate-900">Live Stripe status</h3>
@@ -1073,7 +1214,7 @@ export default function AdminStudentDetailClient({
         ) : null}
       </section>
 
-      <form className="space-y-8" onSubmit={handleSubmit}>
+      <form hidden={activeView !== 'record'} className="space-y-8" onSubmit={handleSubmit}>
         <section className="grid gap-6 lg:grid-cols-2">
           <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div>

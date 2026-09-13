@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ActionButton } from '@/components/admin/ui/ActionButton';
 import { formatDateTime } from '@/lib/admin/student-detail-helpers.mjs';
 
 function formatCalendarDate(value = '', options = {}) {
@@ -45,9 +46,16 @@ function sourceLabel(source = {}) {
 
 // Compact read-only projection. Every row links back to its owner when there is
 // a useful workflow/detail surface; this component never changes source state.
-export default function StudentTimelineSection({ timeline = null }) {
+export default function StudentTimelineSection({
+  timeline = null,
+  onNavigate = null,
+  eventLimit = 0,
+  onViewAll = null,
+}) {
   if (!timeline) return null;
   const unavailableSources = (timeline.sourceStates || []).filter((entry) => entry.status !== 'available');
+  const events = eventLimit > 0 ? (timeline.events || []).slice(0, eventLimit) : (timeline.events || []);
+  const hasMore = timeline.totalCount > events.length;
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" aria-labelledby="recent-activity-heading">
@@ -58,16 +66,23 @@ export default function StudentTimelineSection({ timeline = null }) {
             Meaningful dated records from existing systems, combined read-only. Newest first.
           </p>
         </div>
-        {timeline.totalCount ? (
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
-            {timeline.hasMore ? `Latest ${timeline.events.length} of ${timeline.totalCount}` : `${timeline.totalCount} recorded`}
-          </span>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-3">
+          {timeline.totalCount ? (
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-slate-700">
+              {hasMore ? `Latest ${events.length} of ${timeline.totalCount}` : `${timeline.totalCount} recorded`}
+            </span>
+          ) : null}
+          {onViewAll ? (
+            <ActionButton type="button" variant="quiet" size="compact" onClick={onViewAll}>
+              View all
+            </ActionButton>
+          ) : null}
+        </div>
       </div>
 
-      {timeline.events?.length ? (
+      {events.length ? (
         <ol className="mt-5 border-l border-slate-200 pl-4">
-          {timeline.events.map((entry) => {
+          {events.map((entry) => {
             const uncertainty = certaintyLabel(entry);
             return (
               <li key={entry.id} className="relative pb-5 last:pb-0">
@@ -83,7 +98,11 @@ export default function StudentTimelineSection({ timeline = null }) {
                   <span>{sourceLabel(entry.source)}</span>
                   {uncertainty ? <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-800">{uncertainty}</span> : null}
                   {entry.link ? (
-                    <Link href={entry.link.href} className="font-medium text-slate-700 underline-offset-4 hover:underline">
+                    <Link
+                      href={entry.link.href}
+                      onClick={onNavigate ? (event) => onNavigate(entry.link.href, event) : undefined}
+                      className="font-medium text-slate-700 underline-offset-4 hover:underline"
+                    >
                       {entry.link.label}
                     </Link>
                   ) : null}

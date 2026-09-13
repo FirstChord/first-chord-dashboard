@@ -123,6 +123,21 @@ existing workflow, which logs normally; expected source/payment state is checked
 immediately before the write and stale proposals fail closed. **No, reconsider**
 records bounded evaluation telemetry and leaves operational state untouched.
 
+### Student detail presentation
+
+The student page preserves one read/write composition while separating three
+human intents. **Overview** is the default and shows only identity, current
+attention, four bounded status signals, up to two linked planning items, and the
+latest three meaningful activity records. **Activity** holds the full bounded
+timeline plus practice-note and communication history. **Record** holds derived
+evidence, provider refreshes, editable Sheets/registry fields, and rare actions.
+
+This is progressive disclosure, not a new data boundary. All three views keep
+their existing owners and mutation routes. Source diagnostics and destructive
+exit controls must remain available, but they do not compete with everyday
+context on first open; the exit workflow stays collapsed until deliberately
+opened.
+
 ## Implementation guardrails
 
 - Keep truth, validation, permissions, calculations, and consequential actions
