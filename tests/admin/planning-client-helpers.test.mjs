@@ -18,6 +18,8 @@ import {
   isFirstLessonCheckinChecklistComplete,
   isFirstLessonCheckinPlanningItem,
   isTutorAbsenceCapturePlanningItem,
+  getTutorAbsenceDecision,
+  findOpenTutorAbsenceLinkedCards,
   requiresTutorAbsencePaymentTool,
   isDueNowPlanningItem,
   isOpenPlanningItem,
@@ -96,6 +98,37 @@ test('tutor-absence final confirmation helpers keep payment-exception copy separ
   };
   assert.equal(isTutorAbsenceFinalConfirmationPlanningItem(item), true);
   assert.equal(extractTutorAbsenceFinalConfirmationMessage(item), 'Payment is already paused.');
+});
+
+test('a cancelled tutor absence names the linked cards that are still open', () => {
+  const absenceId = 'tutor_absence:Chloe:2026-09-19';
+  const capture = {
+    planningId: 'planning_tutor_absence_chloe_2026-09-19',
+    title: 'Tutor absence: Chloe Mak — Sat, 19 Sept 2026',
+    status: 'waiting',
+    linkedWorkflowId: 'tutor-absence',
+    linkedTutorId: 'Chloe',
+    nextAction: 'Waiting for linked pause cards to complete; this absence closes automatically.',
+    notes: 'Tutor absence date: 2026-09-19\nTutor: Chloe\nTutor absence decision: cancel_day',
+  };
+  const items = [
+    capture,
+    { planningId: 'pause_done', title: 'Pause Alize Ekdi lesson on Sat, 19 Sept 2026', status: 'done', parentPlanningId: absenceId },
+    { planningId: 'pause_open', title: 'Pause William McCormick lesson on Sat, 19 Sept 2026', status: 'active', targetDate: '2026-09-17', parentPlanningId: absenceId },
+    { planningId: 'notice_open', title: 'Tell William McCormick about Chloe’s absence', status: 'active', targetDate: '2026-09-05', notes: `Tutor absence IDs: ${absenceId}.` },
+    { planningId: 'other_day', title: 'Pause someone on 26 Sept', status: 'active', notes: 'Tutor absence ID: tutor_absence:Chloe:2026-09-26.' },
+  ];
+
+  const open = findOpenTutorAbsenceLinkedCards(capture, items);
+  assert.deepEqual(open.map((card) => card.planningId), ['notice_open', 'pause_open']);
+  assert.equal(getTutorAbsenceDecision(capture), 'cancel_day');
+  assert.match(
+    getPlanningWhatToDo({ ...capture, openAbsenceCards: open.slice(1) }),
+    /^Still open: Pause William McCormick lesson on Sat, 19 Sept 2026 \(due .+\)\.$/u,
+  );
+  assert.match(getPlanningWhatToDo({ ...capture, openAbsenceCards: open }), / and 1 more\.$/u);
+  assert.equal(getPlanningWhatToDo({ ...capture, openAbsenceCards: [] }), 'Every linked card is done.');
+  assert.deepEqual(findOpenTutorAbsenceLinkedCards({ ...capture, notes: 'Not an absence card' }, items), []);
 });
 
 test('filterPlanningItems routes every chip: done/parked veil, search, owners, types, momentum', () => {

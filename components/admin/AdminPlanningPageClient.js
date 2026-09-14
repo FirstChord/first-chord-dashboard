@@ -25,6 +25,8 @@ import {
   formatDateTime,
   extractPauseDatesFromPlanningItem,
   isPausePlanningItem,
+  isTutorAbsenceCapturePlanningItem,
+  findOpenTutorAbsenceLinkedCards,
   isTutorAbsenceNoticePlanningItem,
   isOpenPlanningItem,
   findStudentById,
@@ -191,6 +193,9 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         : null,
       projectActions,
       openProjectActions: projectActions.filter((action) => !['done', 'parked'].includes(action.status)),
+      openAbsenceCards: isTutorAbsenceCapturePlanningItem(item)
+        ? findOpenTutorAbsenceLinkedCards(item, planning.items || [])
+        : undefined,
     };
   }), [planning.items, planningRelationships]);
 
