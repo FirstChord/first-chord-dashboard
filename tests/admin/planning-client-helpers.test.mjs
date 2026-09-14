@@ -41,6 +41,7 @@ import {
   extractTutorAbsenceNoticeMessage,
   isTutorAbsenceFinalConfirmationPlanningItem,
   extractTutorAbsenceFinalConfirmationMessage,
+  extractTutorAbsenceCombinedMessage,
   hasPausePaymentConfirmation,
   buildSchoolNoteItem,
   isPauseCaptureText,
@@ -129,6 +130,12 @@ test('a cancelled tutor absence names the linked cards that are still open', () 
   assert.match(getPlanningWhatToDo({ ...capture, openAbsenceCards: open }), / and 1 more\.$/u);
   assert.equal(getPlanningWhatToDo({ ...capture, openAbsenceCards: [] }), 'Every linked card is done.');
   assert.deepEqual(findOpenTutorAbsenceLinkedCards({ ...capture, notes: 'Not an absence card' }, items), []);
+});
+
+test('a combined tutor-absence pause card carries its own parent message', () => {
+  const message = 'Hi Emma! Chloe is away.\n\nWe’ve paused the payment for that lesson.';
+  assert.equal(extractTutorAbsenceCombinedMessage({ notes: `Pause type: single lesson.\nParent combined message:\n${message}` }), message);
+  assert.equal(extractTutorAbsenceCombinedMessage({ notes: 'Pause type: single lesson.' }), '');
 });
 
 test('filterPlanningItems routes every chip: done/parked veil, search, owners, types, momentum', () => {

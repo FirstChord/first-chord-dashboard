@@ -8,6 +8,7 @@ import {
   buildDateInputRange,
   buildTutorAbsencePlanningId,
   buildTutorAbsencePlanningItem,
+  TUTOR_ABSENCE_COMBINED_NOTICE_MARKER,
 } from '@/lib/admin/planning-helpers.mjs';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
@@ -25,6 +26,12 @@ function withTutorAbsenceDecision(notes = '', decision = '') {
   const lines = `${notes || ''}`.split('\n').filter((line) => !/^Tutor absence decision:/iu.test(line));
   lines.push(`Tutor absence decision: ${decision}`);
   return lines.filter(Boolean).join('\n');
+}
+
+function withTutorAbsenceCombinedNotice(notes = '') {
+  const lines = `${notes || ''}`.split('\n');
+  if (lines.includes(TUTOR_ABSENCE_COMBINED_NOTICE_MARKER)) return `${notes || ''}`;
+  return [...lines, TUTOR_ABSENCE_COMBINED_NOTICE_MARKER].filter(Boolean).join('\n');
 }
 
 function absenceIdsFromCard(item = {}) {
@@ -70,6 +77,7 @@ export async function POST(request) {
   if (mode === 'decide') {
     const planningId = `${body?.planningId || ''}`.trim();
     const decision = `${body?.decision || ''}`.trim();
+    const combinedNotice = decision === 'cancel_day' && `${body?.notice || ''}`.trim() === 'combined';
     if (!planningId || !['cancel_day', 'cover'].includes(decision)) {
       return Response.json({ error: 'A tutor absence card and a cancel or cover decision are required' }, { status: 400 });
     }
@@ -94,6 +102,17 @@ export async function POST(request) {
         return Response.json({ error: `MMS could not load this date: ${workflow.loadError}` }, { status: 503 });
       }
       const noAffectedLessons = workflow.lessons.length === 0;
+      // Pause and notice cards are built from the capture card's markers, so the
+      // combined choice must be on the card before the handoff runs.
+      const cardNotes = combinedNotice ? withTutorAbsenceCombinedNotice(card.notes) : card.notes;
+      if (cardNotes !== card.notes) {
+        await savePlanningItem({
+          planningId,
+          item: { ...card, notes: cardNotes },
+          actorEmail: session.user.email || '',
+          progressNote: 'Chose one card per student: pause the payment and tell the parent together.',
+        });
+      }
       await saveTutorAbsenceWorkflow({
         absenceId: workflow.absenceId,
         tutorShortName: workflow.selectedTutor.shortName,
@@ -113,7 +132,7 @@ export async function POST(request) {
         planningId,
         item: {
           ...card,
-          notes: withTutorAbsenceDecision(card.notes, decision),
+          notes: withTutorAbsenceDecision(cardNotes, decision),
           // Heal older capture rows whose unset flag would otherwise fall back
           // to the word "pause" in the cancellation handoff copy.
           isPause: false,

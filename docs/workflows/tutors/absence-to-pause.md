@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-29
+last_verified: 2026-09-14
 ---
 # Tutor Absence And Pause Contract
 
@@ -48,7 +48,23 @@ cancel
   -> nearer the lesson, complete payment action
   -> send final confirmation saying what happened
   -> close every linked dated absence only when its work is complete
+
+cancel → one card now (short notice)
+  -> no early notice card
+  -> one structured pause card per student, due from the day it was decided
+  -> run the payment tool, then send one message: absence + payment paused
+  -> close every linked dated absence only when its work is complete
 ```
+
+The capture card offers both cancellations. **Cancel → one card now** adds
+`Tutor absence notice mode: combined` to the capture card *before* the handoff
+runs, because pause and notice cards are built from the capture card's markers.
+The stored decision is still `cancel_day`, so `Tutor_Absence_State`,
+reconciliation, finance and the auto-close are unchanged — only which cards
+exist, their target date, and the message the pause card carries differ. The
+message is appended as the last block of the pause card's notes under
+`Parent combined message:`. Choose it when the absence is too close for an early
+notice to be worth sending on its own.
 
 The dashboard never sends the parent message or changes Stripe automatically.
 Copy/send, payment execution, and final confirmation are explicit human actions.
@@ -160,11 +176,14 @@ established. Do not auto-retire it from incoming text or inferred overlap.
 ## UX And Safety Rules
 
 1. One card asks for one thing: decide, tell early, complete payment, or confirm
-   the final outcome.
+   the final outcome. The exception is a combined card, chosen explicitly at
+   Cancel, which completes payment and then tells the parent both facts at once.
 2. Message-evidence cards cannot be completed by a generic status button.
 3. Every block names the reason and one safe next action.
 4. Early notice never claims payment happened; final copy appears only after the
-   payment/no-payment outcome is known.
+   payment/no-payment outcome is known. A combined message says the payment is
+   paused, so like any pause confirmation it unlocks only after the payment-tool
+   step is ticked.
 5. A tutor-absence pause card keeps the payment tool as step one even when the
    student is already marked `stripe_paused_expected`; the final parent message
    unlocks only after the dated tool check is confirmed.

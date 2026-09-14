@@ -3,7 +3,9 @@ import test from 'node:test';
 import {
   assertTutorAbsenceResolutionReady,
   buildTutorAbsenceCancellationMessageGroups,
+  buildTutorAbsenceCombinedMessage,
   buildTutorAbsenceEarlyNoticePlanningBundle,
+  collectTutorAbsenceIdsWithMarker,
   buildTutorAbsenceFinalConfirmationPlanningItems,
   compareTutorAbsenceLessonSnapshots,
   buildCoverAskMessage,
@@ -408,6 +410,89 @@ test('buildTutorAbsenceEarlyNoticePlanningBundle creates an additive notice plan
   assert.match(plan.item.notes, /Tutor absence early notice plan: v1/u);
   assert.match(plan.item.notes, /confirm the payment adjustment closer to the time/u);
   assert.doesNotMatch(plan.item.notes, /payment pause already handled/u);
+});
+
+test('a combined cancellation puts the only parent message on the pause card and makes it due now', () => {
+  const lesson = {
+    eventId: 'evt_1',
+    studentMmsId: 'sdt_william',
+    studentName: 'William McCormick',
+    parentName: 'Emma McCormick',
+    lessonDate: '2026-09-19',
+    paymentExpectation: 'stripe_active_expected',
+  };
+  const row = {
+    absenceId: 'tutor_absence:Chloe:2026-09-19',
+    tutorShortName: 'Chloe',
+    tutorName: 'Chloe Mak',
+    absenceDate: '2026-09-19',
+    decision: 'cancel_day',
+    createdAt: '2026-09-14T10:21:06.229Z',
+    affectedLessons: [lesson],
+    messageState: {},
+    requiresDatedPaymentTool: true,
+  };
+  const now = new Date('2026-09-14T10:21:00.000Z');
+  const [separate] = buildTutorAbsencePausePlanningBundle({ rows: [row], now }).plans;
+  const [combined] = buildTutorAbsencePausePlanningBundle({ rows: [{ ...row, combinedNotice: true }], now }).plans;
+
+  assert.equal(combined.planningId, separate.planningId);
+  assert.equal(combined.item.isPause, true);
+  assert.equal(combined.item.targetDate, '2026-09-14');
+  assert.ok(separate.item.targetDate > '2026-09-14');
+  assert.doesNotMatch(separate.item.notes, /Parent combined message/u);
+  assert.match(combined.item.notes, /Lesson date: 2026-09-19/u);
+  assert.ok(combined.item.notes.endsWith([
+    'Parent combined message:',
+    'Hi Emma! Just a quick heads up that Chloe is away on Saturday 19th September, so William’s lesson won’t be going ahead.',
+    '',
+    'We’ve paused the payment for that lesson, so there’s nothing you need to do. Thanks!',
+  ].join('\n')));
+});
+
+test('a combined away period tells the parent about every missed date in one message', () => {
+  const rows = ['2026-07-03', '2026-07-10'].map((date, index) => ({
+    absenceId: `tutor_absence:Tom:${date}`,
+    tutorShortName: 'Tom',
+    tutorName: 'Tom Walters',
+    absenceDate: date,
+    decision: 'cancel_day',
+    combinedNotice: true,
+    createdAt: '2026-06-29T09:00:00.000Z',
+    affectedLessons: [{
+      eventId: `evt_${index + 1}`,
+      studentMmsId: 'sdt_ada',
+      studentName: 'Ada Neocleous',
+      parentName: 'Rachel Neocleous',
+      lessonDate: date,
+      paymentExpectation: 'stripe_active_expected',
+    }],
+    messageState: {},
+  }));
+  const { plans } = buildTutorAbsencePausePlanningBundle({ rows, now: new Date('2026-06-29T10:00:00.000Z') });
+
+  assert.equal(plans.length, 1);
+  assert.equal(plans[0].item.targetDate, '2026-06-29');
+  assert.match(plans[0].item.notes, /Pause type: away period/u);
+  assert.ok(plans[0].item.notes.endsWith(buildTutorAbsenceCombinedMessage({
+    parentName: 'Rachel Neocleous',
+    studentName: 'Ada Neocleous',
+    tutorName: 'Tom Walters',
+    missedDates: ['2026-07-03', '2026-07-10'],
+  })));
+  assert.match(plans[0].item.notes, /Tom is away on Friday 3rd July and Friday 10th July, so Ada’s lessons won’t be going ahead\.\n\nWe’ve paused the payment for those lessons/u);
+});
+
+test('capture-card markers resolve to the absence IDs they belong to', () => {
+  const marker = 'Tutor absence notice mode: combined';
+  const items = [
+    { linkedTutorId: 'Chloe', notes: `Tutor absence date: 2026-09-19\nTutor: Chloe\n${marker}` },
+    { linkedTutorId: 'Chloe', notes: 'Tutor absence date: 2026-09-26\nTutor: Chloe' },
+    { linkedTutorId: '', notes: marker },
+  ];
+
+  assert.deepEqual([...collectTutorAbsenceIdsWithMarker(items, marker)], ['tutor_absence:Chloe:2026-09-19']);
+  assert.equal(collectTutorAbsenceIdsWithMarker(items, '').size, 0);
 });
 
 test('schedule snapshot comparison fails loud for changed lessons', () => {

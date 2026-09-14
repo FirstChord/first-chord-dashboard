@@ -30,6 +30,19 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **A short-notice tutor cancellation can be one card per student — DEPLOYED
+  2026-09-14:** cancelling a tutor absence always produced an early notice card
+  (due 14 days out) and a pause card (a few days before the lesson), so a week's
+  notice meant an already-overdue notice and a second message to the same parent
+  days later. Cancel now offers **one card now** or **notice now, pause later** —
+  a human choice, not a date threshold. The combined choice writes
+  `Tutor absence notice mode: combined` on the capture card before the handoff
+  runs; no early notice card is created, and each pause card is due from the day
+  it was decided and carries one message covering the absence and the pause,
+  unlocked only after the payment-tool step. The stored decision stays
+  `cancel_day`, so absence state, reconciliation, finance and the auto-close are
+  unchanged. The absence card also now names the linked cards it is still
+  waiting on. Contract: `docs/workflows/tutors/absence-to-pause.md`.
 - **The Message Inbox is a focused, faster processing queue and unknown live
   groups are recoverable without weakening confirmation — DEPLOYED
   2026-09-12; return-checkpoint refinement DEPLOYED 2026-09-13:** Libby Brooks's
@@ -149,28 +162,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   one configured address, never on edits. A photo-only item no longer loses its
   arrival time when its row is rewritten, which would also have re-sent that email.
   Record: `docs/plans/active/newsletter-loop.md`.
-- **The lesson mirror now has a real read-only calendar and a detailed exception lens —
-  DEPLOYED 2026-09-02:** `/admin/lessons/calendar` renders one authenticated week
-  from events re-seen in the latest fresh, exactly-counted MMS sweep. It defaults
-  to student-bearing lessons, filters by tutor/type, resolves names on the server
-  and removes MMS student/tutor aliases before rendering; stale, failed or
-  out-of-window evidence produces no fallback calendar. The parity page now
-  separates lessons from Free/Potential/Break rows, splits real lesson tutor gaps
-  from placeholder gaps, compares non-observations with same-student replacements,
-  and measures retained historical links and late attendance changes.
-  `/admin/lessons/exceptions` then opens the lesson-shaped rows as a bounded,
-  authenticated evidence list: current-roster names are resolved server-side,
-  nearby same-student events and continuing-series evidence are shown, and MMS
-  aliases are removed before rendering. The first
-  live classification found 1,557 current lesson events, 198 Free rows, 72
-  Potential holds, eight breaks, zero current lesson tutor gaps and 74
-  lesson-shaped rows not re-observed. Those 74 currently split into zero same-slot
-  candidates, five elsewhere that day, 14 with only a same-student event within
-  seven days, and 55 with no nearby event; 12 have current events in the same
-  First Chord series, while 33 no longer match a current Students row. Thirty
-  current Free rows retain only older student links, so they stay free in the
-  calendar. None of those counts means cancelled and the surfaces perform no MMS
-  or workflow write.
 - **Fenella's half of the newsletter loop is a real workflow — 2026-09-12:** the
   monthly newsletter existed only in Fenella's memory and a WhatsApp message she
   retyped. `/admin/newsletter` now holds the issue (month, question of the month,

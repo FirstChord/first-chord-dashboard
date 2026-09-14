@@ -17,6 +17,7 @@ import {
   extractTutorAbsenceNoticeMessage,
   isTutorAbsenceFinalConfirmationPlanningItem,
   extractTutorAbsenceFinalConfirmationMessage,
+  extractTutorAbsenceCombinedMessage,
   isSchoolNotePlanningItem,
   hasPausePaymentConfirmation,
   requiresTutorAbsencePaymentTool,
@@ -96,7 +97,7 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
     : '';
   const incomingPlanningReply = extractIncomingPlanningReply(item);
   const pauseConfirmationMessage = isPauseReminder
-    ? (incomingPlanningReply || buildPauseConfirmationMessage({ item, student: linkedStudent }))
+    ? (extractTutorAbsenceCombinedMessage(item) || incomingPlanningReply || buildPauseConfirmationMessage({ item, student: linkedStudent }))
     : '';
   const canCompletePause = Boolean(
     item.linkedStudentId
@@ -382,16 +383,24 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
         <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
           <p className="text-sm font-semibold text-slate-900">How is this teaching day handled?</p>
           <p className="mt-1 text-xs leading-5 text-slate-700">
-            Cancel creates or updates the grouped student pause cards. Cover keeps this date in the short cover checklist.
+            One card now: pause and tell each parent in one go. Notice now, pause later: early notice first, pause nearer the lesson.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={isPending}
+              onClick={() => onTutorAbsenceDecision?.(item, 'cancel_day', { combined: true })}
+              className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancel → one card now
+            </button>
             <button
               type="button"
               disabled={isPending}
               onClick={() => onTutorAbsenceDecision?.(item, 'cancel_day')}
               className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Cancel lessons → pause cards
+              Cancel → notice now, pause later
             </button>
             <button
               type="button"

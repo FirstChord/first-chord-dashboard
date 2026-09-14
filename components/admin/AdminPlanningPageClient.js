@@ -420,10 +420,12 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
     }
   }
 
-  async function handleTutorAbsenceDecision(item, decision) {
+  async function handleTutorAbsenceDecision(item, decision, { combined = false } = {}) {
     const cancelling = decision === 'cancel_day';
     const message = cancelling
-      ? 'Cancel these lessons? This creates or updates the grouped pause cards that will own the parent and payment follow-through.'
+      ? combined
+        ? 'Cancel these lessons? Each student gets one card: run the pause tool, then send one message covering the absence and the pause.'
+        : 'Cancel these lessons? This creates or updates the grouped pause cards that will own the parent and payment follow-through.'
       : 'Mark these lessons as covered? You will then finish the short cover checklist.';
     if (!window.confirm(message)) return;
 
@@ -433,7 +435,12 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       const response = await fetch('/api/admin/planning/tutor-absence', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode: 'decide', planningId: item.planningId, decision }),
+        body: JSON.stringify({
+          mode: 'decide',
+          planningId: item.planningId,
+          decision,
+          ...(cancelling && combined ? { notice: 'combined' } : {}),
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw planningSaveClientError(data, 'Tutor absence decision failed');
