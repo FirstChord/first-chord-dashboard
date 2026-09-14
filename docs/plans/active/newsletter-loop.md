@@ -262,6 +262,37 @@ identity, `captured_by` is self-attested. Fenella's screen says **recorded as**,
 not **by**. Binding it to authenticated identity is a 1b/3 gate, per
 [tutor surface security](../../architecture/security/tutor-student-surfaces.md).
 
+### Telling Fenella, and marking priorities — decided 2026-09-14
+
+**Priority marks.** Each priority student carries a small newsletter mark on the
+tutor's student list: amber while nothing has arrived, green once it has, nothing
+after a "nothing this month" reply. The dashboard does one newsletter read and
+shares it between the strip and the marks, so they can never disagree. A mark,
+not a task — there is nothing to tick.
+
+**Arrival email.** The first time something arrives for a student, Fenella gets
+one short email: student, tutor, the text, what is attached, a reminder that a
+picture needs the family asking, and a link. Decided as email-per-item rather
+than a digest or dashboard-only, because Fenella currently hears through WhatsApp
+and a dashboard she must remember to check would be a step backwards.
+
+Bounded deliberately, as the dashboard's first automatic email besides Practice
+Chat:
+
+- **Internal only.** The recipient is `NEWSLETTER_NOTIFY_EMAIL`, one plain address,
+  and nothing else — never a request field, student record or parent contact.
+- **Once per item.** `isFirstArrival` is true only when `captured_at` moves from
+  blank to set. Edits, retries, a second photo and "nothing this month" never
+  re-send.
+- **Never fails a save.** Sent after the write, awaited, never throws, 8s timeout.
+- **Reuses the practice-note Gmail sender** — same account and `gmail.send` scope,
+  so unlike Drive, reuse widens nothing.
+- **Text stays in the dashboard**; only media goes to Drive. One home per fact.
+
+A known limit: two tutors saving the very first item for the same student at the
+same instant could both see "nothing yet" and send two emails. The consequence is
+a duplicate internal email, not a family message, so no transactional claim.
+
 ### What switches 1b on
 
 Verified live on 2026-09-12: the legacy public service answers `503

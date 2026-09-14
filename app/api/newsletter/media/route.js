@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { authorizeNewsletterTutorRequest } from '@/lib/admin/newsletter-tutor-auth.mjs';
 import { attachNewsletterMedia, getNewsletterItemMedia } from '@/lib/admin/newsletter';
+import { notifyNewsletterArrival } from '@/lib/admin/newsletter-notify';
 import {
   buildMediaFileName,
   validateMediaUpload,
@@ -144,6 +145,16 @@ export async function POST(request) {
         message: 'The file reached First Chord’s Drive but could not be linked to the student. '
           + 'Do not re-upload; tell Finn so it can be linked by hand.',
       }, { status: 502 });
+    }
+
+    // Fenella hears once per item, and only after the save has landed. Awaited so
+    // it is not cut off, but it cannot fail the request: notifyNewsletterArrival
+    // never throws, and the contribution is already safe.
+    if (attached.firstArrival) {
+      const notification = await notifyNewsletterArrival({ item: attached.item });
+      if (!notification.sent) {
+        console.warn(`Newsletter arrival not emailed for ${attached.item.itemId}: ${notification.reason}`);
+      }
     }
 
     return NextResponse.json({

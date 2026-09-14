@@ -218,6 +218,45 @@ export default function DashboardClient({ tutorOptions = [], authAccess = {} }) 
     return map;
   }, [todayLessons]);
 
+  // One newsletter read per tutor, shared by the reminder strip and the marks on
+  // the student cards, so the two can never disagree about who is a priority.
+  // Any of this tutor's students carries a usable capability token; the read is
+  // about the tutor, not about that student.
+  const [newsletterIssue, setNewsletterIssue] = useState(null);
+  const [newsletterRefreshKey, setNewsletterRefreshKey] = useState(0);
+  const newsletterTokenStudent = useMemo(
+    () => students.find((entry) => entry.noteAccessToken || entry.note_access_token) || null,
+    [students],
+  );
+
+  useEffect(() => {
+    const token = newsletterTokenStudent?.noteAccessToken || newsletterTokenStudent?.note_access_token || '';
+    const studentId = newsletterTokenStudent?.mms_id || '';
+    if (!token || !studentId) {
+      setNewsletterIssue(null);
+      return undefined;
+    }
+    let cancelled = false;
+    fetch(`/api/newsletter/current?${new URLSearchParams({ student: studentId, token })}`)
+      .then((res) => res.json())
+      // A closed month, a service without tutor auth, or any failure all read the
+      // same way here: no strip and no marks. Absent is a fine state for a reminder.
+      .then((data) => { if (!cancelled) setNewsletterIssue(data.success && data.open ? data : null); })
+      .catch(() => { if (!cancelled) setNewsletterIssue(null); });
+    return () => { cancelled = true; };
+  }, [newsletterTokenStudent, newsletterRefreshKey]);
+
+  // Priority students only. Amber until something arrives, green after. A
+  // "nothing this month" reply shows no mark: that uncertainty is closed.
+  const newsletterMarkByStudent = useMemo(() => {
+    const map = new Map();
+    for (const entry of newsletterIssue?.priorities || []) {
+      if (entry.state === 'requested') map.set(entry.mmsId, 'waiting');
+      else if (entry.state !== 'declined') map.set(entry.mmsId, 'in');
+    }
+    return map;
+  }, [newsletterIssue]);
+
   // Fetch students when tutor is selected
   useEffect(() => {
     if (tutor) {
@@ -552,6 +591,7 @@ export default function DashboardClient({ tutorOptions = [], authAccess = {} }) 
                     isSelected={selectedStudent?.mms_id === student.mms_id}
                     showTutor={false}
                     todayTime={todayTimeByStudent.get(student.mms_id) || ''}
+                    newsletter={newsletterMarkByStudent.get(student.mms_id) || ''}
                   />
                 ))}
               </div>
@@ -663,7 +703,10 @@ export default function DashboardClient({ tutorOptions = [], authAccess = {} }) 
                 </div>
               </div>
 
-              <NewsletterCapture student={selectedStudent} />
+              <NewsletterCapture
+                student={selectedStudent}
+                onSaved={() => setNewsletterRefreshKey((key) => key + 1)}
+              />
 
               <SongBrowser student={selectedStudent} />
 
@@ -671,7 +714,7 @@ export default function DashboardClient({ tutorOptions = [], authAccess = {} }) 
           ) : (
             <div className="flex min-h-full items-center justify-center p-6">
               <div className="flex w-full max-w-3xl flex-col items-center gap-6">
-                <NewsletterStrip students={students} onSelectStudent={handleSelectStudent} />
+                <NewsletterStrip issue={newsletterIssue} students={students} onSelectStudent={handleSelectStudent} />
                 <TutorSchedulePanel
                   tutor={tutor}
                   students={students}

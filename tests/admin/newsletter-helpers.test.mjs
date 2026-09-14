@@ -26,6 +26,7 @@ import {
   groupPrioritiesByTutor,
   isEmptyRequestRow,
   isExtraContribution,
+  isFirstArrival,
   isOutstandingRequest,
   normaliseDate,
   normaliseIssueMonth,
@@ -674,4 +675,41 @@ test('the consent ask degrades gracefully with nothing known', () => {
   assert.ok(message.startsWith('Hi,'));
   assert.ok(message.includes('a photo of your child'));
   assert.ok(message.includes('our newsletter'));
+});
+
+// --- first arrival (what triggers Fenella's email) -------------------------
+
+test('only the move from "nothing yet" to "arrived" is a first arrival', () => {
+  const before = item({ requestedAt: NOW.toISOString() });
+  const after = item({ requestedAt: NOW.toISOString(), capturedAt: NOW.toISOString(), tutorText: 'x' });
+  assert.equal(isFirstArrival({ before, after }), true);
+  assert.equal(isFirstArrival({ before: null, after }), true, 'a brand-new extra is a first arrival');
+
+  // An edit, a retried save, or a second photo: already arrived, so not news.
+  assert.equal(isFirstArrival({ before: after, after }), false);
+  // A "nothing this month" reply never sets captured_at, so it never notifies.
+  const declined = item({ requestedAt: NOW.toISOString(), tutorResponse: 'nothing_this_month' });
+  assert.equal(isFirstArrival({ before, after: declined }), false);
+});
+
+test('a photo-only contribution keeps its arrival when the row is rewritten', () => {
+  // The bug: captured_at counted only text, so rewriting a photo-only row cleared
+  // it — the item read as "nothing yet" and a second photo looked like news.
+  const photoOnly = item({
+    capturedAt: NOW.toISOString(),
+    hasMedia: 'true',
+    mediaJson: '[{"driveFileId":"A","kind":"photo","uploadTicket":"t1"}]',
+  });
+  const rewritten = buildNewsletterItemRow({
+    issueMonth: '2026-09',
+    fcStudentId: FC_STUDENT,
+    hasMedia: true,
+    existingRow: photoOnly,
+    now: new Date('2026-09-15T10:00:00.000Z'),
+  }).row;
+
+  assert.equal(rewritten.capturedAt, NOW.toISOString(), 'the original arrival survives');
+  assert.equal(rewritten.mediaJson, photoOnly.mediaJson);
+  assert.equal(deriveItemState(rewritten), 'captured');
+  assert.equal(isFirstArrival({ before: photoOnly, after: rewritten }), false);
 });

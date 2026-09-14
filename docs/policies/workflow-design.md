@@ -109,6 +109,9 @@ Communication-specific rules:
 - Reply drafts remain proposals even when policy-validated.
 - Practice Chat's lesson-note email exception does not authorise payment,
   onboarding, pause, marketing, or general-message automation.
+- The newsletter arrival notice is the one automatic **internal** email: a single
+  configured staff recipient, once per item on first arrival, never a family, and
+  it publishes nothing. It is not a precedent for emailing parents or tutors.
 
 ## Page and navigation rules
 

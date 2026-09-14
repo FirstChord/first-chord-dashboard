@@ -35,7 +35,7 @@ function newTicket() {
   }
 }
 
-export default function NewsletterCapture({ student }) {
+export default function NewsletterCapture({ student, onSaved }) {
   const [issue, setIssue] = useState(null);
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -104,6 +104,7 @@ export default function NewsletterCapture({ student }) {
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2200);
       await refresh();
+      onSaved?.();
       if (nothing) setOpen(false);
     } catch {
       setError(errorText());
@@ -137,6 +138,7 @@ export default function NewsletterCapture({ student }) {
       setSaved(true);
       window.setTimeout(() => setSaved(false), 2200);
       await refresh();
+      onSaved?.();
     } catch {
       setError(errorText());
     } finally {

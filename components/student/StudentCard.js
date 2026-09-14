@@ -1,6 +1,28 @@
+import { Newspaper } from 'lucide-react';
 import InstrumentIcon from './InstrumentIcon';
 
-export default function StudentCard({ student, onClick, isSelected, showTutor = true, todayTime = '', showCheckbox = false, isChecked = false, onToggleCheck }) {
+// `newsletter` is 'waiting' for a priority student nothing has arrived for yet,
+// 'in' once something has, and empty otherwise. A marker, not a task: there is
+// nothing on the card to tick.
+function NewsletterMark({ state }) {
+  if (!state) return null;
+  const waiting = state === 'waiting';
+  const label = waiting ? 'Newsletter priority — nothing sent yet' : 'Newsletter item added';
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      role="img"
+      className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
+        waiting ? 'bg-amber-100 text-amber-800' : 'bg-green-100 text-[#2F6B3D]'
+      }`}
+    >
+      <Newspaper aria-hidden="true" className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
+export default function StudentCard({ student, onClick, isSelected, showTutor = true, todayTime = '', showCheckbox = false, isChecked = false, onToggleCheck, newsletter = '' }) {
   return (
     <button
       onClick={() => onClick(student)}
@@ -28,8 +50,11 @@ export default function StudentCard({ student, onClick, isSelected, showTutor = 
         </div>
       )}
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-semibold text-lg">{student.name}</h3>
-        <InstrumentIcon instrument={student.instrument} />
+        <h3 className="min-w-0 font-semibold text-lg">{student.name}</h3>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <NewsletterMark state={newsletter} />
+          <InstrumentIcon instrument={student.instrument} />
+        </div>
       </div>
       {todayTime && (
         <p className="mt-1">

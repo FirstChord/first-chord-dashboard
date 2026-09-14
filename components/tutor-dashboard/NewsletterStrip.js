@@ -1,45 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-
 // A quiet reminder, not a task list.
 //
 // The priority names are links, not tick boxes. A student nobody has heard from
-// already reads as "nothing yet" on Fenella's side, so a tick would ask a tutor
-// to confirm something the school already knows and add a chore to teaching time.
+// already reads as "nothing yet" on Fenella's side, so a tick would ask a tutor to
+// confirm something the school already knows and add a chore to teaching time.
 // Tapping a name selects that student, which is the only thing a tutor would
 // actually want from a list of names.
-export default function NewsletterStrip({ students = [], onSelectStudent }) {
-  const [issue, setIssue] = useState(null);
-
-  // Any of the tutor's students carries a usable capability token; the strip is
-  // not about one student, so the first one will do.
-  const token = students.find((student) => student.noteAccessToken)?.noteAccessToken || '';
-  const anyStudentId = students.find((student) => student.noteAccessToken)?.mms_id || '';
-
-  useEffect(() => {
-    if (!token || !anyStudentId) {
-      setIssue(null);
-      return;
-    }
-    let cancelled = false;
-    fetch(`/api/newsletter/current?${new URLSearchParams({ student: anyStudentId, token })}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        // A closed month, a service without tutor auth, or any failure all mean
-        // the same thing here: show nothing. This is a reminder, so being absent
-        // is a perfectly good state — far better than an error box above the
-        // schedule.
-        setIssue(data.success && data.open ? data : null);
-      })
-      .catch(() => { if (!cancelled) setIssue(null); });
-    return () => { cancelled = true; };
-  }, [token, anyStudentId]);
-
+//
+// Presentational: the dashboard does the one newsletter read and passes it in, so
+// this strip and the marks on the student cards always agree.
+export default function NewsletterStrip({ issue = null, students = [], onSelectStudent }) {
   if (!issue) return null;
 
-  const outstanding = issue.priorities.filter((entry) => entry.state === 'requested');
+  const priorities = issue.priorities || [];
+  const outstanding = priorities.filter((entry) => entry.state === 'requested');
 
   return (
     <section
@@ -59,10 +34,10 @@ export default function NewsletterStrip({ students = [], onSelectStudent }) {
         <p className="mt-1.5 text-sm italic leading-6 text-slate-700">“{issue.question}”</p>
       ) : null}
 
-      {issue.priorities.length ? (
+      {priorities.length ? (
         <p className="mt-2 text-sm text-slate-700">
           <span className="text-slate-500">Priority: </span>
-          {issue.priorities.map((entry, index) => (
+          {priorities.map((entry, index) => (
             <span key={entry.mmsId}>
               {index > 0 ? <span className="text-slate-400"> · </span> : null}
               <button
@@ -82,7 +57,7 @@ export default function NewsletterStrip({ students = [], onSelectStudent }) {
         </p>
       ) : null}
 
-      {issue.priorities.length && !outstanding.length ? (
+      {priorities.length && !outstanding.length ? (
         <p className="mt-1 text-xs font-semibold text-emerald-800">All yours are in — thank you.</p>
       ) : null}
     </section>

@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { authorizeNewsletterTutorRequest } from '@/lib/admin/newsletter-tutor-auth.mjs';
 import { recordNewsletterContribution } from '@/lib/admin/newsletter';
+import { notifyNewsletterArrival } from '@/lib/admin/newsletter-notify';
 
 const CLIENT_ERRORS = new Set([
   'invalid_issue_month',
@@ -57,6 +58,16 @@ export async function POST(request) {
     if (result.error) {
       const status = CLIENT_ERRORS.has(result.error) ? 400 : 502;
       return NextResponse.json({ success: false, code: result.error }, { status });
+    }
+
+    // Fenella hears once per item, and only after the save has landed. Awaited so
+    // it is not cut off, but it cannot fail the request: notifyNewsletterArrival
+    // never throws, and the contribution is already safe.
+    if (result.firstArrival) {
+      const notification = await notifyNewsletterArrival({ item: result.item });
+      if (!notification.sent) {
+        console.warn(`Newsletter arrival not emailed for ${result.item.itemId}: ${notification.reason}`);
+      }
     }
 
     return NextResponse.json({

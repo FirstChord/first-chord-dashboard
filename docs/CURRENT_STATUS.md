@@ -143,6 +143,11 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   individual tutors to reach their own students, not for Finn to try it. Media
   upload remains genuinely inert, returning `drive_not_configured` until the three
   `DRIVE_*` vars are set. Full suite (1,609), lint, code-map, docs and build pass.
+  **Follow-up 2026-09-14:** priority students carry a small newsletter mark on
+  the tutor's student list (amber until something arrives, green after), and a
+  tutor's first contribution for a student emails Fenella once — internal only,
+  one configured address, never on edits. A photo-only item no longer loses its
+  arrival time when its row is rewritten, which would also have re-sent that email.
   Record: `docs/plans/active/newsletter-loop.md`.
 - **The lesson mirror now has a real read-only calendar and a detailed exception lens —
   DEPLOYED 2026-09-02:** `/admin/lessons/calendar` renders one authenticated week
@@ -200,7 +205,7 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
 | Capacity | MMS `Free` events remain source truth. Waiting-list matches are hints filtered by instrument, never reservations or automatic assignment. |
 | Planning | `Planning_Items` is human work state, not a project-management or workflow engine. Friday reflection and Monday scheduling are seeded planning prompts. |
 | Pauses | Generic completion never changes payment state. The guarded pause-completion action requires human confirmation, writes through the existing student route, and logs to `Event_Log`. For new guided tutor-absence cancellations, an undated paused-expected flag cannot suppress the dated structured pause card or unlock its final message; only an explicit per-lesson payment-not-needed decision takes the message-only path. |
-| Messaging | Parent communication remains approval-first. `Communication_Log` means copied to send, not proven sent; inbound classifications and reply drafts remain proposals. |
+| Messaging | Parent communication remains approval-first. `Communication_Log` means copied to send, not proven sent; inbound classifications and reply drafts remain proposals. The one automatic staff email is the newsletter arrival notice: one configured internal recipient (`NEWSLETTER_NOTIFY_EMAIL`), once per item, never a family. |
 | Practice Chat | All registered tutors are enabled unless temporarily constrained. The tutor self-attests, the student must have one clear tutor assignment, the final screen names the server-derived recipient, and PostgreSQL claims the delivery key before MMS/Gmail work. Ambiguous Gmail outcomes require manual follow-up. |
 | Lesson mirror | Neon PostgreSQL holds rebuildable MMS observations and stable First Chord series/event/participation IDs. A daily bounded read populates the mirror; `/admin/lessons` exposes aggregate parity/exception evidence, `/admin/lessons/exceptions` gives a bounded human-readable drill-down, and `/admin/lessons/calendar` renders the latest verified week. Tutor Changes and first-lesson Planning consume the mirror as fail-open shadow context, but no operational workflow depends or acts on it. MMS remains schedule and attendance truth, and absence from a sweep never proves cancellation. |
 | Student portal notes | Profile URLs and non-note resources stay public. Practice Chat notes load through a separate no-store API; families are moved individually to memorable-code protection through the claimed admin rollout queue. A missing rollout row remains legacy-public, while an access-state failure fails closed. The memorable code is a light privacy guard proportionate to what it protects — a child's practice notes — not a defence against a determined attacker, and it is not sized to become one. |
