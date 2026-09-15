@@ -190,6 +190,14 @@ and the provider's rewritten `NextEventID` chain is additional evidence, but
 the current mirror does not retain `NextEventID` and neither signal is yet safe
 to turn into an automatic cancellation classification.
 
+A follow-up student-scoped `POST /v1/search/attendance` used an end-exclusive
+bound of 21 September, so it included attendance through the deleted 20
+September occurrence. MMS reported a complete 19-row response, but neither the
+deleted event reference nor its former attendance reference appeared. For this
+tested deletion, neither the calendar-search nor attendance-search surface
+retains a tombstone. That does not prove MMS lacks a separate internal audit or
+mutation-history source; none has yet been identified.
+
 The experiment did not retain the UI mutation's endpoint, method, payload or
 response, so the deletion write contract remains unverified. No raw response,
 provider identifier, credential or synthetic-person record is committed to the
@@ -508,9 +516,9 @@ last verified parity view.
 - A same-day, one-occurrence time move preserves event, series, attendance,
   tutor and recurrence-chain identity; does a cross-day one-occurrence move
   preserve those identities or create a replacement record?
-- A one-occurrence UI deletion disappears from calendar search and rewrites the
-  previous row's `NextEventID`; does its mutation response or another MMS audit
-  source provide a durable cancellation tombstone?
+- A one-occurrence UI deletion disappears from both calendar and attendance
+  search and rewrites the previous row's `NextEventID`; does its mutation
+  response or another MMS audit source provide a durable cancellation tombstone?
 - Can attendance records outlive or refer to calendar events outside the
   selected calendar window?
 - One-occurrence tutor cover preserves the event, attendance and recurrence-chain
