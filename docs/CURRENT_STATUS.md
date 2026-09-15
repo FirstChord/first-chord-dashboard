@@ -30,6 +30,20 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Practice Chat lost its pilot-era scaffolding — DEPLOYED 2026-09-15:** three
+  live error messages in `previewPracticeNoteMmsTestWrite` still named the pilot
+  account, so a tutor whose real student had no attendance record was told the
+  lesson could not be found for "Test Studenty" — a real student's failure
+  reported under a test account's name. They now name the student in front of
+  the tutor, and `tests/admin/pilot-artefact-census.test.mjs` refuses the
+  placeholder anywhere in `lib/admin` or `app` (a scan, because the strings live
+  in functions that need MMS, Gmail and Sheets to call). The attendance panel
+  also lost its "Lesson admin pilot" heading and its three-item "next steps"
+  list, which narrated the controls directly beneath it. **Correction to an
+  earlier review:** the "Take Attendance → MyMusicStaff" fallback is **not**
+  dead — it is the whole flow for a bookmark launch with no dashboard context,
+  and its reminder stays. Its comment, which called it the "Test Studenty pilot"
+  fallback, was the thing that was wrong.
 - **A shared lesson can be finished in one action — BUILT, NOT DEPLOYED
   2026-09-15:** taking attendance for a group through Practice Chat meant doing
   it twice, and the tool offered each sister a *different* lesson — it picks each
@@ -131,19 +145,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   four earlier same-chat messages load only for the selected card, and a stale
   bridge prevents a false **All caught up**. Handled/Later gain a 12-second Undo
   guarded by the row's latest review timestamp and by any linked plan.
-- **FC student IDs have one owner and one formula — DEPLOYED 2026-09-11:** the
-  dashboard and brain CLI minted `fcStudentId` from `forename:surname:email`
-  while the brain's hourly job recomputed `FC_Students` from `sha256(mms_id)`,
-  so 63 of 210 students carried two IDs and brain lookup could not find them by
-  the one the dashboard shows. **An FC student ID is now minted once from the MMS
-  student ID and then stored; the stored value is authoritative and never
-  recomputed.** The brain reads it (registry → Students cell → derived), raises
-  `FC ID CONFLICT` / `MALFORMED` / `DUPLICATE` instead of overwriting, and stops
-  if the registry ever parses without IDs. Onboarding blocks without an MMS ID.
-  Both repos pin `sdt_WFQ7Js → fc_std_fa157fc5`; the hourly workflow runs brain
-  tests before writing tabs. Verified live: 210/210 match, no `created_at`
-  moved. Manual `generate_fc_ids.py` runs are unnecessary — the hourly job reads
-  `main`. Record: `docs/plans/active/fc-student-id-convergence.md`.
 - **Tutors can put photos, voice notes and video straight into First Chord's
   Drive — BUILT AND DEPLOYED 2026-09-12, INERT UNTIL SWITCHED ON:** the tutor
   dashboard gains a quiet newsletter strip (month, question, priority names as
