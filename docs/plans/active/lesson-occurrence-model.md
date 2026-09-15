@@ -1,7 +1,7 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-09-11
+last_verified: 2026-09-15
 ---
 # First Chord Lesson Ledger and MMS Exit Path
 
@@ -191,13 +191,42 @@ the current mirror does not retain `NextEventID` and neither signal is yet safe
 to turn into an automatic cancellation classification.
 
 The experiment did not retain the UI mutation's endpoint, method, payload or
-response, so the write contract remains unverified. No raw response, provider
-identifier, credential or synthetic-person record is committed to the
-repository. The next controlled experiment is a substitute tutor on one future
-occurrence: compare the before/after event, series and attendance IDs and the
-`TeacherID`/`OriginalTeacherID` fields, and capture the mutation contract if it
-can be done without retaining authentication headers. A one-off time move then
-tests whether MMS mutates the event or replaces it.
+response, so the deletion write contract remains unverified. No raw response,
+provider identifier, credential or synthetic-person record is committed to the
+repository.
+
+#### Controlled single-occurrence substitute (2026-09-15)
+
+The surviving 27 September occurrence from the same synthetic weekly lesson
+was assigned to a different tutor for that occurrence only. MMS used a two-step
+write:
+
+1. `POST /v1/calendar/events/{eventId}/updaterequirements` with the student
+   delta, original and proposed tutor IDs, `UpdateFutureEvents: false`, and no
+   repeat-details update. It returned 200 with no calendar conflicts, no student
+   variation, no recorded attendance and `IsDestructive: false`. It also
+   returned `NotAllowedReason: SingleEventUpdateRepeatDetailsDoNotMatch`; the UI
+   nevertheless continued, so that value must not be treated as a general veto
+   on the tutor-only change.
+2. `PUT /v1/calendar/events/{eventId}` with an absolute full-event payload,
+   including the existing repeat details, original tutor, substitute tutor and
+   `UpdateFutureEvents: false`. It returned 200, after which a 200 calendar
+   search provided the read-back.
+
+The read-back retained the event ID, its position in the `NextEventID` chain,
+the attendance ID and raw `Unrecorded` attendance status. `OriginalTeacherID`
+remained the normal tutor while `TeacherID` became the substitute. The
+post-update `SeriesID` and the PUT response body were not captured, so neither
+is claimed here.
+
+This is strong evidence that one-occurrence tutor cover is an in-place event
+update rather than delete-and-recreate, and it is more suitable than a one-off
+reschedule as the first Phase 4 write candidate. It is not yet a safe writer
+contract: the dashboard still needs typed payload construction, preflight
+interpretation, idempotency, current-state conflict checks, provider read-back,
+durable outbox/audit behaviour and a tested reversal to the original tutor. A
+one-off time move is the next controlled identity experiment; a future-series
+move follows it to test whether MMS splits or replaces the series.
 
 ### Phase 3 — Attach Existing Systems to First Chord IDs
 
@@ -420,7 +449,10 @@ last verified parity view.
   source provide a durable cancellation tombstone?
 - Can attendance records outlive or refer to calendar events outside the
   selected calendar window?
-- Which provider fields change when tutor cover is used?
+- One-occurrence tutor cover preserves the event, attendance and recurrence-chain
+  position while changing `TeacherID` and retaining `OriginalTeacherID`; does a
+  future-series tutor change preserve or split the series, and what exact
+  preflight result should block a write?
 - What overlap window captures late attendance edits without needless load?
 - Which privacy and retention period is proportionate for detailed lesson and
   attendance history?
