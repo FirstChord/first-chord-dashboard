@@ -7,6 +7,8 @@ last_verified: null
 
 Plain-English explanations of technical terms used in the admin dashboard. This is a general reference (not a dated change log) — add to it whenever new jargon appears. A mirror lives in the Obsidian "First Chord OS" vault (`09 Glossary`).
 
+- **Group lesson delivery** — finishing a shared lesson in one action from Practice Chat: one note, one MMS attendance write per student on the event, and one email per household (`POST /api/practice-notes/group`). The member who receives that email is the **carrier**; the others are recorded `covered_by_group_email`. An `orchestra` lesson is **attendance-only** — everyone marked, nobody emailed.
+
 - **Lesson duration mismatch** — an Issue Queue card (`LESSON DURATION MISMATCH`, source `lesson_duration`) raised when a student's lesson length disagrees across the three systems that hold it: the MMS calendar (what is booked), the MMS billing profile (what MMS would invoice), and the Students sheet. It matters because duration picks the weekly price band, so a disagreement misprices the forecast rather than failing visibly.
 
 - **Path template** — a named ordered list of catalogue song IDs (`lib/config/path-templates.mjs`, canonical hand-edited). "Assign path" instantiates it into per-student `Song_Assignments` rows; the student copy is personal from then on.

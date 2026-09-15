@@ -74,6 +74,44 @@ do not retry the ambiguous email automatically. If provider work succeeds but
 final logging fails, report explicit partial success; never imply the provider
 action did not happen.
 
+## Shared Lessons
+
+Two students in one lesson are one MMS calendar event carrying **one attendance
+record per student**. `GET /calendar/events/{eventId}` returns them, which makes
+the membership of a group lesson exact — not the `Schedule_Context` shared-slot
+guess, which pairs students by matching next-lesson timestamps and breaks when
+one side's cache was refreshed on a different day.
+
+`POST /api/practice-notes/group` delivers a shared lesson. It is a layer over the
+single-student path, never a replacement:
+
+- **The lesson is pinned once.** The launched student's selected event fixes the
+  lesson and every other member is taken from that same event. Run the
+  single-student preview twice for two sisters instead and they land on different
+  dates, because each picks her own latest unrecorded record.
+- **Each member keeps its own delivery key, claim, attendance write and log
+  row**, so the existing idempotency and partial-failure guarantees apply
+  unchanged. Members are delivered one at a time, and a member that fails never
+  blocks the rest — marking one sister must not depend on the other's email.
+- **One email per household.** Recipients are deduplicated by address: the first
+  member holding it carries the send and names everyone it covers ("Athena and
+  Sophia"); the rest record `covered_by_group_email`. Both real sibling pairs
+  share a single parent, so sending per student would put two near-identical
+  emails in one inbox about one lesson. **The server owns this decision** — the
+  PWA sends no recipient or household field, because a client that got it wrong
+  would duplicate a parent email.
+- **Attendance-only lessons send nothing.** A lesson whose kind is `orchestra`
+  (`derivePaymentValueContext`) marks every member and emails nobody: the ukulele
+  orchestra is adults with their own contacts, where a parent practice-note email
+  is the wrong shape. Recorded as `attendance_only_lesson`, a reason rather than
+  silence, so "no email was needed" never reads like "the email failed".
+- **Partial is its own state.** A group where one sister was marked and the other
+  was not reports `partial` and names who still needs sorting; it is never
+  reported as done.
+
+A lesson with one student returns `isGroup: false` and the caller falls back to
+the ordinary single-student endpoint with its own recipient confirmation.
+
 ## Sources And Visibility
 
 - MMS remains attendance/payroll continuity truth.

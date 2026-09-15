@@ -30,6 +30,24 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **A shared lesson can be finished in one action — BUILT, NOT DEPLOYED
+  2026-09-15:** taking attendance for a group through Practice Chat meant doing
+  it twice, and the tool offered each sister a *different* lesson — it picks each
+  student's latest unrecorded record, so Athena resolved to 8 Aug and Sophia to
+  12 Sept. `POST /api/practice-notes/group` pins the lesson from the launched
+  student's event and reads every other member from that same event, which is
+  exact: one MMS event carries one attendance record per student. It is a layer
+  over the single-student path — each member keeps its own delivery key, claim,
+  attendance write and log row, delivered one at a time, and a member that fails
+  never blocks the rest. **One email per household:** both sibling pairs share
+  one parent, so recipients dedupe by address and the carrier names everyone it
+  covers; the rest record `covered_by_group_email`. The server owns that
+  grouping and the PWA sends no recipient field, because a client bug there means
+  a duplicate email to a parent. An `orchestra` lesson marks everyone and emails
+  nobody. Partial is its own reported state. The live single-student route was
+  deliberately **not** refactored to share code: it has no route-level tests and
+  it emails real parents. Contract:
+  `docs/workflows/practice-chat/delivery.md` → Shared Lessons.
 - **Lesson duration disagreements are now an Issue Queue card — DEPLOYED
   2026-09-15:** duration is the quiet input to money — it picks the weekly price
   band in `payment-value-helpers.mjs` and the minutes a tutor is paid for — and
@@ -113,25 +131,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   four earlier same-chat messages load only for the selected card, and a stale
   bridge prevents a false **All caught up**. Handled/Later gain a 12-second Undo
   guarded by the row's latest review timestamp and by any linked plan.
-- **Practice note quality has a baseline and a rubric, measured 2026-09-11:**
-  Practice Chat has held ~100 notes/week for five weeks, so adoption is finished
-  and the open question is whether the writing is worth a family's attention.
-  Across the 195 scored notes of the most recent 200: **92%** carry all three
-  sections, **73%** read as prose rather than a verbatim transcript, **31%** of
-  practice goals name something checkable, and **29%** carry a confirmed song
-  link — up from 1-in-14 on 2026-08-07, so the selector's adoption problem is
-  half solved. The consequential finding is that **`ratingAccuracy`,
-  `ratingComment` and `priorUsefulness` are empty on all 612 session rows and
-  `ratingPrompted` is never set** — the usefulness instrument was built and
-  never switched on, so every quality judgement available today is structural.
-  Two further defects: notes written without headings (Hamish, Matthew) store
-  three blank structured columns because `parsePracticeNoteSections` needs a
-  heading, which leaves those tutors invisible to the tutor card, insights and
-  summaries while looking normal to parents; and a shared sibling lesson written
-  as one row leaves the second sibling with no notes at all. Verbatim-dialogue
-  notes are **growing** (12% June → 29% September) and capture is not the cause
-  — zero ASR errors and zero re-records across 612 sessions. Baseline, ranking
-  and dated goals: `docs/plans/active/practice-note-quality.md`.
 - **FC student IDs have one owner and one formula — DEPLOYED 2026-09-11:** the
   dashboard and brain CLI minted `fcStudentId` from `forename:surname:email`
   while the brain's hourly job recomputed `FC_Students` from `sha256(mms_id)`,
