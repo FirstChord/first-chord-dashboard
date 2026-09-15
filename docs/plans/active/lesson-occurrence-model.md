@@ -224,9 +224,34 @@ update rather than delete-and-recreate, and it is more suitable than a one-off
 reschedule as the first Phase 4 write candidate. It is not yet a safe writer
 contract: the dashboard still needs typed payload construction, preflight
 interpretation, idempotency, current-state conflict checks, provider read-back,
-durable outbox/audit behaviour and a tested reversal to the original tutor. A
-one-off time move is the next controlled identity experiment; a future-series
-move follows it to test whether MMS splits or replaces the series.
+durable outbox/audit behaviour and a tested reversal to the original tutor.
+
+#### Controlled single-occurrence time move and reversal (2026-09-15)
+
+The 4 October occurrence in the same synthetic weekly lesson was moved from
+13:30 to 17:30 for that occurrence only. MMS accepted a full-event
+`PUT /v1/calendar/events/{eventId}` with `UpdateFutureEvents: false`, returned
+200 with the body `true`, and exposed the changed event through the next 200
+calendar search.
+
+The changed read-back kept the same event ID, `SeriesID`, `NextEventID`, tutor
+IDs and attendance ID. Only the occurrence's `StartDate`/`EndDate` changed; the
+weekly Sunday `RepeatDetails` remained present. The occurrence was then moved
+back to 13:30. The restore preflight again reported no conflicts, no student
+variation, no recorded attendance and `IsDestructive: false`, alongside the
+same `SingleEventUpdateRepeatDetailsDoNotMatch` reason seen for tutor cover. The
+restored calendar row returned to the original start/end time with the same
+event and attendance IDs and raw `Unrecorded` status. The restored row's
+`SeriesID` was not separately recaptured, so its post-restore value is not
+claimed even though the moved row had preserved it.
+
+This verifies that a same-day, one-occurrence time change is also an in-place
+and practically reversible update for the tested shape; it does not prove that
+a cross-day move, an event with recorded attendance, a group lesson or a
+future-series move behaves the same way. Tutor cover remains the preferred
+first Phase 4 action because it is an existing operational need, while one-off
+rescheduling is not current school policy. The next identity experiment is a
+future-series move to determine whether MMS splits or replaces the series.
 
 ### Phase 3 — Attach Existing Systems to First Chord IDs
 
@@ -444,6 +469,9 @@ last verified parity view.
 ## Phase 2 Questions to Answer with Evidence
 
 - Does MMS preserve `SeriesID` across term changes and permanent slot moves?
+- A same-day, one-occurrence time move preserves event, series, attendance,
+  tutor and recurrence-chain identity; do cross-day and future-series moves
+  preserve those identities or create replacement records?
 - A one-occurrence UI deletion disappears from calendar search and rewrites the
   previous row's `NextEventID`; does its mutation response or another MMS audit
   source provide a durable cancellation tombstone?
