@@ -36,9 +36,17 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   three systems hold it: the MMS calendar, the MMS billing profile, and the
   Students sheet. Nothing compared them, so a disagreement mispriced a student
   instead of failing. `LESSON DURATION MISMATCH` (source `lesson_duration`)
-  raises one card per student: **28 on the first run, 13 priced apart.** It
-  quotes the money by re-deriving from the live price table with the duration
-  swapped, so a price change can't leave it lying. Policy: MMS keeps duration —
+  raises one card per student: **18 on the first run, 13 of them priced apart,
+  5 latent.** It quotes the money by re-deriving from the live price table with
+  the duration swapped, so a price change can't leave it lying. Flat-priced
+  students are excluded — group (£20/wk) and orchestra (£42.50/mo) pay the same
+  whatever the duration, so no disagreement can move their money; that is asked
+  of the pricing model with two durations rather than hardcoding lesson kinds.
+  Manual payers are deliberately kept: they are absent from the Stripe forecast
+  but still counted in the revenue estimate. The billing-profile half is latent
+  rather than cosmetic — `buildScheduleContext` falls back to the profile
+  duration whenever a student has no upcoming lesson, so a stale profile becomes
+  the price input the moment the calendar has a gap. Policy: MMS keeps duration —
   it records what was booked and taught, the sheet records what someone typed —
   so the fix is to surface the disagreement, not pick a winner. Flipping the
   preference to the sheet was measured and rejected (~£170/wk of line items

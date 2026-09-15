@@ -128,7 +128,7 @@ test('lesson duration detector catches an MMS billing profile that disagrees wit
 
   assert.equal(issue.lessonDuration.sheetDisagrees, false);
   assert.equal(issue.lessonDuration.billingProfileDisagrees, true);
-  assert.match(issue.detail, /MMS itself would invoice the wrong length\./u);
+  assert.match(issue.detail, /falls back to the billing profile when none is, so this misprices as soon as the calendar has a gap\./u);
 });
 
 test('lesson duration detector ignores students it cannot or should not price', () => {
@@ -143,4 +143,37 @@ test('lesson duration detector ignores students it cannot or should not price', 
     // Test rows never reach the queue.
     durationStudent({ mmsId: 'sdt_test', isTestStudent: true }),
   ]), []);
+});
+
+test('lesson duration detector stays out of flat-priced lessons', () => {
+  // Group students pay a flat weekly rate and orchestra members a flat monthly
+  // subscription, so no duration disagreement can move their money.
+  assert.deepEqual(buildLessonDurationIssues([
+    durationStudent({ mmsId: 'sdt_siblings', lessonType: 'sibling_group' }),
+    durationStudent({ mmsId: 'sdt_billing_group', billingGroupId: 'bg_1' }),
+    durationStudent({
+      mmsId: 'sdt_shared_slot',
+      scheduleContext: { sharedStudentCount: 2 },
+    }),
+    durationStudent({ mmsId: 'sdt_orchestra', instrument: 'Adult Ukulele Orchestra' }),
+    // Flat-priced and the MMS billing profile is stale too — still nothing to
+    // price wrong, so still no card.
+    durationStudent({
+      mmsId: 'sdt_orchestra_billing',
+      instrument: 'Adult Ukulele Orchestra',
+      scheduleContext: { warnings: [BILLING_PROFILE_WARNING] },
+    }),
+  ]), []);
+});
+
+test('lesson duration detector keeps manual payers, whose band is still real money', () => {
+  // Manual payers are excluded from the Stripe forecast but still counted in the
+  // revenue estimate, so a wrong band misstates revenue exactly as it would for
+  // a Stripe student.
+  const [issue] = buildLessonDurationIssues([
+    durationStudent({ paymentMode: 'manual' }),
+  ]);
+
+  assert.equal(issue.type, 'LESSON DURATION MISMATCH');
+  assert.equal(issue.lessonDuration.pricedApart, true);
 });
