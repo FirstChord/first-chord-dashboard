@@ -250,8 +250,42 @@ and practically reversible update for the tested shape; it does not prove that
 a cross-day move, an event with recorded attendance, a group lesson or a
 future-series move behaves the same way. Tutor cover remains the preferred
 first Phase 4 action because it is an existing operational need, while one-off
-rescheduling is not current school policy. The next identity experiment is a
-future-series move to determine whether MMS splits or replaces the series.
+rescheduling is not current school policy.
+
+#### Controlled future-series move and reversal (2026-09-15)
+
+The same synthetic lesson was then moved from 13:30 to 17:30 from 4 October
+onwards. The preflight carried `RepeatDetailsToUseForUpdate` and
+`UpdateFutureEvents: true`; it returned no conflicts, no variation, no recorded
+attendance, `IsDestructive: false` and no `NotAllowedReason`. The full-event PUT
+also carried `UpdateFutureEvents: true` and returned 200 with `true`.
+
+MMS split the recurrence at the change boundary without replacing its existing
+occurrences:
+
+- the original series gained an end date of 27 September and that occurrence's
+  `NextEventID` became null;
+- the 4 and 11 October occurrences kept their event, attendance and tutor IDs,
+  moved to 17:30, and were reassigned together to a new open-ended `SeriesID`;
+  and
+- the future occurrences retained their existing `NextEventID` chain inside
+  the new series.
+
+Changing 4 October and future back to 13:30 restored the visible schedule but
+created another new `SeriesID`. It did not rejoin the original series or reuse
+the first split series. The 4 and 11 October event and attendance IDs survived
+again, while the original series remained ended at 27 September with a null
+next-event link.
+
+Therefore a future-series timetable edit is event-identity preserving but
+series-identity destructive: reversal is visual, not structural. MMS
+`SeriesID` behaves like the identity of one recurrence rule segment, not the
+durable identity of a student's ongoing lesson relationship. First Chord must
+retain the provider segments and their revisions, and any logical lineage or
+reviewed alias between them must be explicit; matching student, tutor and slot
+is not enough to merge them automatically. A permanent-change writer must
+expect the split during read-back and must never promise that reversal restores
+the old provider series.
 
 ### Phase 3 — Attach Existing Systems to First Chord IDs
 
@@ -468,10 +502,12 @@ last verified parity view.
 
 ## Phase 2 Questions to Answer with Evidence
 
-- Does MMS preserve `SeriesID` across term changes and permanent slot moves?
+- A future-series time move generates a new `SeriesID`, and reversing it
+  generates another rather than rejoining either prior series; do term-boundary
+  changes follow the same segmentation contract?
 - A same-day, one-occurrence time move preserves event, series, attendance,
-  tutor and recurrence-chain identity; do cross-day and future-series moves
-  preserve those identities or create replacement records?
+  tutor and recurrence-chain identity; does a cross-day one-occurrence move
+  preserve those identities or create a replacement record?
 - A one-occurrence UI deletion disappears from calendar search and rewrites the
   previous row's `NextEventID`; does its mutation response or another MMS audit
   source provide a durable cancellation tombstone?
