@@ -96,6 +96,15 @@ census shows sustained growth on a watched tab.
 
 Some source formats are fragile because they come from human-edited external systems. Do not change these without updating the relevant parser/tests:
 
+- **The note-markup contract is one file kept in two repositories.**
+  `tests/fixtures/note-markup-contract.mjs` is mirrored byte-for-byte in
+  `practice-chat/tests/fixtures/`, and each repository's own test holds only its
+  own `noteMarkupToHtml` to it — so the check runs on both CIs without either
+  needing the other checked out. Editing one copy and not the other leaves both
+  suites passing while the contract has forked, so `npm run docs:check` compares
+  the two copies locally and warns (never fails; Practice Chat is absent on CI,
+  and `FIRST_CHORD_PRACTICE_CHAT` points it elsewhere). Changing the note format
+  means editing the fixture in both repositories on purpose.
 - MMS sign-up form labels `Preferred days` and `Preferred times` feed waiting-list availability matching. If the MMS form wording changes, update the waiting-list parser/tests before relying on capacity hints.
 - **`Schedule_Context.warnings` is a `" | "`-joined string of exact sentences,
   and one of them is matched by code.** `buildLessonDurationIssues` in

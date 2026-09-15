@@ -286,6 +286,33 @@ console.log(`Documentation check passed (${markdownFiles.length} docs, ${markdow
 
 for (const warning of snapshotWarnings) console.log(`Snapshot warning: ${warning}`);
 
+// The note-markup contract is one file kept in two repositories, and each
+// repository's tests only hold its own renderer to its own copy. So if someone
+// edits one copy and not the other, both suites still pass while the contract
+// has quietly forked — the exact failure the contract exists to prevent, one
+// level up.
+//
+// A warning, never a failure, and skipped when Practice Chat is not here: the
+// same rule as the vault below. A check that cannot run on CI must not gate a
+// build.
+const contractPath = path.join(repositoryRoot, 'tests/fixtures/note-markup-contract.mjs');
+const practiceChatContractPath = process.env.FIRST_CHORD_PRACTICE_CHAT
+  ? path.join(process.env.FIRST_CHORD_PRACTICE_CHAT, 'tests/fixtures/note-markup-contract.mjs')
+  : path.join(process.env.HOME || '', 'Desktop/Tools:Games/FC Admin Tools/practice-chat/tests/fixtures/note-markup-contract.mjs');
+
+if (!fs.existsSync(practiceChatContractPath)) {
+  console.log('Practice Chat not present here; note-markup contract mirror not compared.');
+} else if (!fs.existsSync(contractPath)) {
+  console.log('Note-markup contract missing from this repository.');
+} else if (fs.readFileSync(contractPath, 'utf8') === fs.readFileSync(practiceChatContractPath, 'utf8')) {
+  console.log('Note-markup contract: both copies identical.');
+} else {
+  console.log('Note-markup contract warning (not a failure — review, do not gate):');
+  console.log('- the two copies have diverged, so each repository is now testing a different contract.');
+  console.log(`  ${path.relative(repositoryRoot, contractPath)}`);
+  console.log(`  ${practiceChatContractPath}`);
+}
+
 if (!fs.existsSync(vaultRoot)) {
   console.log('Vault not present here; skipped (set FIRST_CHORD_VAULT to check it).');
 } else {

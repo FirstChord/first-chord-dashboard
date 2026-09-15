@@ -30,6 +30,20 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **The note format is now a contract both renderers are held to — DEPLOYED
+  2026-09-15:** a tutor's note is turned into HTML twice, by two separate
+  implementations — Practice Chat for the tutor's check, the dashboard for the
+  parent's email and the portal. Nobody sees both, so drift would mean the tutor
+  approves one thing and the parent receives another. They agreed on all 17
+  sampled notes, so this guards an unbroken contract rather than fixing a bug.
+  `tests/fixtures/note-markup-contract.mjs` is mirrored byte-for-byte in both
+  repositories and **each side tests only its own renderer**, so it runs on both
+  CIs with neither needing the other checked out. `docs:check` compares the two
+  copies locally and warns (never fails — Practice Chat is absent on CI).
+  Generated from the behaviour the two already agreed on, so it records what is
+  true. Verified by breaking each renderer on purpose and watching it fail.
+  **Also found:** `test:admin` globbed only `tests/admin/`, so 16 root-level
+  tests had never run on CI; the glob now covers both (1,668 → 1,684).
 - **Practice Chat lost its pilot-era scaffolding — DEPLOYED 2026-09-15:** three
   live error messages in `previewPracticeNoteMmsTestWrite` still named the pilot
   account, so a tutor whose real student had no attendance record was told the
@@ -145,40 +159,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   four earlier same-chat messages load only for the selected card, and a stale
   bridge prevents a false **All caught up**. Handled/Later gain a 12-second Undo
   guarded by the row's latest review timestamp and by any linked plan.
-- **Tutors can put photos, voice notes and video straight into First Chord's
-  Drive — BUILT AND DEPLOYED 2026-09-12, INERT UNTIL SWITCHED ON:** the tutor
-  dashboard gains a quiet newsletter strip (month, question, priority names as
-  links — no tick boxes) and a per-student capture panel with text plus camera and
-  voice-note buttons. **Correction to the earlier plan: uploading is not
-  publishing.** Those photos already sat on tutors' personal phones and in
-  WhatsApp with no school control and no retention, so moving them into a
-  controlled Drive folder is a privacy improvement; consent gates *use*, and that
-  gate already exists. The path is bounded: its own `DRIVE_*` credential scoped to
-  **`drive.file` only** (no `GOOGLE_*` fallback, unlike Gmail — a fallback would
-  silently widen the grant), a MIME allowlist, per-kind size caps enforced again
-  against arriving bytes because `Content-Length` is a claim, the body **streamed**
-  to Drive rather than buffered, Drive written before Sheets so a failure leaves
-  recoverable garbage rather than a broken row, and **no deletion anywhere in the
-  code**. `npm run newsletter:media-report` reconciles references against files.
-  Three tutor routes refuse outright unless `TUTOR_DASHBOARD_AUTH_MODE` is
-  enforced — the first routes in the repo to fail closed on a missing auth mode,
-  because the legacy public service still serves `/dashboard` with no login while
-  holding Sheets credentials. **Boundary verified live 2026-09-12:** the legacy
-  service answers `503 tutor_auth_not_enforced` and the canonical one `401
-  token_required` — the first time this has been confirmed in production rather
-  than only by test, and only possible because enforcement is now checked before
-  any token work. That 401 also means **tutor auth is already enforced on
-  canonical (pilot mode), so the strip and text capture are live today for the
-  shared `musiclessons@` account**; `TUTOR_DASHBOARD_EMAIL_MAP` is needed for
-  individual tutors to reach their own students, not for Finn to try it. Media
-  upload remains genuinely inert, returning `drive_not_configured` until the three
-  `DRIVE_*` vars are set. Full suite (1,609), lint, code-map, docs and build pass.
-  **Follow-up 2026-09-14:** priority students carry a small newsletter mark on
-  the tutor's student list (amber until something arrives, green after), and a
-  tutor's first contribution for a student emails Fenella once — internal only,
-  one configured address, never on edits. A photo-only item no longer loses its
-  arrival time when its row is rewritten, which would also have re-sent that email.
-  Record: `docs/plans/active/newsletter-loop.md`.
 - **Fenella's half of the newsletter loop is a real workflow — 2026-09-12:** the
   monthly newsletter existed only in Fenella's memory and a WhatsApp message she
   retyped. `/admin/newsletter` now holds the issue (month, question of the month,
