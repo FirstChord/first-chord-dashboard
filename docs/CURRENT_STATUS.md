@@ -43,7 +43,14 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   screen's Resolve guard reads `messageState`, which planning cards never write
   back to, so the tick is the intended human exit, not a bypass. A pause card
   whose student is missing from the Students tab now names the MMS id instead of
-  reading "Pause a student".
+  reading "Pause a student". That student was Florence Bartlett (`sdt_B4zSJc`),
+  active in MMS since 3 Sept but in neither the Students sheet nor the registry;
+  both records were added by hand on 2026-09-15. The `add-student` skill only
+  ever described the registry — a registry-only student has a working portal and
+  is still "Unknown student" on every admin card — and it still minted FC student
+  IDs from the `forename:surname:email` seed retired in 2026-09. It now picks
+  between `/admin/onboard` and the manual path first, and Theta is documented as
+  optional.
 - **A short-notice tutor cancellation can be one card per student — DEPLOYED
   2026-09-14:** cancelling a tutor absence always produced an early notice card
   (due 14 days out) and a pause card (a few days before the lesson), so a week's
