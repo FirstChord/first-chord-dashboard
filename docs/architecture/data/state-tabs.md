@@ -97,6 +97,14 @@ census shows sustained growth on a watched tab.
 Some source formats are fragile because they come from human-edited external systems. Do not change these without updating the relevant parser/tests:
 
 - MMS sign-up form labels `Preferred days` and `Preferred times` feed waiting-list availability matching. If the MMS form wording changes, update the waiting-list parser/tests before relying on capacity hints.
+- **`Schedule_Context.warnings` is a `" | "`-joined string of exact sentences,
+  and one of them is matched by code.** `buildLessonDurationIssues` in
+  `lib/admin/issue-detectors.mjs` tests for the literal
+  `Billing profile lesson duration does not match the next calendar event duration.`
+  emitted by `buildScheduleContext` in `lib/admin/schedule-context-helpers.mjs`.
+  Reword that sentence and the detector silently stops finding MMS billing
+  profiles that disagree with their own calendar — it will not error. Change both
+  together, and the test in `tests/admin/issue-detectors.test.mjs` pins the string.
 - The Google Sheets `Students` header row is a contract for dashboard reads, FC regeneration, backups, and archive/delete flows. Protect the header row in Google Sheets with an edit-warning. If a column is renamed or moved, update the readers/tests intentionally.
 - **Students tutor banners are merged cells, not blank rows.** The `Students`
   tab groups students under orange tutor bars (`MICHAEL GEMMELL`), and each bar

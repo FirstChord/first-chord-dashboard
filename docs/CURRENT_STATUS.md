@@ -30,6 +30,20 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Lesson duration disagreements are now an Issue Queue card — DEPLOYED
+  2026-09-15:** duration is the quiet input to money — it picks the weekly price
+  band in `payment-value-helpers.mjs` and the minutes a tutor is paid for — and
+  three systems hold it: the MMS calendar, the MMS billing profile, and the
+  Students sheet. Nothing compared them, so a disagreement mispriced a student
+  instead of failing. `LESSON DURATION MISMATCH` (source `lesson_duration`)
+  raises one card per student: **28 on the first run, 13 priced apart.** It
+  quotes the money by re-deriving from the live price table with the duration
+  swapped, so a price change can't leave it lying. Policy: MMS keeps duration —
+  it records what was booked and taught, the sheet records what someone typed —
+  so the fix is to surface the disagreement, not pick a winner. Flipping the
+  preference to the sheet was measured and rejected (~£170/wk of line items
+  moving to net −£7/wk). `Schedule_Context.warnings` is now a recorded format
+  contract: the detector matches one exact sentence.
 - **A tutor absence closes when its linked cards are *settled*, and can be closed
   by hand — DEPLOYED 2026-09-15:** Tom's 15 Sept absence card sat on the board for
   fifteen days saying "Every linked card is done" with nothing that would close
@@ -123,12 +137,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   tests before writing tabs. Verified live: 210/210 match, no `created_at`
   moved. Manual `generate_fc_ids.py` runs are unnecessary — the hourly job reads
   `main`. Record: `docs/plans/active/fc-student-id-convergence.md`.
-- **Rerunning a completed onboarding returns its messages — DEPLOYED
-  2026-09-11:** the duplicate guard's 409 carries the welcome and Soundslice
-  messages, and the form reads "Already onboarded — nothing was written" instead
-  of a red wall of eight skipped steps. A partial record (Students row without a
-  registry entry) is excluded and keeps the attention panel, because that one is
-  genuinely unfinished.
 - **Tutors can put photos, voice notes and video straight into First Chord's
   Drive — BUILT AND DEPLOYED 2026-09-12, INERT UNTIL SWITCHED ON:** the tutor
   dashboard gains a quiet newsletter strip (month, question, priority names as
