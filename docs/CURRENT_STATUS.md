@@ -30,6 +30,20 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **A tutor absence closes when its linked cards are *settled*, and can be closed
+  by hand — DEPLOYED 2026-09-15:** Tom's 15 Sept absence card sat on the board for
+  fifteen days saying "Every linked card is done" with nothing that would close
+  it. Six linked pause cards were done and one was parked; the planning board
+  reads parked as closed, the server handoff demanded `done`. "Done or parked"
+  now has one home, `isSettledPlanningStatus`, used by both, and the planning
+  route runs the handoff on any settling status (parking the last card used to
+  trigger nothing). The capture card gained a **Close this absence** tick, shown
+  only when nothing it delegated is still open; closing it by hand also resolves
+  the `Tutor_Absence_State` row, or the card returns. Policy: the workflow
+  screen's Resolve guard reads `messageState`, which planning cards never write
+  back to, so the tick is the intended human exit, not a bypass. A pause card
+  whose student is missing from the Students tab now names the MMS id instead of
+  reading "Pause a student".
 - **A short-notice tutor cancellation can be one card per student — DEPLOYED
   2026-09-14:** cancelling a tutor absence always produced an early notice card
   (due 14 days out) and a pause card (a few days before the lesson), so a week's
@@ -108,26 +122,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   of a red wall of eight skipped steps. A partial record (Students row without a
   registry entry) is excluded and keeps the attention panel, because that one is
   genuinely unfinished.
-- **Tutor WhatsApp groups are now a first-class group type — DEPLOYED
-  2026-09-10 (confirm-group fix 2026-09-10):** the incoming inbox previously assumed every confirmed
-  group was a parent/student lesson group. `Incoming_Message_Inbox` gains
-  `group_type` / `matched_tutor_id` / `matched_tutor_name` and
-  `WhatsApp_Group_Map` gains `group_type` / `matched_tutor_id`, all appended and
-  optional; missing means `student`, nothing is backfilled, and no existing
-  group is auto-confirmed. A tutor group is discovered by the title convention
-  `<tutor> First Chord` checked against the active roster (a shared first name
-  stays ambiguous and needs explicit selection), and confirming one clears the
-  student/sibling/parent links so one tutor message can never remap the group.
-  The consequential half is that **tutor messages are inbound work, not school
-  reply evidence** — being listed in `Tutor_Phones` suppresses a tutor's message
-  in a *student* group and must not suppress it in their own. Parent reply
-  policy is bypassed for tutor rows (neutral acknowledgement, no model call) and
-  Reply + Plan creates a general tutor Action, never a student pause inferred
-  from a tutor's dates. The bridge's confirmed-group refresh drops from 6 hours
-  to 10 minutes by default so a confirmation is usable in the same session.
-  Rollback: mark confirmed tutor groups Review/Ignored *before* reverting, or an
-  older build applies parent rules to them; leave the appended columns alone.
-
 - **Tutors can put photos, voice notes and video straight into First Chord's
   Drive — BUILT AND DEPLOYED 2026-09-12, INERT UNTIL SWITCHED ON:** the tutor
   dashboard gains a quiet newsletter strip (month, question, priority names as

@@ -47,13 +47,13 @@ cancel
   -> group repeated weekly cancellations where safe
   -> nearer the lesson, complete payment action
   -> send final confirmation saying what happened
-  -> close every linked dated absence only when its work is complete
+  -> close every linked dated absence once every linked card is settled
 
 cancel → one card now (short notice)
   -> no early notice card
   -> one structured pause card per student, due from the day it was decided
   -> run the payment tool, then send one message: absence + payment paused
-  -> close every linked dated absence only when its work is complete
+  -> close every linked dated absence once every linked card is settled
 ```
 
 The capture card offers both cancellations. **Cancel → one card now** adds
@@ -337,3 +337,23 @@ reports partial success and asks the admin to click **Resolve absence** again.
 A retry still attempts the capture completion when the absence is already resolved,
 and preserves its original resolution timestamp. These Sheets writes are not a
 transaction; concurrent external edits retain the usual last-write-wins limit.
+
+A cancelled absence usually never reaches that button: it closes automatically
+once every card carrying its absence ID is **settled**, meaning `done` *or*
+`parked`. Parking is a human deciding a card needs no action, and
+`isSettledPlanningStatus` in `lib/admin/planning-helpers.mjs` is the one home for
+that judgement — the planning board, the due-today view and
+`syncTutorAbsenceHandoffsFromPlanning` all ask it. The handoff runs from the
+planning route on any settling status, so parking the last linked card closes the
+absence exactly as finishing it does. The outcome line records how it settled,
+naming any parked cards rather than claiming they were completed.
+
+The capture card also carries a **Close this absence** tick, rendered only when
+`canCloseTutorAbsenceCapture` holds: a `cancel_day` capture, still open, whose
+linked cards have been computed and none of which is open. It marks the capture
+done and resolves the matching `Tutor_Absence_State` row — without that second
+step the open row keeps the absence live underneath and the card comes back. The
+tick deliberately skips the readiness guard above: that guard reads
+`messageState`, which the planning cards never write back to, so an absence
+worked entirely from the planning board can never satisfy it. When the linked
+cards are the record of the work, settling them all is the decision.

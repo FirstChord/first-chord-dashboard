@@ -23,6 +23,7 @@ import {
   requiresTutorAbsencePaymentTool,
   isDueNowPlanningItem,
   isOpenPlanningItem,
+  canCloseTutorAbsenceCapture,
   getPlanningStory,
   getPlanningWhatToDo,
   dueChipLabel,
@@ -130,6 +131,58 @@ test('a cancelled tutor absence names the linked cards that are still open', () 
   assert.match(getPlanningWhatToDo({ ...capture, openAbsenceCards: open }), / and 1 more\.$/u);
   assert.equal(getPlanningWhatToDo({ ...capture, openAbsenceCards: [] }), 'Every linked card is done.');
   assert.deepEqual(findOpenTutorAbsenceLinkedCards({ ...capture, notes: 'Not an absence card' }, items), []);
+});
+
+test('a parked linked card settles a tutor absence, and the capture then offers a tick', () => {
+  const absenceId = 'tutor_absence:Chloe:2026-09-19';
+  const capture = {
+    planningId: 'planning_tutor_absence_chloe_2026-09-19',
+    title: 'Tutor absence: Chloe Mak — Sat, 19 Sept 2026',
+    status: 'waiting',
+    linkedWorkflowId: 'tutor-absence',
+    linkedTutorId: 'Chloe',
+    notes: 'Tutor absence date: 2026-09-19\nTutor: Chloe\nTutor absence decision: cancel_day',
+  };
+  const items = [
+    capture,
+    { planningId: 'pause_done', title: 'Pause Alize Ekdi lesson', status: 'done', parentPlanningId: absenceId },
+    { planningId: 'pause_parked', title: 'Pause Unknown student lesson', status: 'parked', parentPlanningId: absenceId },
+  ];
+
+  // Parking is a human deciding a card needs no action, so it leaves nothing open.
+  const open = findOpenTutorAbsenceLinkedCards(capture, items);
+  assert.deepEqual(open, []);
+  assert.equal(canCloseTutorAbsenceCapture({ ...capture, openAbsenceCards: open }), true);
+
+  // One still-open card and the tick stays away.
+  assert.equal(canCloseTutorAbsenceCapture({
+    ...capture,
+    openAbsenceCards: [{ planningId: 'pause_open', title: 'Pause William McCormick lesson' }],
+  }), false);
+  // So does a capture that has already closed, and one with no cancel decision.
+  assert.equal(canCloseTutorAbsenceCapture({ ...capture, status: 'done', openAbsenceCards: [] }), false);
+  assert.equal(canCloseTutorAbsenceCapture({
+    ...capture,
+    notes: 'Tutor absence date: 2026-09-19\nTutor: Chloe\nTutor absence decision: cover',
+    openAbsenceCards: [],
+  }), false);
+  // A capture nobody has computed linked cards for is not closable by accident.
+  assert.equal(canCloseTutorAbsenceCapture(capture), false);
+});
+
+test('a pause card for a student missing from the dashboard names the MMS id', () => {
+  const item = {
+    title: 'Pause Unknown student lesson on Tue, 15 Sept 2026',
+    isPause: 'TRUE',
+    linkedStudentId: 'sdt_B4zSJc',
+    notes: 'Pause type: single lesson.\nLesson date: 2026-09-15.',
+  };
+  assert.match(getPlanningStory(item, []), /^Pause sdt_B4zSJc's lesson on /u);
+  assert.match(
+    getPlanningStory(item, [{ mmsId: 'sdt_B4zSJc', fullName: 'Florence Bartlett' }]),
+    /^Pause Florence Bartlett's lesson on /u,
+  );
+  assert.match(getPlanningStory({ ...item, linkedStudentId: '' }, []), /^Pause a student's lesson on /u);
 });
 
 test('a combined tutor-absence pause card carries its own parent message', () => {

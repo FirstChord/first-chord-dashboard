@@ -2,6 +2,7 @@
 import { planningSaveErrorBody } from '@/lib/admin/planning-duplicate-helpers.mjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
+import { isSettledPlanningStatus } from '@/lib/admin/planning-helpers.mjs';
 import {
   addPlanningProgress,
   getPlanningDashboard,
@@ -9,7 +10,7 @@ import {
   updateFirstLessonLoopStep,
   updatePlanningStatus,
 } from '@/lib/admin/planning';
-import { syncTutorAbsenceHandoffsFromPlanning } from '@/lib/admin/tutor-absence';
+import { resolveTutorAbsenceForCaptureCard, syncTutorAbsenceHandoffsFromPlanning } from '@/lib/admin/tutor-absence';
 
 export async function GET() {
   const session = await getServerSession(authOptions);
@@ -55,13 +56,21 @@ export async function POST(request) {
         actorEmail,
       });
     } else if (mode === 'status') {
+      const planningId = `${body?.planningId || ''}`.trim();
+      const status = `${body?.status || ''}`.trim();
       await updatePlanningStatus({
-        planningId: `${body?.planningId || ''}`.trim(),
-        status: body?.status || '',
+        planningId,
+        status,
         progressNote: body?.progressNote || '',
         actorEmail,
       });
-      if (`${body?.status || ''}`.trim() === 'done') {
+      // Parking settles a card as surely as finishing it, so it has to run the
+      // handoff too. Only syncing on 'done' meant parking the last linked pause
+      // card left its absence open with nothing left to click.
+      if (isSettledPlanningStatus(status)) {
+        if (status === 'done') {
+          await resolveTutorAbsenceForCaptureCard({ planningId, actorEmail });
+        }
         await syncTutorAbsenceHandoffsFromPlanning({ actorEmail });
       }
     } else {

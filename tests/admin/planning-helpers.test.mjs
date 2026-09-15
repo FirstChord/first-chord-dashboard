@@ -13,6 +13,7 @@ import {
   buildSchoolForwardPlanningItem,
   buildPauseLessonDateSuggestions,
   buildTutorAbsencePlanningId,
+  isSettledPlanningStatus,
   buildTutorAbsencePlanningItem,
   calculateFirstLessonCheckinDate,
   detectTutorAbsenceCapture,
@@ -707,6 +708,16 @@ test('detectTutorAbsenceCapture flags intent but no tutor for generic "tutor off
   const result = detectTutorAbsenceCapture('tutor off friday', TUTOR_OPTIONS);
   assert.equal(result.isTutorAbsence, true);
   assert.equal(result.tutor, null);
+});
+
+test('isSettledPlanningStatus treats parked as closed, not merely done', () => {
+  assert.equal(isSettledPlanningStatus('done'), true);
+  assert.equal(isSettledPlanningStatus('parked'), true);
+  assert.equal(isSettledPlanningStatus('active'), false);
+  assert.equal(isSettledPlanningStatus('waiting'), false);
+  assert.equal(isSettledPlanningStatus('inbox'), false);
+  assert.equal(isSettledPlanningStatus(''), false);
+  assert.equal(isSettledPlanningStatus(' Parked '), true);
 });
 
 test('buildTutorAbsencePlanningId is deterministic and keyed on tutor + date', () => {

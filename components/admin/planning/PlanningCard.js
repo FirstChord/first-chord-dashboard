@@ -13,6 +13,7 @@ import {
   isFirstLessonCheckinPlanningItem,
   isPausePlanningItem,
   isTutorAbsenceCapturePlanningItem,
+  canCloseTutorAbsenceCapture,
   isTutorAbsenceNoticePlanningItem,
   extractTutorAbsenceNoticeMessage,
   isTutorAbsenceFinalConfirmationPlanningItem,
@@ -76,6 +77,10 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
   const pausePaymentConfirmed = hasPausePaymentConfirmation(item);
   const isTutorAbsenceCard = item.linkedWorkflowId === 'tutor-absence' && Boolean(item.linkedTutorId);
   const isTutorAbsenceCapture = isTutorAbsenceCapturePlanningItem(item);
+  // A capture card normally closes itself when its linked cards settle. Once
+  // none are left open that automatic close is the only thing standing between
+  // the card and done, so a human may finish it directly.
+  const canCloseAbsence = canCloseTutorAbsenceCapture(item);
   const isTutorAbsenceNotice = isTutorAbsenceNoticePlanningItem(item);
   const tutorAbsenceNoticeMessage = isTutorAbsenceNotice ? extractTutorAbsenceNoticeMessage(item) : '';
   const isTutorAbsenceFinalConfirmation = isTutorAbsenceFinalConfirmationPlanningItem(item);
@@ -513,7 +518,7 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
             <button
               key={status}
               type="button"
-              disabled={isPending || item.status === status || (status === 'done' && (isTutorAbsenceCapture || isTutorAbsenceNotice || isTutorAbsenceFinalConfirmation || (isProject && openProjectActions.length > 0) || (isPauseReminder && !pausePaymentConfirmed)))}
+              disabled={isPending || item.status === status || (status === 'done' && ((isTutorAbsenceCapture && !canCloseAbsence) || isTutorAbsenceNotice || isTutorAbsenceFinalConfirmation || (isProject && openProjectActions.length > 0) || (isPauseReminder && !pausePaymentConfirmed)))}
               onClick={() => onStatus(item, status)}
               className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >

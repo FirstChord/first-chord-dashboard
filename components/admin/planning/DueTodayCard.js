@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Archive, Check, Loader2, Pencil, Trash2 } from 'lucide-react';
-import { isFirstLessonCheckinPlanningItem, isPausePlanningItem, isTutorAbsenceNoticePlanningItem, isTutorAbsenceFinalConfirmationPlanningItem, getPlanningStory, getPlanningWhatToDo, dueChipLabel } from '@/lib/admin/planning-client-helpers.mjs';
+import { isFirstLessonCheckinPlanningItem, isPausePlanningItem, isTutorAbsenceNoticePlanningItem, isTutorAbsenceFinalConfirmationPlanningItem, canCloseTutorAbsenceCapture, getPlanningStory, getPlanningWhatToDo, dueChipLabel } from '@/lib/admin/planning-client-helpers.mjs';
 import PlanningCard from './PlanningCard';
 
 // Calm, focused card for the "due today" view: a plain-language headline + next step
@@ -36,6 +36,7 @@ export default function DueTodayCard({
   const isTutorAbsenceNotice = isTutorAbsenceNoticePlanningItem(item);
   const isTutorAbsenceFinalConfirmation = isTutorAbsenceFinalConfirmationPlanningItem(item);
   const isTutorAbsenceCapture = !isPause && item.linkedWorkflowId === 'tutor-absence' && Boolean(item.linkedTutorId);
+  const canCloseAbsence = canCloseTutorAbsenceCapture(item);
   const [expanded, setExpanded] = useState(false);
   const story = getPlanningStory(item, studentOptions);
   const whatToDo = getPlanningWhatToDo(item);
@@ -79,6 +80,20 @@ export default function DueTodayCard({
       {!isPause && whatToDo ? <p className="mt-1 text-sm leading-6 text-slate-600">{whatToDo}</p> : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
+        {/* The one case where a capture card may be closed by hand: nothing it
+            delegated is still open. Without this the card could only wait for a
+            server sync that had already decided not to run. */}
+        {canCloseAbsence ? (
+          <button
+            type="button"
+            onClick={() => onStatus(item, 'done')}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+            Close this absence
+          </button>
+        ) : null}
         {!isPause && !isFirstLesson && !isTutorAbsenceCapture && !isTutorAbsenceNotice && !isTutorAbsenceFinalConfirmation && (
           <button
             type="button"
