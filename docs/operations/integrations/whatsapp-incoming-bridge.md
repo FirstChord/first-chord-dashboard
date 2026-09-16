@@ -247,9 +247,17 @@ must be a separate, approved official-API workflow.
 
 The bridge receives live WhatsApp events; it does not poll, so there is nothing
 to "refresh". It is also a local process, so it is offline whenever this Mac is.
-Measured over the five days to 2026-09-16 it was not running for 7% of the
-period, including **20:18–22:53 on Friday 11 September** — a Friday evening,
+Measured over the five days to 2026-09-16 there were 8 hours of complete log
+silence, including **20:18–22:53 on Friday 11 September** — a Friday evening,
 when cancellations arrive.
+
+**That undercounts it.** The bridge also crash-loops: on 16 September it
+restarted roughly 1,900 times between 07:52 and its first successful connect at
+10:53, and on 11 September around 770 times inside one hour. A flapping bridge
+writes constantly to its log while capturing nothing, so measuring downtime by
+log silence misses this mode entirely. Heartbeats do not post during a loop —
+the process dies before the 30-minute timer — so the coverage-gap record below
+catches it where silence-based measurement does not.
 
 On reconnect WhatsApp replays a backlog (`messages.upsert` with a type other
 than `notify`). The bridge used to drop all of it, because its own dedupe is
@@ -277,6 +285,32 @@ assumed to be. Truncation is logged rather than swallowed.
 **How far back WhatsApp replays is WhatsApp's decision, not ours.** This closes
 short and medium gaps reliably; it is not a guarantee that a long outage is
 fully recovered. The coverage-gap record below exists for exactly that reason.
+
+## Recovering Messages Already Missed
+
+The local cache keeps roughly a fortnight of traffic (`WHATSAPP_CACHE_MAX_AGE_DAYS`)
+and always did — history batches were cached even while they were never posted.
+So messages missed before catch-up existed are usually still on disk:
+
+```bash
+cd tools/whatsapp-incoming-bridge
+node bridge.js --replay-cache --since-days 7 --dry-run   # count first
+node bridge.js --replay-cache --since-days 7             # then post
+```
+
+It needs no WhatsApp connection — it reads the cache and posts over HTTP, so it
+is safe to run while the main bridge is up. It reuses `postCachedAutoCapture`,
+so each replayed message is built and posted exactly as a live one and **the
+dashboard applies its own rules**: staff and tutor messages become reply
+evidence, no-signal parent messages land pre-archived, and anything already
+captured is skipped server-side. Nothing in the replay decides what a message
+is; there must not be a second opinion on that.
+
+First run, 2026-09-16: 220 eligible, 219 posted (one HTTP timeout), and the
+inbox went from 967 rows to 977 — **two genuinely missed messages surfaced**, a
+tutor chasing payment from 10 Sept and a lesson cancellation from that morning.
+The rest were already captured or became reply evidence. That ratio is the point:
+replaying is cheap and mostly redundant, which is exactly why it is safe.
 
 ## Coverage Gaps
 

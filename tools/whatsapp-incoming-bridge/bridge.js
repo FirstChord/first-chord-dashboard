@@ -432,6 +432,50 @@ class WhatsAppIncomingBridge {
     return true;
   }
 
+  // One-shot recovery for messages the bridge saw but never posted — the window
+  // where it was offline, or the stretch before catch-up existed. The local
+  // cache kept them all along: history batches were always cached, they were
+  // just never sent.
+  //
+  // Reuses postCachedAutoCapture, so each replayed message is built and posted
+  // exactly as a live one, and the dashboard applies its own rules to it —
+  // staff and tutor messages become reply evidence, parent messages with no
+  // operational signal land pre-archived, and anything already captured is
+  // skipped server-side. Nothing here decides what a message *is*; that is the
+  // dashboard's job and there must not be a second opinion.
+  //
+  // Needs no WhatsApp connection: it reads the cache from disk and posts over
+  // HTTP, so it is safe to run while the main bridge is up.
+  async replayCache({ sinceDays = 7, limit = 500, dryRun = false } = {}) {
+    await this.refreshConfirmedGroups();
+    const cutoff = Date.now() - sinceDays * 24 * 60 * 60 * 1000;
+    const candidates = Array.from(this.recentMessages.values())
+      .filter((cached) => {
+        if (!this.confirmedChatIds.has(cached.chatId)) return false;
+        if (!cached.messageText || cached.messageText === '[Media or unsupported message]') return false;
+        const at = Date.parse(cached.messageAt || '');
+        return Number.isFinite(at) && at >= cutoff;
+      })
+      .sort((a, b) => `${a.messageAt}`.localeCompare(`${b.messageAt}`))
+      .slice(0, limit);
+
+    if (dryRun) {
+      return { considered: this.recentMessages.size, eligible: candidates.length, posted: 0, failed: 0, dryRun: true };
+    }
+
+    let posted = 0;
+    let failed = 0;
+    for (const cached of candidates) {
+      try {
+        if (await this.postCachedAutoCapture(cached)) posted += 1;
+      } catch (error) {
+        failed += 1;
+        this.logWarn('Cache replay failed for one message', { error: error.message });
+      }
+    }
+    return { considered: this.recentMessages.size, eligible: candidates.length, posted, failed, dryRun: false };
+  }
+
   async flushPendingConfirmedMessages() {
     if (!this.autoCaptureEnabled || this.dryRun || !this.confirmedChatIds.size) return;
     if (this.pendingCaptureFlush) return this.pendingCaptureFlush;
@@ -990,6 +1034,21 @@ async function main() {
     const result = await bridge.sendTestPayload(text);
     console.log(`Bridge intake test complete: ${result?.success === true || result?.dryRun === true ? 'success' : 'unexpected response'}`);
     return;
+  }
+  if (process.argv.includes('--replay-cache')) {
+    const flag = (name, fallback) => {
+      const index = process.argv.indexOf(name);
+      if (index === -1) return fallback;
+      const value = Number.parseInt(process.argv[index + 1] || '', 10);
+      return Number.isFinite(value) && value > 0 ? value : fallback;
+    };
+    const result = await bridge.replayCache({
+      sinceDays: flag('--since-days', 7),
+      limit: flag('--limit', 500),
+      dryRun: process.argv.includes('--dry-run'),
+    });
+    console.log('Cache replay complete:', JSON.stringify(result, null, 2));
+    process.exit(0);
   }
   if (process.argv.includes('--sync-groups')) {
     const result = await bridge.runGroupSync();
