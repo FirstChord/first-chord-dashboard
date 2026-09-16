@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, ChevronRight, Clock3, Ellipsis, RefreshCw, Reply, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/admin/ui/ActionButton';
+import { describeBridgeCoverageGap } from '@/lib/admin/bridge-coverage-helpers.mjs';
 import {
   assessBridgeHealth,
   buildIncomingUndoSnapshot,
@@ -577,6 +578,28 @@ function describeSpottedDates(entry) {
 // One-line bridge health: slate when fine, amber with the reasons when not.
 // The heavy diagnostics stay in the bridge's local logs — this is just enough
 // to tell "down", "connected but capturing nothing", and "quiet" apart.
+// A window when the bridge was not listening. Deliberately separate from the
+// live health strip and shown even when the bridge is healthy now: the bridge
+// restarts itself, so by the next morning the tick is green and there is
+// otherwise nothing at all to say Friday evening had a hole in it.
+function BridgeCoverageGaps({ coverageGaps = [] }) {
+  if (!coverageGaps.length) return null;
+
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-2 text-xs leading-5 text-amber-900">
+      <span className="font-semibold">
+        {coverageGaps.length === 1 ? 'A gap in what this inbox saw:' : `${coverageGaps.length} gaps in what this inbox saw:`}
+      </span>
+      <ul className="mt-1 space-y-0.5">
+        {coverageGaps.map((gap) => (
+          <li key={`${gap.from}-${gap.to}`}>{describeBridgeCoverageGap(gap)}</li>
+        ))}
+      </ul>
+      <p className="mt-1">Check those WhatsApp groups directly, and use Quick capture for anything that needs to be here.</p>
+    </div>
+  );
+}
+
 function BridgeStatusStrip({ bridgeStatus, lastAutoCaptureAt = '' }) {
   const health = assessBridgeHealth(bridgeStatus, { lastAutoCaptureAt });
 
@@ -1063,7 +1086,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
   );
 }
 
-export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false }) {
+export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, coverageGaps = [], lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false }) {
   const [inbox, setInbox] = useState(initialInbox);
   const [groupMap, setGroupMap] = useState(initialGroupMap);
   const [groupTutorOptions, setGroupTutorOptions] = useState(tutorOptions);
@@ -1728,6 +1751,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       />
 
       <BridgeStatusStrip bridgeStatus={bridgeStatus} lastAutoCaptureAt={latestAutoCaptureAt} />
+      <BridgeCoverageGaps coverageGaps={coverageGaps} />
 
       <section className="space-y-4">
         {/* Manual paste is the fallback now that auto-capture handles confirmed

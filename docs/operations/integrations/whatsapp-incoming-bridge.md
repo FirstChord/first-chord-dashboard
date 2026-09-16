@@ -243,6 +243,50 @@ throwing functions. Keep
 `tests/admin/whatsapp-bridge-outbound-guard.test.mjs` green. Any future sending
 must be a separate, approved official-API workflow.
 
+## Catch-Up After An Outage
+
+The bridge receives live WhatsApp events; it does not poll, so there is nothing
+to "refresh". It is also a local process, so it is offline whenever this Mac is.
+Measured over the five days to 2026-09-16 it was not running for 7% of the
+period, including **20:18–22:53 on Friday 11 September** — a Friday evening,
+when cancellations arrive.
+
+On reconnect WhatsApp replays a backlog (`messages.upsert` with a type other
+than `notify`). The bridge used to drop all of it, because its own dedupe is
+in-memory and resets on restart. **That is no longer the binding constraint:**
+capture is idempotent server-side — `buildIncomingMessageId` hashes
+`source::chatId::externalMessageId` so a replay upserts the same row, and
+`mergeIncomingCapture` skips outright when a real row exists, preserving review
+status, notes and any linked plan when it heals a placeholder.
+
+`catchUpFromHistory` therefore posts the recent part of a replay, bounded:
+
+| Bound | Default | Env |
+|---|---|---|
+| How far back | 24 hours | `BRIDGE_CATCH_UP_MAX_AGE_HOURS` |
+| Messages per batch | 200 | `BRIDGE_CATCH_UP_MAX_MESSAGES` |
+| On/off | on | `BRIDGE_CATCH_UP=false` |
+
+It reuses `maybeAutoCapture` rather than adding a second capture path, so the
+confirmed-group gate, text-only rule, session dedupe and staff/tutor reply
+handling all apply to a replayed message by construction. Messages without a
+usable timestamp are never replayed — a replay is exactly where timestamps go
+missing, and a message that cannot be shown to be inside the window must not be
+assumed to be. Truncation is logged rather than swallowed.
+
+**How far back WhatsApp replays is WhatsApp's decision, not ours.** This closes
+short and medium gaps reliably; it is not a guarantee that a long outage is
+fully recovered. The coverage-gap record below exists for exactly that reason.
+
+## Coverage Gaps
+
+A live health check answers "is the bridge up?", which by the next morning is
+always yes. When a heartbeat arrives more than 90 minutes after the previous one,
+`recordBridgeStatus` writes that window into `Bridge_Status.raw_json` and the
+inbox page shows it **even when the bridge is currently healthy** — the only
+evidence that Friday evening had a hole in it. Ninety minutes is three heartbeat
+intervals, chosen so ordinary restarts (26 in five days) stay quiet.
+
 ## Health And Recovery
 
 After connecting, the bridge refreshes confirmed groups and posts a heartbeat,

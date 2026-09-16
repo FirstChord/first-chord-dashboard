@@ -9,6 +9,7 @@ const P = require('pino');
 const qrcode = require('qrcode-terminal');
 const { titleLooksLikeFcGroup, confirmedGroupsRefreshMs } = require('./group-discovery');
 const { guardOutbound } = require('./outbound-guard');
+const { catchUpConfig, selectCatchUpMessages } = require('./catch-up');
 const {
   buildSafeDashboardResponseLog,
   buildSafePayloadLog,
@@ -630,6 +631,49 @@ class WhatsAppIncomingBridge {
     await this.postCachedAutoCapture(cached);
   }
 
+  // Post the recent part of a replayed backlog, so an outage closes itself
+  // instead of losing whatever arrived during it.
+  //
+  // Deliberately reuses maybeAutoCapture rather than a second capture path:
+  // every rule that governs a live message — confirmed group only, text only,
+  // session dedupe, staff/tutor reply handling — then governs a replayed one by
+  // construction, and there is no second implementation to drift.
+  //
+  // Sequential on purpose. A replay is tens of messages against a Sheets quota
+  // that cannot be raised, and nothing here is time-critical.
+  async catchUpFromHistory(messages = []) {
+    const config = catchUpConfig();
+    if (!config.enabled || !this.autoCaptureEnabled || this.dryRun) return;
+    if (!this.confirmedChatIds || this.confirmedChatIds.size === 0) return;
+
+    const { selected, considered, eligible, truncated } = selectCatchUpMessages(messages, {
+      maxAgeMs: config.maxAgeMs,
+      maxMessages: config.maxMessages,
+      confirmedChatIds: this.confirmedChatIds,
+    });
+    if (!selected.length) return;
+
+    let posted = 0;
+    for (const message of selected) {
+      try {
+        await this.maybeAutoCapture(message);
+        posted += 1;
+      } catch (error) {
+        this.logWarn('Catch-up capture failed for one message', { error: error.message });
+      }
+    }
+
+    // Truncation is logged rather than swallowed: a catch-up the human is told
+    // was partial beats one that silently was.
+    this.logInfo('Replayed recent history after reconnect', {
+      considered,
+      eligible,
+      posted,
+      truncated,
+      maxAgeHours: Math.round(config.maxAgeMs / (60 * 60 * 1000)),
+    });
+  }
+
   // `kill -USR1 <pid>` on the running bridge triggers a group sync on the live
   // socket. Bound once, even across reconnects.
   bindGroupSyncSignal() {
@@ -717,12 +761,21 @@ class WhatsAppIncomingBridge {
     });
 
     this.sock.ev.on('messages.upsert', async ({ messages = [], type }) => {
-      // Only live deliveries ('notify') are captured. History/append batches on
-      // reconnect replay old traffic — cache them so context is warm, but never
-      // post them (the auto-capture dedupe is in-memory and resets on restart,
-      // so a reconnect would otherwise re-post already-handled messages).
+      // Live deliveries ('notify') are captured as they arrive. History/append
+      // batches on reconnect replay old traffic — always cache them so context
+      // is warm, and additionally post the recent ones, because the bridge is
+      // offline whenever this Mac is (2026-09-11: down 20:18–22:53 on a Friday
+      // evening, and nothing sent then was ever captured).
+      //
+      // Replaying used to be unsafe because this bridge's dedupe is in-memory
+      // and resets on restart. The dashboard has since made capture idempotent:
+      // buildIncomingMessageId hashes source::chatId::externalMessageId so a
+      // replay upserts the same row, and mergeIncomingCapture skips outright
+      // when a real row exists, preserving review status, notes and any linked
+      // plan. A replay now costs redundant requests, not duplicate rows.
       if (type !== 'notify') {
         for (const message of messages) this.cacheMessage(message);
+        await this.catchUpFromHistory(messages).catch((error) => this.logWarn('Catch-up failed', { error: error.message }));
         return;
       }
       for (const message of messages) {

@@ -30,6 +30,21 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **The WhatsApp inbox now backfills after an outage and records the gap —
+  DEPLOYED 2026-09-16:** cancellations were missing because the bridge is a local
+  process that receives live push events and **never catches up** — its README
+  says history is not posted, so a message missed is missed permanently. Five
+  days of logs showed 7% of the period with nothing running, including
+  **20:18–22:53 on Friday 11 Sept**. A refresh button was the wrong fix: Railway
+  has no WhatsApp access, so it would always have truthfully said "nothing new".
+  Instead `catchUpFromHistory` posts the recent part of a reconnect replay
+  (24h/200-message bounds, `BRIDGE_CATCH_UP*`), reusing `maybeAutoCapture` so the
+  confirmed-group gate and dedupe apply by construction. Safe because capture is
+  already idempotent server-side — the bridge comment claiming otherwise had aged
+  out. And because a live health check answers "is the bridge up?" (always yes by
+  morning), a heartbeat arriving >90 min late now writes that window to
+  `Bridge_Status.raw_json` and the inbox shows it **even while healthy**. Ninety
+  minutes = three heartbeats, so ordinary restarts (26 in five days) stay quiet.
 - **The note format is now a contract both renderers are held to — DEPLOYED
   2026-09-15:** a tutor's note is turned into HTML twice, by two separate
   implementations — Practice Chat for the tutor's check, the dashboard for the
@@ -159,30 +174,7 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   four earlier same-chat messages load only for the selected card, and a stale
   bridge prevents a false **All caught up**. Handled/Later gain a 12-second Undo
   guarded by the row's latest review timestamp and by any linked plan.
-- **Fenella's half of the newsletter loop is a real workflow — 2026-09-12:** the
-  monthly newsletter existed only in Fenella's memory and a WhatsApp message she
-  retyped. `/admin/newsletter` now holds the issue (month, question of the month,
-  deadline), the priority students she asked about, what has arrived, what is
-  outstanding, what turned up unprompted, and what she has chosen to use — plus
-  one derived sentence answering *what is still preventing this issue from being
-  ready*. **Neither new tab has a status column:** `requested`, `captured`,
-  `declined`, `selected`/`not_selected` and `needs_review` are computed on read
-  from `requested_at`, `captured_at`, `tutor_response` and `editorial`, so a
-  stale write cannot leave a row claiming something untrue, and the four
-  different facts a checkbox would have conflated stay separate. Items key on the
-  **stored** `fcStudentId`; the workflow resolves it and refuses
-  (`fc_identity_unresolved` / `fc_identity_conflict`) rather than filing a child's
-  story under a name — `tests/admin/newsletter-identity-boundary.test.mjs` pins
-  that no newsletter module can import the minting helper. **Media consent now
-  has a home for the first time:** nothing in this repo, the brain or MMS recorded
-  that a parent had agreed to their child's photo being published. It is asked per
-  picture, answered `no` / `yes` / `yes + future`, and standing permission is
-  derived from a real `yes_ongoing` answer — deliberately newsletter-scoped, not a
-  general media release. A picture cannot be selected until consent is cleared,
-  re-checked server-side. Nothing is sent: tutor requests and consent asks are
-  copy-to-send via `Communication_Log`, and the upload path is refused
-  (`media_not_supported`) until the Slice 3 gates close. Design and slice gates:
-  `docs/plans/active/newsletter-loop.md`.
+
 ## Current operating contracts
 
 | Area | Current boundary |
