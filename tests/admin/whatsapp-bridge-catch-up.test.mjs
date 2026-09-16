@@ -168,3 +168,50 @@ test('the replay guard is on by default and tunable', () => {
   assert.equal(replayGuardConfig({ BRIDGE_REPLAY_MIN_INTERVAL_MINUTES: '5' }).minIntervalMs, 5 * 60 * 1000);
   assert.equal(replayGuardConfig({ BRIDGE_REPLAY_MIN_INTERVAL_MINUTES: '0' }).minIntervalMs, DEFAULT_REPLAY_MIN_INTERVAL_MS);
 });
+
+const { reconnectDelayMs, RECONNECT_BASE_MS, RECONNECT_MAX_MS } = require('../../tools/whatsapp-incoming-bridge/catch-up.js');
+
+const noJitter = { random: () => 0.5 };
+
+test('a genuine blip still reconnects immediately', () => {
+  // Backoff must not make the common case slower — the first retry is the same
+  // five seconds it always was.
+  assert.equal(reconnectDelayMs(0, noJitter), RECONNECT_BASE_MS);
+});
+
+test('repeated failures back off, and stop at a ceiling', () => {
+  assert.equal(reconnectDelayMs(1, noJitter), 10_000);
+  assert.equal(reconnectDelayMs(3, noJitter), 40_000);
+  assert.equal(reconnectDelayMs(6, noJitter), RECONNECT_MAX_MS);
+  // The cap is a real ceiling, not something jitter can push past meaningfully.
+  assert.equal(reconnectDelayMs(50, noJitter), RECONNECT_MAX_MS);
+  assert.equal(reconnectDelayMs(1000, noJitter), RECONNECT_MAX_MS);
+});
+
+test('backoff turns a three-hour sleep from ~2000 attempts into dozens', () => {
+  // This Mac sleeps after a minute idle, so the common failure is hours during
+  // which nothing can succeed. On 2026-09-16 a flat 5s retry made ~1,900.
+  let elapsed = 0;
+  let attempts = 0;
+  while (elapsed < 3 * 60 * 60 * 1000) {
+    elapsed += reconnectDelayMs(attempts, noJitter);
+    attempts += 1;
+  }
+  assert.ok(attempts < 60, `expected dozens of attempts, got ${attempts}`);
+  assert.ok(attempts > 10, `expected it to keep trying, got ${attempts}`);
+});
+
+test('jitter stays within ±20% and never goes silly', () => {
+  const low = reconnectDelayMs(3, { random: () => 0 });
+  const high = reconnectDelayMs(3, { random: () => 1 });
+  assert.equal(low, 32_000);   // 40s - 20%
+  assert.equal(high, 48_000);  // 40s + 20%
+  // Never below a floor, whatever the inputs.
+  assert.ok(reconnectDelayMs(0, { random: () => 0 }) >= RECONNECT_BASE_MS * 0.5);
+});
+
+test('a nonsense attempt count is treated as the first attempt', () => {
+  assert.equal(reconnectDelayMs(-5, noJitter), RECONNECT_BASE_MS);
+  assert.equal(reconnectDelayMs(Number.NaN, noJitter), RECONNECT_BASE_MS);
+  assert.equal(reconnectDelayMs(undefined, noJitter), RECONNECT_BASE_MS);
+});

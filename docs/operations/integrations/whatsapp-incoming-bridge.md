@@ -251,13 +251,28 @@ Measured over the five days to 2026-09-16 there were 8 hours of complete log
 silence, including **20:18–22:53 on Friday 11 September** — a Friday evening,
 when cancellations arrive.
 
-**That undercounts it.** The bridge also crash-loops: on 16 September it
+**That undercounts it, and the cause is the Mac sleeping.** `pmset -g custom`
+shows `sleep 1` on **both** battery and AC: the machine sleeps after a minute
+idle. The network goes with it, the WhatsApp socket times out (`408 timedOut`),
+and the bridge retries into a machine that cannot answer. On 16 September it
 restarted roughly 1,900 times between 07:52 and its first successful connect at
-10:53, and on 11 September around 770 times inside one hour. A flapping bridge
-writes constantly to its log while capturing nothing, so measuring downtime by
-log silence misses this mode entirely. Heartbeats do not post during a loop —
-the process dies before the 30-minute timer — so the coverage-gap record below
-catches it where silence-based measurement does not.
+10:53 — the power log shows only hourly darkwakes (07:59, 08:59, 09:59) in that
+window, so the Mac was asleep throughout and the loop ended when the laptop was
+opened. The same pattern produced ~770 restarts in one hour on 11 September.
+
+A flapping bridge writes constantly to its log while capturing nothing, so
+measuring downtime by log silence misses this mode entirely — which is how the
+original figure came to be an undercount.
+
+Reconnects now back off (5s, 10s, 20s … capped at 5 minutes, ±20% jitter,
+reset on a successful connect). A three-hour sleep costs about 40 attempts
+instead of 2,160, and a genuine blip still recovers on the first five-second
+retry. Backoff does not make the bridge available again any sooner — nothing
+can, while the machine is asleep — it stops the futile hammering, the 16MB log
+files and the CPU wake on every darkwake.
+
+**The real fix is a machine that does not sleep.** See
+`10 Idea Incubator/Ideas` in the vault for the always-on host option.
 
 On reconnect WhatsApp replays a backlog (`messages.upsert` with a type other
 than `notify`). The bridge used to drop all of it, because its own dedupe is

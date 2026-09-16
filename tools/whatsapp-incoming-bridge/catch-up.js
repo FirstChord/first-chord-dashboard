@@ -102,6 +102,33 @@ function replayGuardConfig(env = process.env) {
   };
 }
 
+// How long to wait before the next reconnect attempt.
+//
+// The reconnect used to be a flat five seconds forever. That is fine for a blip
+// and terrible for the case that actually happens: this Mac sleeps after a
+// minute idle (`pmset sleep 1`), the network goes with it, and every attempt
+// times out. On 2026-09-16 the bridge was asleep from 07:52 until the laptop was
+// opened at 10:53 and made roughly 1,900 attempts in that window — filling a
+// 16MB log, waking the CPU on every darkwake, and achieving nothing, because
+// nothing could succeed until the machine came back.
+//
+// Backoff turns those ~1,900 attempts into about 40. It does not reconnect any
+// slower in the case that matters: the first few retries are still quick, so a
+// genuine blip recovers as fast as before.
+//
+// Jitter is small but deliberate — several bridges (or a bridge and a laptop
+// wake) should not line their retries up on the same second.
+const RECONNECT_BASE_MS = 5 * 1000;
+const RECONNECT_MAX_MS = 5 * 60 * 1000;
+
+function reconnectDelayMs(attempt = 0, { baseMs = RECONNECT_BASE_MS, maxMs = RECONNECT_MAX_MS, random = Math.random } = {}) {
+  const safeAttempt = Number.isFinite(attempt) && attempt > 0 ? Math.floor(attempt) : 0;
+  // 2^attempt, capped before jitter so the cap is a real ceiling.
+  const exponential = Math.min(baseMs * (2 ** Math.min(safeAttempt, 30)), maxMs);
+  const jitter = 1 + (random() - 0.5) * 0.4; // ±20%
+  return Math.max(Math.round(exponential * jitter), Math.round(baseMs * 0.5));
+}
+
 function catchUpConfig(env = process.env) {
   const maxAgeHours = Number.parseInt(env.BRIDGE_CATCH_UP_MAX_AGE_HOURS || '', 10);
   const maxMessages = Number.parseInt(env.BRIDGE_CATCH_UP_MAX_MESSAGES || '', 10);
@@ -118,6 +145,9 @@ function catchUpConfig(env = process.env) {
 
 module.exports = {
   catchUpConfig,
+  reconnectDelayMs,
+  RECONNECT_BASE_MS,
+  RECONNECT_MAX_MS,
   replayGuardConfig,
   shouldReplayNow,
   DEFAULT_REPLAY_MIN_INTERVAL_MS,

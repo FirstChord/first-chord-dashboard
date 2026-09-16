@@ -9,7 +9,7 @@ const P = require('pino');
 const qrcode = require('qrcode-terminal');
 const { titleLooksLikeFcGroup, confirmedGroupsRefreshMs } = require('./group-discovery');
 const { guardOutbound } = require('./outbound-guard');
-const { catchUpConfig, replayGuardConfig, selectCatchUpMessages, shouldReplayNow } = require('./catch-up');
+const { catchUpConfig, reconnectDelayMs, replayGuardConfig, selectCatchUpMessages, shouldReplayNow } = require('./catch-up');
 const {
   buildSafeDashboardResponseLog,
   buildSafePayloadLog,
@@ -181,6 +181,7 @@ class WhatsAppIncomingBridge {
     this.groupSyncInFlight = false;
     this.signalHandlersBound = false;
     this.startupSyncDone = false;
+    this.reconnectAttempts = 0;
     this.loadMessageCache();
   }
 
@@ -815,6 +816,8 @@ class WhatsAppIncomingBridge {
         this.connected = true;
         this.connectedAt = nowIso();
         this.disconnectedSince = null;
+        // A real connection is the only thing that earns a fast retry again.
+        this.reconnectAttempts = 0;
         this.markHealthy();
         this.startWatchdog();
         this.logInfo('WhatsApp bridge connected');
@@ -845,7 +848,15 @@ class WhatsAppIncomingBridge {
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
         this.logWarn('WhatsApp bridge connection closed', { statusCode, shouldReconnect });
         if (shouldReconnect) {
-          setTimeout(() => this.connect().catch((error) => this.logError('Reconnect failed', { error: error.message })), 5000);
+          // Backoff, because the usual reason for a close is that this Mac went
+          // to sleep and nothing can succeed until it wakes. A flat 5s retry
+          // made ~1,900 futile attempts during one 3-hour sleep.
+          const delay = reconnectDelayMs(this.reconnectAttempts);
+          this.reconnectAttempts += 1;
+          if (this.reconnectAttempts === 1 || this.reconnectAttempts % 10 === 0) {
+            this.logWarn('Reconnecting with backoff', { attempt: this.reconnectAttempts, delayMs: delay });
+          }
+          setTimeout(() => this.connect().catch((error) => this.logError('Reconnect failed', { error: error.message })), delay);
         }
       }
     });
