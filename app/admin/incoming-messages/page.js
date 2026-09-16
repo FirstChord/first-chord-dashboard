@@ -1,6 +1,6 @@
 import AdminIncomingMessagesPageClient from '@/components/admin/AdminIncomingMessagesPageClient';
 import { getBridgeStatus, getIncomingMessageInboxPage } from '@/lib/admin/incoming-messages';
-import { parseBridgeCoverageGaps, selectRecentBridgeCoverageGaps } from '@/lib/admin/bridge-coverage-helpers.mjs';
+import { parseBridgeCoverageGaps, selectUnrecoveredBridgeCoverageGaps } from '@/lib/admin/bridge-coverage-helpers.mjs';
 import { getIncomingReplyProposals } from '@/lib/admin/incoming-reply-proposals';
 import { isIncomingReplyDraftingConfigured } from '@/lib/admin/incoming-reply-ai-provider.mjs';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
@@ -47,7 +47,7 @@ export default async function AdminIncomingMessagesPage() {
     students = loadedStudents;
     bridgeStatus = loadedBridgeStatus;
     // Derived from the status row already loaded above — no extra read.
-    coverageGaps = selectRecentBridgeCoverageGaps(parseBridgeCoverageGaps(loadedBridgeStatus?.rawJson || ''));
+    coverageGaps = selectUnrecoveredBridgeCoverageGaps(parseBridgeCoverageGaps(loadedBridgeStatus?.rawJson || ''));
     replyProposals = loadedProposals.openByIncomingId || {};
   } catch (caught) {
     error = caught.message || 'Could not load incoming messages';

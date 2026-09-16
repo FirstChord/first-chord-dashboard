@@ -578,24 +578,24 @@ function describeSpottedDates(entry) {
 // One-line bridge health: slate when fine, amber with the reasons when not.
 // The heavy diagnostics stay in the bridge's local logs — this is just enough
 // to tell "down", "connected but capturing nothing", and "quiet" apart.
-// A window when the bridge was not listening. Deliberately separate from the
-// live health strip and shown even when the bridge is healthy now: the bridge
-// restarts itself, so by the next morning the tick is green and there is
-// otherwise nothing at all to say Friday evening had a hole in it.
+// A window the bridge missed and the automatic replay could not backfill.
+//
+// Shown even when the bridge is healthy now, because it restarts itself and by
+// the next morning the tick is green with nothing left to say the night had a
+// hole in it. But only for a hole that is still a hole: gaps inside the replay
+// window are filtered out upstream, so this stays absent on an ordinary day
+// rather than becoming furniture above the queue.
+//
+// One line per gap, no heading and no advice. What to do about a missed message
+// is the same thing this screen is already for.
 function BridgeCoverageGaps({ coverageGaps = [] }) {
   if (!coverageGaps.length) return null;
 
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-2 text-xs leading-5 text-amber-900">
-      <span className="font-semibold">
-        {coverageGaps.length === 1 ? 'A gap in what this inbox saw:' : `${coverageGaps.length} gaps in what this inbox saw:`}
-      </span>
-      <ul className="mt-1 space-y-0.5">
-        {coverageGaps.map((gap) => (
-          <li key={`${gap.from}-${gap.to}`}>{describeBridgeCoverageGap(gap)}</li>
-        ))}
-      </ul>
-      <p className="mt-1">Check those WhatsApp groups directly, and use Quick capture for anything that needs to be here.</p>
+      {coverageGaps.map((gap) => (
+        <p key={`${gap.from}-${gap.to}`}>{describeBridgeCoverageGap(gap)}</p>
+      ))}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import {
   detectBridgeCoverageGap,
   parseBridgeCoverageGaps,
   selectRecentBridgeCoverageGaps,
+  selectUnrecoveredBridgeCoverageGaps,
   serialiseBridgeCoverageGaps,
 } from '../../lib/admin/bridge-coverage-helpers.mjs';
 
@@ -93,32 +94,54 @@ test('a bare array of gaps is still readable', () => {
   assert.deepEqual(parseBridgeCoverageGaps(JSON.stringify(gaps)), gaps);
 });
 
-test('the line says what was lost, not what is wrong now', () => {
-  // Read the morning after, when the bridge is back and every live indicator
-  // looks fine.
+test('the line says when and how long, and then stops', () => {
+  // It only appears for a hole the replay could not fill, so it does not need a
+  // heading or advice about what to do — the reader is looking at the inbox.
   const line = describeBridgeCoverageGap({
-    from: '2026-09-11T20:18:00.000Z',
-    to: '2026-09-11T22:53:00.000Z',
-    minutes: 155,
+    from: '2026-09-12T18:00:00.000Z',
+    to: '2026-09-15T09:00:00.000Z',
+    minutes: 3780,
   });
 
-  assert.match(line, /^Not capturing for 2\.6 hours, /u);
-  assert.match(line, /any WhatsApp message sent in that window is not in this inbox\.$/u);
+  assert.match(line, /\(63 hours\) not captured\.$/u);
+  assert.ok(line.split('\n').length === 1, 'the gap line must be one line');
   assert.equal(describeBridgeCoverageGap(null), '');
 });
 
-test('a sub-hour outage reads in minutes', () => {
-  // Only reachable with a lowered threshold — the default is 90 minutes — but
-  // the threshold is a parameter, so the wording has to hold below an hour.
-  assert.match(
-    describeBridgeCoverageGap({ from: '2026-09-11T20:18:00.000Z', to: '2026-09-11T21:03:00.000Z', minutes: 45 }),
-    /^Not capturing for 45 minutes, /u,
-  );
-  // And a whole number of hours does not read as "2.0 hours".
-  assert.match(
-    describeBridgeCoverageGap({ from: '2026-09-11T20:00:00.000Z', to: '2026-09-11T22:00:00.000Z', minutes: 120 }),
-    /^Not capturing for 2 hours, /u,
-  );
+test('durations read naturally at every scale', () => {
+  const at = (minutes) => describeBridgeCoverageGap({
+    from: '2026-09-11T20:00:00.000Z',
+    to: '2026-09-11T22:00:00.000Z',
+    minutes,
+  });
+  assert.match(at(45), /\(45 minutes\) not captured\.$/u);
+  // A whole number of hours must not read as "2.0 hours".
+  assert.match(at(120), /\(2 hours\) not captured\.$/u);
+  assert.match(at(155), /\(2\.6 hours\) not captured\.$/u);
+});
+
+test('a gap the replay already backfilled is never shown', () => {
+  // The bridge replays the last 24h on every reconnect, and a reconnect is what
+  // ends a gap. Announcing a filled hole would make the banner permanent
+  // furniture, because the bridge crash-loops most days.
+  const twoHourLoop = { from: '2026-09-16T11:01:00.000Z', to: '2026-09-16T13:01:00.000Z', minutes: 120 };
+  const now = new Date('2026-09-16T14:00:00.000Z');
+
+  assert.deepEqual(selectUnrecoveredBridgeCoverageGaps([twoHourLoop], { now }), []);
+  // Still recorded — this filters the display, not the evidence.
+  assert.equal(selectRecentBridgeCoverageGaps([twoHourLoop], { now }).length, 1);
+});
+
+test('a gap longer than the replay window is shown, because part of it is gone', () => {
+  const longWeekend = { from: '2026-09-12T18:00:00.000Z', to: '2026-09-15T09:00:00.000Z', minutes: 3780 };
+  const now = new Date('2026-09-15T12:00:00.000Z');
+
+  assert.deepEqual(selectUnrecoveredBridgeCoverageGaps([longWeekend], { now }), [longWeekend]);
+  // The boundary belongs to the recoverable side.
+  const exactly24h = { from: '2026-09-14T09:00:00.000Z', to: '2026-09-15T09:00:00.000Z', minutes: 1440 };
+  assert.deepEqual(selectUnrecoveredBridgeCoverageGaps([exactly24h], { now }), []);
+  const justOver = { ...exactly24h, minutes: 1441 };
+  assert.equal(selectUnrecoveredBridgeCoverageGaps([justOver], { now }).length, 1);
 });
 
 test('only recent gaps surface, newest first', () => {

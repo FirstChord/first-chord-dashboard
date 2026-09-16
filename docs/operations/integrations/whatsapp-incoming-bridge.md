@@ -343,10 +343,22 @@ replaying is cheap and mostly redundant, which is exactly why it is safe.
 
 A live health check answers "is the bridge up?", which by the next morning is
 always yes. When a heartbeat arrives more than 90 minutes after the previous one,
-`recordBridgeStatus` writes that window into `Bridge_Status.raw_json` and the
-inbox page shows it **even when the bridge is currently healthy** — the only
-evidence that Friday evening had a hole in it. Ninety minutes is three heartbeat
-intervals, chosen so ordinary restarts (26 in five days) stay quiet.
+`recordBridgeStatus` writes that window into `Bridge_Status.raw_json`. Ninety
+minutes is three heartbeat intervals, chosen so ordinary restarts (26 in five
+days) stay quiet.
+
+**Recording a gap and showing one are different decisions.** Every gap is
+recorded; the inbox banner shows only those the automatic replay could not have
+filled — `selectUnrecoveredBridgeCoverageGaps`, meaning longer than the 24-hour
+catch-up window. A reconnect is what ends a gap and also what triggers the
+replay, so a shorter gap is already backfilled by the time anyone reads the
+page. The bridge crash-loops most days, so showing those would put a permanent
+amber banner above the queue, and a warning that is always on is not a warning.
+The line itself is one sentence with no heading and no advice: what to do about
+a missed message is what the screen is already for.
+
+`selectRecentBridgeCoverageGaps` returns everything for diagnosis. The filter is
+on the display, never on the evidence.
 
 ## Health And Recovery
 
