@@ -9,7 +9,7 @@ const P = require('pino');
 const qrcode = require('qrcode-terminal');
 const { titleLooksLikeFcGroup, confirmedGroupsRefreshMs } = require('./group-discovery');
 const { guardOutbound } = require('./outbound-guard');
-const { catchUpConfig, selectCatchUpMessages } = require('./catch-up');
+const { catchUpConfig, replayGuardConfig, selectCatchUpMessages, shouldReplayNow } = require('./catch-up');
 const {
   buildSafeDashboardResponseLog,
   buildSafePayloadLog,
@@ -476,6 +476,49 @@ class WhatsAppIncomingBridge {
     return { considered: this.recentMessages.size, eligible: candidates.length, posted, failed, dryRun: false };
   }
 
+  replayMarkerPath() {
+    return path.join(path.dirname(this.cachePath), 'last-replay.json');
+  }
+
+  readLastReplayAt() {
+    try {
+      return JSON.parse(fs.readFileSync(this.replayMarkerPath(), 'utf8')).lastReplayAt || '';
+    } catch {
+      return '';
+    }
+  }
+
+  writeLastReplayAt(value) {
+    try {
+      fs.writeFileSync(this.replayMarkerPath(), JSON.stringify({ lastReplayAt: value }));
+    } catch (error) {
+      this.logWarn('Could not write the replay marker', { error: error.message });
+    }
+  }
+
+  // Runs the cache replay on connect so nobody has to remember to. Guarded by a
+  // marker on disk rather than anything in memory, because a crash-loop is a new
+  // process every five seconds and an in-memory floor would not survive it.
+  //
+  // The marker is written *before* the replay, not after: a crash part-way
+  // through then costs one skipped window instead of leaving the loop free to
+  // restart the replay every five seconds.
+  async maybeAutoReplayCache() {
+    const guard = replayGuardConfig();
+    if (!guard.enabled || this.dryRun) return;
+    if (!shouldReplayNow({ lastReplayAt: this.readLastReplayAt(), minIntervalMs: guard.minIntervalMs })) return;
+
+    this.writeLastReplayAt(nowIso());
+    const config = catchUpConfig();
+    const result = await this.replayCache({
+      sinceDays: Math.max(Math.ceil(config.maxAgeMs / (24 * 60 * 60 * 1000)), 1),
+      limit: config.maxMessages,
+    });
+    if (result.posted || result.failed) {
+      this.logInfo('Replayed cached messages after connect', result);
+    }
+  }
+
   async flushPendingConfirmedMessages() {
     if (!this.autoCaptureEnabled || this.dryRun || !this.confirmedChatIds.size) return;
     if (this.pendingCaptureFlush) return this.pendingCaptureFlush;
@@ -780,7 +823,10 @@ class WhatsAppIncomingBridge {
         this.refreshConfirmedGroups()
           .then(() => this.resumePendingGroupDiscovery())
           .then(() => this.sendBridgeStatus())
-          .catch(() => {});
+          // Last, so a replay failure can never delay the heartbeat that tells
+          // the dashboard this bridge is alive.
+          .then(() => this.maybeAutoReplayCache())
+          .catch((error) => this.logWarn('Post-connect work failed', { error: error.message }));
         this.scheduleConfirmedGroupsRefresh();
         this.scheduleHeartbeat();
         if (this.syncGroupsOnStart && !this.startupSyncDone) {

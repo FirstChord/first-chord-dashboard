@@ -123,3 +123,48 @@ test('catch-up bounds are configurable, and nonsense falls back to the defaults'
   assert.equal(catchUpConfig({ BRIDGE_CATCH_UP_MAX_AGE_HOURS: '0' }).maxAgeMs, 24 * 60 * 60 * 1000);
   assert.equal(catchUpConfig({ BRIDGE_CATCH_UP_MAX_MESSAGES: 'lots' }).maxMessages, DEFAULT_MAX_MESSAGES);
 });
+
+const {
+  replayGuardConfig,
+  shouldReplayNow,
+  DEFAULT_REPLAY_MIN_INTERVAL_MS,
+} = require('../../tools/whatsapp-incoming-bridge/catch-up.js');
+
+test('a crash-loop cannot use reconnects to trigger repeated replays', () => {
+  // The bridge restarted ~1,900 times between 07:52 and 10:53 on 2026-09-16.
+  // Each is a fresh process with an empty in-memory dedupe, so the floor has to
+  // be persisted or every restart would refire the whole eligible cache.
+  const justReplayed = new Date(NOW - 5 * 1000).toISOString();
+  assert.equal(shouldReplayNow({ lastReplayAt: justReplayed, now: NOW }), false);
+
+  const tenMinutesAgo = new Date(NOW - 10 * 60 * 1000).toISOString();
+  assert.equal(shouldReplayNow({ lastReplayAt: tenMinutesAgo, now: NOW }), false);
+});
+
+test('a replay is due once the interval has passed', () => {
+  const overAnHourAgo = new Date(NOW - 61 * 60 * 1000).toISOString();
+  assert.equal(shouldReplayNow({ lastReplayAt: overAnHourAgo, now: NOW }), true);
+  // Exactly on the boundary counts.
+  const exactly = new Date(NOW - DEFAULT_REPLAY_MIN_INTERVAL_MS).toISOString();
+  assert.equal(shouldReplayNow({ lastReplayAt: exactly, now: NOW }), true);
+});
+
+test('a missing or unreadable marker does not disable recovery', () => {
+  // Failing closed here would silently turn catch-up off on a fresh install.
+  assert.equal(shouldReplayNow({ lastReplayAt: '', now: NOW }), true);
+  assert.equal(shouldReplayNow({ lastReplayAt: 'not a date', now: NOW }), true);
+  assert.equal(shouldReplayNow({ now: NOW }), true);
+});
+
+test('a marker in the future is a clock change, not a licence to spam', () => {
+  const ahead = new Date(NOW + 6 * 60 * 60 * 1000).toISOString();
+  assert.equal(shouldReplayNow({ lastReplayAt: ahead, now: NOW }), false);
+});
+
+test('the replay guard is on by default and tunable', () => {
+  assert.equal(replayGuardConfig({}).enabled, true);
+  assert.equal(replayGuardConfig({}).minIntervalMs, DEFAULT_REPLAY_MIN_INTERVAL_MS);
+  assert.equal(replayGuardConfig({ BRIDGE_REPLAY_ON_CONNECT: 'false' }).enabled, false);
+  assert.equal(replayGuardConfig({ BRIDGE_REPLAY_MIN_INTERVAL_MINUTES: '5' }).minIntervalMs, 5 * 60 * 1000);
+  assert.equal(replayGuardConfig({ BRIDGE_REPLAY_MIN_INTERVAL_MINUTES: '0' }).minIntervalMs, DEFAULT_REPLAY_MIN_INTERVAL_MS);
+});

@@ -69,6 +69,39 @@ function selectCatchUpMessages(messages = [], {
   };
 }
 
+// Whether an automatic cache replay is due.
+//
+// This guard is the whole design. The bridge crash-loops — roughly 1,900
+// restarts between 07:52 and 10:53 on 2026-09-16 — and each restart is a fresh
+// process with an empty in-memory dedupe. Replaying on connect without a
+// persisted floor would fire the entire eligible cache at the dashboard every
+// five seconds, against a Sheets quota that cannot be raised. The marker is
+// therefore written to disk, and written *before* the replay runs, so a crash
+// part-way through costs one skipped window rather than starting a stampede.
+function shouldReplayNow({ lastReplayAt = '', now = Date.now(), minIntervalMs = DEFAULT_REPLAY_MIN_INTERVAL_MS } = {}) {
+  const last = Date.parse(`${lastReplayAt || ''}`);
+  // Never replayed, or an unreadable marker: treat as due. A missing marker
+  // should not disable recovery.
+  if (!Number.isFinite(last)) return true;
+  // A marker in the future is a clock change, not a licence to spam.
+  if (last > now) return false;
+  return now - last >= minIntervalMs;
+}
+
+// Half an hour: long enough that a crash-loop cannot use it as a trigger,
+// short enough that a genuine outage is picked up within one heartbeat cycle.
+const DEFAULT_REPLAY_MIN_INTERVAL_MS = 30 * 60 * 1000;
+
+function replayGuardConfig(env = process.env) {
+  const minutes = Number.parseInt(env.BRIDGE_REPLAY_MIN_INTERVAL_MINUTES || '', 10);
+  return {
+    enabled: `${env.BRIDGE_REPLAY_ON_CONNECT ?? 'true'}`.toLowerCase() !== 'false',
+    minIntervalMs: Number.isFinite(minutes) && minutes > 0
+      ? minutes * 60 * 1000
+      : DEFAULT_REPLAY_MIN_INTERVAL_MS,
+  };
+}
+
 function catchUpConfig(env = process.env) {
   const maxAgeHours = Number.parseInt(env.BRIDGE_CATCH_UP_MAX_AGE_HOURS || '', 10);
   const maxMessages = Number.parseInt(env.BRIDGE_CATCH_UP_MAX_MESSAGES || '', 10);
@@ -85,6 +118,9 @@ function catchUpConfig(env = process.env) {
 
 module.exports = {
   catchUpConfig,
+  replayGuardConfig,
+  shouldReplayNow,
+  DEFAULT_REPLAY_MIN_INTERVAL_MS,
   messageTimestampMs,
   selectCatchUpMessages,
   DEFAULT_MAX_AGE_MS,

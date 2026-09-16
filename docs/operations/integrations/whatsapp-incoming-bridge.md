@@ -288,9 +288,21 @@ fully recovered. The coverage-gap record below exists for exactly that reason.
 
 ## Recovering Messages Already Missed
 
-The local cache keeps roughly a fortnight of traffic (`WHATSAPP_CACHE_MAX_AGE_DAYS`)
-and always did — history batches were cached even while they were never posted.
-So messages missed before catch-up existed are usually still on disk:
+**This runs automatically on connect** (`maybeAutoReplayCache`), so recovery
+needs no human. The guard is the design: the bridge crash-loops, and each
+restart is a fresh process with an empty in-memory dedupe, so the floor is a
+marker written to `cache/last-replay.json` — **before** the replay, so a crash
+part-way through costs one skipped window instead of letting the loop restart
+the replay every five seconds. Default floor 30 minutes
+(`BRIDGE_REPLAY_MIN_INTERVAL_MINUTES`, `BRIDGE_REPLAY_ON_CONNECT=false` to turn
+it off). It runs after the heartbeat, so a replay failure can never delay the
+status the dashboard uses to decide the bridge is alive.
+
+The manual command remains for a wider window than the automatic one, or to
+check before posting. The local cache keeps roughly a fortnight of traffic
+(`WHATSAPP_CACHE_MAX_AGE_DAYS`) and always did — history batches were cached
+even while they were never posted, so messages missed before catch-up existed
+are usually still on disk:
 
 ```bash
 cd tools/whatsapp-incoming-bridge
