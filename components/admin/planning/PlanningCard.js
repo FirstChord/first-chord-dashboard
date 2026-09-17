@@ -779,14 +779,14 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
             <textarea
               value={progressNote}
               onChange={(event) => setProgressNote(event.target.value)}
-              placeholder={`What moved forward:\n-\n\nUseful decisions:\n-\n\nWhat felt stuck:\n-\n\nWhat we learned:\n-\n\nNext improvement to make time for:\n-`}
+              placeholder={`What changed for students, families or tutors?\n-\n\nWhich constraint moved (demand, capacity, operations, teaching, space or finance)?\n-\n\nWhat evidence shows it improved?\n-\n\nSingle next improvement to commit to:\n-\n\nWhat are we deliberately not pursuing yet?\n-`}
               rows={4}
               className="min-h-28 w-full rounded-xl border border-emerald-200 bg-emerald-50/40 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-500"
             />
             <input
               value={nextAction}
               onChange={(event) => setNextAction(event.target.value)}
-              placeholder="Next improvement to make time for"
+              placeholder="One next improvement to commit to"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-800 placeholder:text-slate-400"
             />
             <p className="text-xs leading-5 text-slate-500">
