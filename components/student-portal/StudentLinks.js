@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { SheetMusicIcon } from '@/components/shared/FCIcons';
+import { SheetMusicIcon, ShootingStarIcon } from '@/components/shared/FCIcons';
 
 export default function StudentLinks({ student }) {
   return (
@@ -39,6 +39,26 @@ export default function StudentLinks({ student }) {
             </div>
           </div>
         )}
+
+        {student.hasTheta && student.thetaUrl ? (
+          <div className="flex flex-col gap-3 rounded-lg border-2 border-green-200 bg-green-50 p-3 transition-colors hover:border-green-300 sm:flex-row sm:items-center sm:justify-between sm:gap-0 sm:p-4">
+            <div className="flex items-center gap-3">
+              <ShootingStarIcon className="h-8 w-8 sm:h-9 sm:w-9" />
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800 sm:text-base">Theta Music Trainer</h3>
+                <p className="text-xs text-gray-600 sm:text-sm">Music theory games and exercises</p>
+              </div>
+            </div>
+            <a
+              href={student.thetaUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700 sm:px-4 sm:text-base"
+            >
+              Open <ExternalLink className="h-4 w-4" />
+            </a>
+          </div>
+        ) : null}
       </div>
     </div>
   );

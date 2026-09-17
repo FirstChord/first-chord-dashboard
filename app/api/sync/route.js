@@ -1,6 +1,7 @@
-/** @fileoverview Tutor-authorized resync pulling the tutor's students from MMS with Soundslice links and notes tokens attached. */
+/** @fileoverview Tutor-authorized MMS resync attaching Soundslice, explicit Theta access, and per-student notes tokens. */
 import mmsClient from '@/lib/mms-client-cached';
 import { enhanceStudentsWithSoundslice } from '@/lib/soundslice-mappings';
+import { enhanceStudentsWithThetaAccess } from '@/lib/theta-access.mjs';
 import { addStudentNotesTokens } from '@/lib/tutor-surface-token.mjs';
 import { getActiveTutorOptions } from '@/lib/admin/tutors';
 import { requireTutorDashboardAccess, tutorAuthErrorBody } from '@/lib/tutor-auth';
@@ -35,7 +36,9 @@ export async function POST(request) {
     
     if (mmsResult.success && mmsResult.students) {
       // Enhance MMS data with hardcoded Soundslice courses
-      const enhancedStudents = enhanceStudentsWithSoundslice(mmsResult.students);
+      const enhancedStudents = enhanceStudentsWithThetaAccess(
+        enhanceStudentsWithSoundslice(mmsResult.students),
+      );
       const studentsWithNoteTokens = addStudentNotesTokens(enhancedStudents, { tutor });
       console.log('Enhanced students with Soundslice courses');
       

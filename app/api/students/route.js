@@ -1,6 +1,7 @@
-/** @fileoverview Tutor-authorized student list built straight from MMS, enriched with Soundslice links and per-student notes tokens. */
+/** @fileoverview Tutor-authorized MMS student list enriched with Soundslice, explicit Theta access, and per-student notes tokens. */
 import mmsClient from '@/lib/mms-client-cached';
 import { enhanceStudentsWithSoundslice } from '@/lib/soundslice-mappings';
+import { enhanceStudentsWithThetaAccess } from '@/lib/theta-access.mjs';
 import { addStudentNotesTokens } from '@/lib/tutor-surface-token.mjs';
 import { getActiveTutorOptions } from '@/lib/admin/tutors';
 import { requireTutorDashboardAccess, tutorAuthErrorBody } from '@/lib/tutor-auth';
@@ -29,7 +30,9 @@ export async function GET(request) {
       if (mmsResult.success && mmsResult.students) {
         console.log('Found students from MMS:', mmsResult.students.length);
         // Enhance with Soundslice courses
-        const enhancedStudents = enhanceStudentsWithSoundslice(mmsResult.students);
+        const enhancedStudents = enhanceStudentsWithThetaAccess(
+          enhanceStudentsWithSoundslice(mmsResult.students),
+        );
         return Response.json({
           students: addStudentNotesTokens(enhancedStudents, { tutor }),
         });

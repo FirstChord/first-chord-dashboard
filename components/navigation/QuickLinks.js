@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import { ExternalLink } from 'lucide-react';
+import { ShootingStarIcon } from '@/components/shared/FCIcons';
 import { generateSmartUrls } from '@/lib/config';
 import { resolvePracticeChatAsrModel } from '@/lib/config/practice-chat-asr.mjs';
 import { appendPracticeChatEvaluationParams } from '@/lib/config/practice-chat-eval.mjs';
@@ -96,6 +97,12 @@ export default function QuickLinks({ student, activeTutor = '', onOpenPracticeCh
       url: buildPracticeChatUrl(student, activeTutor, priorNote),
       instruction: "Mark the register and take homework notes",
     },
+    ...(student.hasTheta && student.thetaUrl ? [{
+      name: "Theta Music Trainer",
+      icon: <ShootingStarIcon className="h-14 w-14" />,
+      url: student.thetaUrl,
+      instruction: "Open Caroline's music theory games",
+    }] : []),
     ...(student.instrument === 'Piano' ? [{
       name: "Piano Handbook",
       icon: (

@@ -1,7 +1,7 @@
 ---
 status: supporting
 audience: [human, agent]
-last_verified: 2026-08-10
+last_verified: 2026-09-17
 ---
 # Tutor and student surfaces
 
@@ -21,14 +21,17 @@ Tutor dashboard:
 - browse/assign catalogue songs and paths, reorder/status assignments, request a
   missing song, and optionally record an outcome;
 - open Practice Chat with student and API handoff context — the dashboard's only
-  route to taking the register (2026-08-10). Quick Access no longer links Theta
-  or MyMusicStaff; the student portal keeps its own Theta link.
+  route to taking the register (2026-08-10). Quick Access no longer links
+  MyMusicStaff and keeps Theta retired by default; an explicit per-student
+  registry exception may show the public Theta login link without exposing a
+  credential.
 
 Student portal:
 
 - show the latest parent-visible First Chord practice note, with MMS fallback;
 - show active assigned songs in tutor-defined order;
-- open the student's Soundslice course and optional Theta access.
+- open the student's Soundslice course and, for an explicit registry exception,
+  the public Theta login page.
 
 ## Ownership
 

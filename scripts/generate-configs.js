@@ -209,6 +209,7 @@ function generateStudentHelpers(registry, tutorGroups) {
   let output = `// GENERATED — do not edit directly. Run: npm run generate-configs to regenerate.
 // Student portal helper functions
 import { thetaCredentials } from '@/lib/config/theta-credentials';
+import { getThetaAccessForStudent } from '@/lib/theta-access.mjs';
 
 // Import existing soundslice mappings
 import SOUNDSLICE_MAPPINGS from '@/lib/soundslice-mappings';
@@ -249,20 +250,20 @@ export function getStudentInfo(studentId) {
     return null;
   }
 
-  // The Theta credential is still read here, but only to derive the display
-  // name — it is deliberately NOT returned. The student dashboard's Theta
-  // button was removed on 2026-08-17 as the school moves off Theta Music
-  // Trainer, and this object is serialised into the page's RSC payload, so
-  // returning the credential would ship a live login to every student's browser
-  // for a feature that no longer exists.
+  // The legacy credential is still read only to derive the display name. It is
+  // never returned to the public page. Theta visibility is an explicit registry
+  // exception and the browser/password manager remains responsible for login.
   const thetaCredential = thetaCredentials[studentId];
+  const thetaAccess = getThetaAccessForStudent(studentId);
   const soundsliceUrl = SOUNDSLICE_MAPPINGS[studentId];
 
   return {
     id: studentId,
     name: extractNameFromCredentials(thetaCredential),
     soundsliceUrl: soundsliceUrl,
-    hasSoundslice: !!soundsliceUrl
+    hasSoundslice: !!soundsliceUrl,
+    hasTheta: !!thetaAccess,
+    thetaUrl: thetaAccess?.loginUrl || ''
   };
 }
 
