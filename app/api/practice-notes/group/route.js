@@ -200,6 +200,7 @@ export async function POST(request) {
           recipientProfileId: entry.recipient?.recipientProfileId || '',
           recipientName: entry.recipient?.name || '',
           recipientEmail: entry.recipient?.email || '',
+          bccRecipientEmails: (entry.bccRecipients || []).map((other) => other?.email || '').filter(Boolean),
           emailChannel: suppressEmailReason || isAbsentNoMakeup ? 'none' : 'gmail',
           source: 'practice_chat_group_lesson',
           createdAt: existingDelivery?.createdAt || snapshot.createdAt || new Date().toISOString(),

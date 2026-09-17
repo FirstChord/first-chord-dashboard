@@ -13,6 +13,24 @@ Plain-English explanations of technical terms used in the admin dashboard. This 
 
 - **Path template** — a named ordered list of catalogue song IDs (`lib/config/path-templates.mjs`, canonical hand-edited). "Assign path" instantiates it into per-student `Song_Assignments` rows; the student copy is personal from then on.
 
+## Split household (split billing)
+
+A student paid for by more than one person — most often separated parents
+sharing the fees. Stripe cannot split one subscription across two cards, so a
+split household is **two subscriptions**. The one in `Students` is the **primary
+payer** (Payment Pause, the pause workflow and every issue detector read only
+it); every additional payer is a row in `Split_Billing`, which records links and
+never amounts. The finance matcher sums a student's subscriptions into one
+weekly revenue figure and attaches every payer's invoices to that student, so a
+legitimate split does not read as unmatched money.
+
+Separately, a household can have more than one **practice-note recipient**: the
+first parent on the MMS record is the `To:` address and every other
+email-capable parent is **Bcc'd** on the same send, so neither sees the other's
+address and a reply cannot become a reply-all between them. The tutor confirms
+the `To:` address and Practice Chat names who else is copied. Recorded per note
+in `Practice_Notes_Log.bcc_recipient_emails`.
+
 ## Newsletter issue, item, and priority request
 
 A **newsletter issue** is one month (`Newsletter_Issues`, keyed `YYYY-MM`): the question of the month, the deadline, and Fenella's intro. A **newsletter item** is one contribution (`Newsletter_Items`) — and the same row shape covers both a **priority request** (a student Fenella asked about, before anything has arrived) and an unsolicited **extra** (something a tutor noticed for a student who was never on the list). Which one a row is, is derived, not stored: `requested_at` set with no `captured_at` is a request; `captured_at` set with no `requested_at` is an extra.

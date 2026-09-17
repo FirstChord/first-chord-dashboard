@@ -141,7 +141,18 @@ test('Practice Notes keep reviewed catalogue links separate from unlisted observ
     'unlisted_song_titles_json',
     'song_link_version',
   ]);
-  assert.equal(PRACTICE_NOTES_LOG_HEADERS.length, 38);
+  assert.equal(PRACTICE_NOTES_LOG_HEADERS.length, 39);
+  // A household can have more than one parent on the MMS record. The primary is
+  // the `To:` address and stays in the singular recipient columns; everyone else
+  // is Bcc'd on the same send and recorded here, so "who actually received this"
+  // is answerable from the log rather than inferred from MMS as it is today.
+  const recipientStart = PRACTICE_NOTES_LOG_HEADERS.indexOf('recipient_profile_id');
+  assert.deepEqual(PRACTICE_NOTES_LOG_HEADERS.slice(recipientStart, recipientStart + 4), [
+    'recipient_profile_id',
+    'recipient_name',
+    'recipient_email',
+    'bcc_recipient_emails',
+  ]);
 });
 
 test('Incoming messages store Later as wake-up state, not a resolution status', () => {

@@ -5,6 +5,7 @@ import {
   buildGmailRawMessage,
   buildPracticeNoteEmailContent,
   buildPracticeNoteEmailSubject,
+  normaliseEmailList,
 } from '../../lib/admin/practice-notes-email-helpers.mjs';
 import {
   getPracticeNotesEmailConfig,
@@ -96,4 +97,68 @@ test('getPracticeNotesEmailConfig can reuse the dashboard Google OAuth client', 
   assert.equal(config.clientSecret, 'google-secret');
   assert.equal(config.refreshToken, 'gmail-refresh');
   assert.deepEqual(config.missing, []);
+});
+
+function decodeRaw(raw = '') {
+  return Buffer.from(raw.replace(/-/gu, '+').replace(/_/gu, '/'), 'base64').toString('utf8');
+}
+
+test('a second parent is Bcc\'d, not added to the To line', () => {
+  // Calan's parents are separated. Neither address may appear in the other's
+  // copy, and a reply must not become a reply-all between them.
+  const decoded = decodeRaw(buildGmailRawMessage({
+    fromEmail: 'musiclessons@firstchord.co.uk',
+    toEmail: 'ross@example.com',
+    bccEmails: ['clare@example.com'],
+    subject: 'Practice notes for Calan',
+  }));
+
+  assert.match(decoded, /To: ross@example\.com/u);
+  assert.match(decoded, /Bcc: clare@example\.com/u);
+  assert.doesNotMatch(decoded, /To:.*clare@example\.com/u);
+  assert.doesNotMatch(decoded, /Cc: /u);
+});
+
+test('buildGmailRawMessage omits the Bcc header for a single-parent household', () => {
+  const decoded = decodeRaw(buildGmailRawMessage({
+    fromEmail: 'musiclessons@firstchord.co.uk',
+    toEmail: 'parent@example.com',
+    subject: 'Practice notes',
+  }));
+
+  assert.doesNotMatch(decoded, /Bcc:/u);
+});
+
+test('the primary address is never also Bcc\'d itself', () => {
+  // MMS can list the same carer twice across parent records; a duplicate would
+  // otherwise deliver two copies to the same inbox.
+  const decoded = decodeRaw(buildGmailRawMessage({
+    fromEmail: 'musiclessons@firstchord.co.uk',
+    toEmail: 'ross@example.com',
+    bccEmails: ['ross@example.com', 'clare@example.com', 'clare@example.com'],
+    subject: 'Practice notes',
+  }));
+
+  assert.match(decoded, /Bcc: clare@example\.com\r\n/u);
+});
+
+test('Bcc addresses cannot smuggle a header break', () => {
+  const decoded = decodeRaw(buildGmailRawMessage({
+    fromEmail: 'musiclessons@firstchord.co.uk',
+    toEmail: 'ross@example.com',
+    bccEmails: ['clare@example.com\r\nSubject: Injected'],
+    subject: 'Practice notes',
+  }));
+
+  // encodeHeader collapses the CRLF, so the text survives as part of the Bcc
+  // value. What must never happen is it starting a header line of its own.
+  assert.doesNotMatch(decoded, /\r\nSubject: Injected/u);
+  assert.match(decoded, /\r\nSubject: Practice notes\r\n/u);
+});
+
+test('normaliseEmailList accepts recipient objects and bare strings', () => {
+  assert.deepEqual(
+    normaliseEmailList([{ email: 'clare@example.com' }, 'ross@example.com', { email: '' }, 'CLARE@example.com']),
+    ['clare@example.com', 'ross@example.com'],
+  );
 });

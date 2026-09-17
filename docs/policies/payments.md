@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-04
+last_verified: 2026-09-17
 ---
 # Payments Rules
 
@@ -74,6 +74,38 @@ not imply lower collection unless First Chord's observed paid-invoice evidence
 shows a stable relationship. A holiday adjustment must be evaluated against at
 least one full seasonal cycle, separately from explicit student pause dates,
 before it can influence the headline prediction.
+
+## Split Households
+
+A student may be paid for by more than one person. Stripe cannot split one
+subscription across two cards, so a split household is two subscriptions, and
+`Students` has room for exactly one.
+
+`Students.stripe_customer_id` / `stripe_subscription_id` remain the **primary
+payer**. Every rule above — issue detection, pause reconciliation, expectation —
+continues to read only those, unchanged. Additional payers are recorded in
+`Split_Billing`, which the dashboard reads and never writes: Finn creates both
+subscriptions in Stripe by hand and records the secondary one. A row there
+carries links, never amounts.
+
+Two matching rules follow from it. The amounts cache holds one row per real
+subscription and `buildStripeAmountsMap` sums a student's rows, so a split
+household's revenue is the whole household's, not one payer's. Collected-invoice
+matching gains one entry per additional payer, so the second payer's paid
+invoices attach to the student instead of being reported as unmatched money —
+without that, a correct arrangement would contribute a false error to the scored
+monthly test every month, and a reconciliation gap that is always there is a gap
+nobody reads.
+
+Ambiguity rules are unchanged, with one clarification: "a customer-only invoice
+is matched only when that customer identifies one student" means one *student*,
+not one match entry. A split household contributes several entries for the same
+student and must not thereby look ambiguous to itself.
+
+Recording a split neither authorises a Stripe mutation nor changes payment
+expectation. The pause workflow still acts on the primary subscription only;
+that is a known remaining gap, tracked in
+`docs/plans/active/two-payer-households.md`.
 
 Allowed payment modes are `stripe`, `manual`, and `unknown`. Approved manual
 payment students are not evaluated as broken Stripe students.

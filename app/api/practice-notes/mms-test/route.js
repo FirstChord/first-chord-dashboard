@@ -138,6 +138,11 @@ export async function POST(request) {
     const target = preview.targetAttendance || {};
     const selection = preview.targetSelection || {};
     const recipient = preview.recipients?.[0] || {};
+    // Households with more than one parent on the MMS record: the rest are Bcc'd
+    // on the same send. The tutor still confirms only the `To:` address — the
+    // gate proves the right household, and Practice Chat names who else is copied.
+    const bccRecipients = (preview.recipients || []).slice(1);
+    const bccRecipientEmails = bccRecipients.map((entry) => entry?.email || '').filter(Boolean);
     const confirmedRecipientEmail = `${body.confirmedRecipientEmail || ''}`.trim();
     if (!isAbsentNoMakeup && (
       body.confirmRecipient !== true
@@ -192,6 +197,9 @@ export async function POST(request) {
       recipientProfileId: recipient.recipientProfileId || existingDelivery?.recipientProfileId || '',
       recipientName: recipient.name || existingDelivery?.recipientName || '',
       recipientEmail: recipient.email || existingDelivery?.recipientEmail || '',
+      bccRecipientEmails: bccRecipientEmails.length
+        ? bccRecipientEmails
+        : existingDelivery?.bccRecipientEmails || [],
       emailChannel: existingDelivery?.emailChannel || 'gmail',
       source: 'practice_chat_pwa_level_2_test',
       createdAt: noteCreatedAt,
@@ -324,6 +332,12 @@ export async function POST(request) {
         const finalNote = normalisePracticeNotePayload({
           ...baseNotePayload,
           recipientEmail: recipient.email || email.toEmail || existingDelivery?.recipientEmail || '',
+          // Prefer what the send actually reported over what we intended.
+          bccRecipientEmails: email.bccEmails?.length
+            ? email.bccEmails
+            : bccRecipientEmails.length
+              ? bccRecipientEmails
+              : existingDelivery?.bccRecipientEmails || [],
           emailChannel: isAbsentNoMakeup ? 'none' : email.channel || 'gmail',
           emailSendStatus: isAbsentNoMakeup ? 'not_sent_absent' : email.ok === false ? 'failed' : 'sent',
           emailSentAt: isAbsentNoMakeup || email.ok === false ? '' : completedAt,

@@ -93,7 +93,7 @@ test('Stripe amounts endpoint refreshes both caches against one fixed capture ti
   assert.deepEqual(buildArgs, {
     receivedSubscriptions: subscriptions,
     receivedStudents: students,
-    options: { now: AT },
+    options: { now: AT, splitBillingRows: [] },
   });
   assert.equal(replacedRows, rows);
   assert.equal(invoiceMonth, '2026-07');
@@ -155,7 +155,40 @@ test('Stripe amounts endpoint uses archived students only for prior-month invoic
   const response = await handler(request());
   assert.equal(response.status, 200);
   assert.equal(cacheStudents, students);
-  assert.deepEqual(collectionOptions, { month: '2026-07', students, archivedStudents });
+  assert.deepEqual(collectionOptions, { month: '2026-07', students, archivedStudents, splitBillingRows: [] });
+});
+
+test('Stripe endpoint passes recorded split-billing payers to both matchers', async () => {
+  // Without this the second parent's subscription is invisible to the amounts
+  // cache and their paid invoices stay permanently unmatched.
+  const splitBillingRows = [{ mms_id: 'sdt_BpDPJZ', stripe_subscription_id: 'sub_clare' }];
+  let cacheOptions = null;
+  let collectionOptions = null;
+  const handler = createHandler({
+    getSplitBilling: async () => splitBillingRows,
+    buildCacheRows: (_subscriptions, _students, options) => {
+      cacheOptions = options;
+      return { rows: [], unmatchedStudents: 0, unmatchedSubscriptions: 0 };
+    },
+    summariseInvoices: (_invoices, options) => {
+      collectionOptions = options;
+      return {
+        month: options.month,
+        collectedTotal: 0,
+        invoiceCount: 0,
+        matchedTotal: 0,
+        matchedInvoiceCount: 0,
+        unmatchedTotal: 0,
+        unmatchedInvoiceCount: 0,
+        studentBreakdown: [],
+      };
+    },
+  });
+
+  const response = await handler(request());
+  assert.equal(response.status, 200);
+  assert.equal(cacheOptions.splitBillingRows, splitBillingRows);
+  assert.equal(collectionOptions.splitBillingRows, splitBillingRows);
 });
 
 test('Stripe endpoint durably locks the forecast before any provider read', async () => {

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  buildSplitBillingIndex,
   buildStripeCollectionMatchStudents,
   buildStripeAmountsCacheRows,
   buildStripeAmountsMap,
@@ -210,4 +211,161 @@ test('summariseCollectedInvoices matches a prior-month invoice through the archi
 test('previousMonthKey returns the last full calendar month, across year ends', () => {
   assert.equal(previousMonthKey(new Date('2026-07-06T06:00:00Z')), '2026-06');
   assert.equal(previousMonthKey(new Date('2026-01-10T06:00:00Z')), '2025-12');
+});
+
+// --- Split billing: two parents, two subscriptions, one student ----------------
+// Calan Clacherty's separated parents each pay half. Stripe cannot split one
+// subscription across two cards, so the household is two subscriptions and
+// `Students` has room for exactly one.
+
+const CALAN = { mmsId: 'sdt_BpDPJZ', fullName: 'Calan Clacherty', stripeSubscriptionId: 'sub_ross', stripeCustomerId: 'cus_ross', paymentMode: 'stripe' };
+const CALAN_SPLIT = [{
+  mms_id: 'sdt_BpDPJZ',
+  student_name: 'Calan Clacherty',
+  payer_label: 'Clare',
+  stripe_customer_id: 'cus_clare',
+  stripe_subscription_id: 'sub_clare',
+  share_pct: '50',
+  active: 'yes',
+}];
+
+test('buildSplitBillingIndex drops inactive and linkless rows', () => {
+  const index = buildSplitBillingIndex([
+    ...CALAN_SPLIT,
+    { mms_id: 'sdt_BpDPJZ', payer_label: 'Old', stripe_subscription_id: 'sub_dead', active: 'no' },
+    { mms_id: 'sdt_other', payer_label: 'No links at all' },
+    { payer_label: 'No student' },
+  ]);
+
+  assert.deepEqual(index.get('sdt_BpDPJZ'), [
+    { customerId: 'cus_clare', subscriptionId: 'sub_clare', payerLabel: 'Clare' },
+  ]);
+  assert.equal(index.has('sdt_other'), false);
+});
+
+test('a split household contributes one labelled cache row per real subscription', () => {
+  const { rows, unmatchedSubscriptions } = buildStripeAmountsCacheRows(
+    [weeklySub({ id: 'sub_ross', customer: 'cus_ross', unitAmount: 1250 }), weeklySub({ id: 'sub_clare', customer: 'cus_clare', unitAmount: 1250 })],
+    [CALAN],
+    { now: NOW, splitBillingRows: CALAN_SPLIT },
+  );
+
+  assert.equal(rows.length, 2);
+  assert.deepEqual(rows.map((row) => row.stripe_subscription_id), ['sub_ross', 'sub_clare']);
+  assert.deepEqual(rows.map((row) => row.payer_label), ['', 'Clare']);
+  assert.equal(rows.every((row) => row.mms_id === 'sdt_BpDPJZ'), true);
+  // The second parent's subscription is no longer an orphan.
+  assert.equal(unmatchedSubscriptions, 0);
+});
+
+test('without the split row the second subscription is orphaned and the student is halved', () => {
+  // This is the behaviour being fixed — pinned so a regression is visible.
+  const { rows, unmatchedSubscriptions } = buildStripeAmountsCacheRows(
+    [weeklySub({ id: 'sub_ross', customer: 'cus_ross', unitAmount: 1250 }), weeklySub({ id: 'sub_clare', customer: 'cus_clare', unitAmount: 1250 })],
+    [CALAN],
+    { now: NOW },
+  );
+
+  assert.equal(rows.length, 1);
+  assert.equal(unmatchedSubscriptions, 1);
+});
+
+test('buildStripeAmountsMap sums a split household into one weekly figure', () => {
+  // resolveStudentRevenue reads this as the student's whole weekly revenue.
+  const checkedAt = NOW.toISOString();
+  const { amounts, count } = buildStripeAmountsMap([
+    { mms_id: 'sdt_BpDPJZ', stripe_subscription_id: 'sub_ross', weekly_amount: 12.5, monthly_amount: 54.17, checked_at: checkedAt },
+    { mms_id: 'sdt_BpDPJZ', stripe_subscription_id: 'sub_clare', weekly_amount: 12.5, monthly_amount: 54.17, checked_at: checkedAt },
+  ], { now: NOW });
+
+  assert.equal(count, 1);
+  assert.equal(amounts.sdt_BpDPJZ.weekly, 25);
+  assert.equal(amounts.sdt_BpDPJZ.monthly, 108.34);
+});
+
+test('buildStripeAmountsMap will not double-count a repeated subscription row', () => {
+  const checkedAt = NOW.toISOString();
+  const { amounts } = buildStripeAmountsMap([
+    { mms_id: 'sdt_BpDPJZ', stripe_subscription_id: 'sub_ross', weekly_amount: 12.5, checked_at: checkedAt },
+    { mms_id: 'sdt_BpDPJZ', stripe_subscription_id: 'sub_ross', weekly_amount: 12.5, checked_at: checkedAt },
+  ], { now: NOW });
+
+  assert.equal(amounts.sdt_BpDPJZ.weekly, 12.5);
+});
+
+test('the second parent\'s invoices attach to the student instead of unmatched money', () => {
+  const june = Math.floor(new Date('2026-06-15T12:00:00Z').getTime() / 1000);
+  const invoices = [
+    { status: 'paid', amount_paid: 1250, created: june, subscription: 'sub_ross', customer: 'cus_ross' },
+    { status: 'paid', amount_paid: 1250, created: june, subscription: 'sub_clare', customer: 'cus_clare' },
+  ];
+
+  const without = summariseCollectedInvoices(invoices, { month: '2026-06', students: [CALAN] });
+  assert.equal(without.unmatchedTotal, 12.5, 'today Clare\'s payment is unmatched money');
+
+  const withSplit = summariseCollectedInvoices(invoices, { month: '2026-06', students: [CALAN], splitBillingRows: CALAN_SPLIT });
+  assert.equal(withSplit.unmatchedTotal, 0);
+  assert.equal(withSplit.unmatchedInvoiceCount, 0);
+  assert.deepEqual(withSplit.studentBreakdown, [
+    { mms_id: 'sdt_BpDPJZ', student_name: 'Calan Clacherty', invoice_count: 2, paid_days: [15], amount: 25 },
+  ]);
+});
+
+test('two payers sharing one Stripe customer stay an unambiguous match', () => {
+  // "This customer identifies one student" must mean one student, not one
+  // match entry, or a split household would look ambiguous to itself.
+  const june = Math.floor(new Date('2026-06-15T12:00:00Z').getTime() / 1000);
+  const summary = summariseCollectedInvoices(
+    [{ status: 'paid', amount_paid: 1250, created: june, customer: 'cus_ross' }],
+    {
+      month: '2026-06',
+      students: [CALAN],
+      splitBillingRows: [{ mms_id: 'sdt_BpDPJZ', payer_label: 'Clare', stripe_customer_id: 'cus_ross', stripe_subscription_id: 'sub_clare', active: 'yes' }],
+    },
+  );
+
+  assert.equal(summary.unmatchedTotal, 0);
+  assert.equal(summary.matchedTotal, 12.5);
+});
+
+test('a split row repeating the primary payer cannot double-count it', () => {
+  const entries = buildStripeCollectionMatchStudents([CALAN], [], [
+    { mms_id: 'sdt_BpDPJZ', payer_label: 'Duplicate', stripe_customer_id: 'cus_ross', stripe_subscription_id: 'sub_ross', active: 'yes' },
+  ]);
+
+  assert.equal(entries.length, 1);
+});
+
+test('alternating full-price fortnightly payers total the same as one weekly subscription', () => {
+  // Calan's actual arrangement: each parent pays the full lesson price, every
+  // other week, on their own subscription. Stripe puts the cadence on the price
+  // (interval_count: 2), and mapSubscriptionToAmounts divides by it — so the two
+  // halves of the household land on the same weekly basis as anyone else.
+  const fortnightly = (id, customer) => weeklySub({ id, customer, unitAmount: 2500, intervalCount: 2 });
+  const { rows, unmatchedSubscriptions } = buildStripeAmountsCacheRows(
+    [fortnightly('sub_ross', 'cus_ross'), fortnightly('sub_clare', 'cus_clare')],
+    [CALAN],
+    { now: NOW, splitBillingRows: CALAN_SPLIT },
+  );
+
+  assert.deepEqual(rows.map((row) => row.weekly_amount), [12.5, 12.5]);
+  assert.equal(unmatchedSubscriptions, 0);
+
+  const { amounts } = buildStripeAmountsMap(rows, { now: NOW });
+  const single = mapSubscriptionToAmounts(weeklySub({ unitAmount: 2500 }));
+  assert.equal(amounts.sdt_BpDPJZ.weekly, single.weekly, 'the household is worth one full weekly lesson');
+});
+
+test('a fortnightly household\'s invoices all land on the student', () => {
+  const at = (iso) => Math.floor(new Date(`${iso}T10:00:00Z`).getTime() / 1000);
+  const summary = summariseCollectedInvoices([
+    { status: 'paid', amount_paid: 2500, created: at('2026-09-01'), subscription: 'sub_ross', customer: 'cus_ross' },
+    { status: 'paid', amount_paid: 2500, created: at('2026-09-08'), subscription: 'sub_clare', customer: 'cus_clare' },
+    { status: 'paid', amount_paid: 2500, created: at('2026-09-15'), subscription: 'sub_ross', customer: 'cus_ross' },
+    { status: 'paid', amount_paid: 2500, created: at('2026-09-22'), subscription: 'sub_clare', customer: 'cus_clare' },
+  ], { month: '2026-09', students: [CALAN], splitBillingRows: CALAN_SPLIT });
+
+  assert.equal(summary.unmatchedTotal, 0);
+  assert.equal(summary.matchedTotal, 100);
+  assert.deepEqual(summary.studentBreakdown[0].paid_days, [1, 8, 15, 22]);
 });

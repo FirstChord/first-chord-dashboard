@@ -30,6 +30,33 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **A household can have two parents and two payers — 2026-09-17:** Calan
+  Clacherty's separated parents split his fees. Two flat assumptions surfaced.
+  MMS holds `Family.Parents[]` and `buildPracticeNoteEmailRecipients` was already
+  plural, but four consumers took `[0]`, so adding the second parent in MMS meant
+  one of them silently received nothing. Practice notes now send once with the
+  first MMS parent on `To:` and every other on `Bcc:` — chosen over two separate
+  emails and over both on `To:` so neither separated parent sees the other's
+  address or can reply-all to them — recorded in
+  `Practice_Notes_Log.bcc_recipient_emails`, with Practice Chat naming who is
+  copied before the tutor confirms. Separately, Stripe cannot split a
+  subscription across two cards, so a split household is two subscriptions and
+  `Students` has room for one. New read-only `Split_Billing` tab records the
+  additional payers as **links, not money**; `Students` keeps the primary payer
+  so Payment Pause, pause and issue detection are untouched. The amounts cache is
+  now one row per subscription and `buildStripeAmountsMap` sums them; collected
+  invoices match every payer. That last one is the point: without it a correct
+  arrangement would report Clare's payment as unmatched money every month
+  forever, and a reconciliation gap that is always there is one nobody reads.
+  The household keeps its existing alternating plans — two full-price
+  fortnightly subscriptions — rather than moving to half-weekly:
+  `mapSubscriptionToAmounts` divides by `interval_count`, so both shapes reach
+  the same weekly figure and no code prefers either. The cost is operational —
+  a cancellation falls in one parent's week, and pause reaches the primary
+  subscription only.
+  Deferred: the FC identity layer still knows one parent — `generate_fc_ids.py`
+  builds from the Sheets `Students` tab, not MMS, so it needs a source first.
+  Plan: `docs/plans/active/two-payer-households.md`.
 - **Payment setup completion now closes the dashboard loop — 2026-09-17:** Alma
   Freeth remained on Overview after her Stripe setup was fixed because the live
   `Students` row still explicitly said `payment_expectation = setup_pending`;
@@ -148,19 +175,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   IDs from the `forename:surname:email` seed retired in 2026-09. It now picks
   between `/admin/onboard` and the manual path first, and Theta is documented as
   optional.
-- **A short-notice tutor cancellation can be one card per student — DEPLOYED
-  2026-09-14:** cancelling a tutor absence always produced an early notice card
-  (due 14 days out) and a pause card (a few days before the lesson), so a week's
-  notice meant an already-overdue notice and a second message to the same parent
-  days later. Cancel now offers **one card now** or **notice now, pause later** —
-  a human choice, not a date threshold. The combined choice writes
-  `Tutor absence notice mode: combined` on the capture card before the handoff
-  runs; no early notice card is created, and each pause card is due from the day
-  it was decided and carries one message covering the absence and the pause,
-  unlocked only after the payment-tool step. The stored decision stays
-  `cancel_day`, so absence state, reconciliation, finance and the auto-close are
-  unchanged. The absence card also now names the linked cards it is still
-  waiting on. Contract: `docs/workflows/tutors/absence-to-pause.md`.
 ## Current operating contracts
 
 | Area | Current boundary |
