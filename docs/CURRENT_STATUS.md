@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-11
+last_verified: 2026-09-17
 ---
 # Admin current status
 
@@ -30,6 +30,20 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Payment setup completion now closes the dashboard loop — 2026-09-17:** Alma
+  Freeth remained on Overview after her Stripe setup was fixed because the live
+  `Students` row still explicitly said `payment_expectation = setup_pending`;
+  the Brain/registry does not own that field and the dashboard was correctly
+  preserving the human workflow state. A read-only live check confirmed her
+  customer and active subscription, paid invoice, successful payment and no
+  Stripe issues, then her expectation was changed to
+  `stripe_active_expected` with an `Event_Log` audit row. The setup queue now
+  offers **Verify and mark complete** only when both Stripe IDs exist. The
+  reviewed click reads live Stripe, evaluates the evidence as active-expected,
+  refuses missing/not-billing/problem states, then uses the existing audited
+  student update with stale-state guards. It never changes Stripe and a generic
+  Brain/Sheets refresh is deliberately not offered: refresh was not the missing
+  operation.
 - **The WhatsApp inbox now backfills after an outage and records the gap —
   DEPLOYED 2026-09-16:** cancellations were missing because the bridge is a local
   process that receives live push events and **never catches up** — its README
@@ -147,34 +161,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   `cancel_day`, so absence state, reconciliation, finance and the auto-close are
   unchanged. The absence card also now names the linked cards it is still
   waiting on. Contract: `docs/workflows/tutors/absence-to-pause.md`.
-- **The Message Inbox is a focused, faster processing queue and unknown live
-  groups are recoverable without weakening confirmation — DEPLOYED
-  2026-09-12; return-checkpoint refinement DEPLOYED 2026-09-13:** Libby Brooks's
-  12:04 absence message for Adam
-  reached the bridge cache but not the inbox. Adam's chat ID was absent from the
-  228 confirmed groups and from a fresh 366-group WhatsApp snapshot even though
-  the account received its live event. The bridge now retains only that live
-  message as pending, performs a rate-limited targeted metadata lookup, and
-  surfaces a likely First Chord group for human review. Confirmation releases
-  the pending message on the next ten-minute refresh; the dashboard's stable
-  message identity makes retries a no-op. The title never enables capture,
-  history batches are never replayed, and non-First-Chord groups remain local.
-  The everyday UI now keeps a compact queue beside one selected message, opens
-  the same detail with a sticky return control on mobile, and keeps Reply + Plan
-  in the inbox: a successful copy/create advances to the adjacent message and
-  leaves Open full plan as an optional link. Burst outcomes are one batched
-  write; ordinary mutations return changed rows instead of rebuilding the whole
-  inbox. Done loads only when opened, returns the 100 most recent rows while
-  preserving the full 906-row count, and skips the unused 840-row Planning
-  join; the 485-row group map also waits for its panel. The active inbox tabs
-  are prefetched together. The next narrow refinement keeps WhatsApp opening
-  separate from the queue and requires a human **Sent — finish & next** on
-  return; a session-only handoff preserves the reply and optional plan link.
-  Selection and scroll survive refreshes on this device, the queue shows x of y,
-  four earlier same-chat messages load only for the selected card, and a stale
-  bridge prevents a false **All caught up**. Handled/Later gain a 12-second Undo
-  guarded by the row's latest review timestamp and by any linked plan.
-
 ## Current operating contracts
 
 | Area | Current boundary |

@@ -1,5 +1,7 @@
 import Link from 'next/link';
+import PaymentSetupCompletionButton from '@/components/admin/PaymentSetupCompletionButton';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
+import { assessPaymentSetupCompletion } from '@/lib/admin/payment-summary.mjs';
 import {
   buildStripeCustomerDashboardUrl,
   DEFAULT_STRIPE_DASHBOARD_BASE_URL,
@@ -56,7 +58,7 @@ function getPaymentExpectationLabel(value = '') {
   return labels[value] || value;
 }
 
-function StripeLinkageSummary({ student }) {
+function StripeLinkageSummary({ student, showSetupCompletion = false }) {
   const hasCustomer = Boolean(student.stripeCustomerId);
   const hasSubscription = Boolean(student.stripeSubscriptionId);
   const stripeCustomerUrl = buildStripeCustomerDashboardUrl(
@@ -80,6 +82,14 @@ function StripeLinkageSummary({ student }) {
         >
           Stripe customer ↗
         </a>
+      ) : null}
+      {showSetupCompletion && assessPaymentSetupCompletion({ student }).canCheck ? (
+        <PaymentSetupCompletionButton
+          mmsId={student.mmsId}
+          studentName={student.fullName || student.mmsId}
+          expectedPaymentMode={student.paymentMode}
+          expectedPaymentExpectation={student.paymentExpectation}
+        />
       ) : null}
     </div>
   );
@@ -186,7 +196,9 @@ export default async function AdminStudentsPage({ searchParams }) {
                 <td className="px-4 py-3 text-sm text-slate-700">{student.instrument || '—'}</td>
                 <td className="px-4 py-3 text-sm text-slate-700">{student.email || '—'}</td>
                 <td className="px-4 py-3 text-sm text-slate-700">{student.contactNumber || '—'}</td>
-                <td className="px-4 py-3"><StripeLinkageSummary student={student} /></td>
+                <td className="px-4 py-3">
+                  <StripeLinkageSummary student={student} showSetupCompletion={isSetupQueue} />
+                </td>
                 <td className="px-4 py-3 text-sm text-slate-700">{student.mmsId}</td>
                 <td className="px-4 py-3 text-sm text-slate-700">
                   {student.hasFlags ? (

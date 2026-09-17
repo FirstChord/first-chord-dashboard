@@ -89,6 +89,18 @@ For a Stripe-managed student with a blank expectation, no Stripe IDs means
 setup-pending. Existing linkage means active-expected unless explicit evidence
 says otherwise; stale or incomplete linkage must remain visible.
 
+An explicit `setup_pending` value remains workflow state even after both Stripe
+IDs appear; linkage alone must not silently clear it. The attended completion
+path is `/admin/students?paymentExpectation=setup_pending` → **Verify and mark
+complete**. It is offered only when both IDs are recorded, and the human click
+performs a live read evaluated as `stripe_active_expected`. Missing customer or
+subscription evidence, a non-billing subscription, or any normal live payment
+issue refuses the transition. Clean evidence writes
+`stripe_active_expected` through the existing stale-guarded student route and
+appends the normal payment-field audit event. It never mutates Stripe. A generic
+Brain or Sheets refresh is not a substitute: the registry does not own payment
+expectation, and refresh cannot decide that setup work is complete.
+
 ## Deterministic Issue Rules
 
 Issue type names are API/storage contracts. Search every consumer and update
