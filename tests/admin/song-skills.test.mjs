@@ -4,6 +4,7 @@ import test from 'node:test';
 import {
   buildSkillCoverage,
   skillIdsForSong,
+  cardSkillLabelsForSong,
   skillLabelsForSong,
   skillsForSong,
 } from '../../lib/songs/skills-helpers.mjs';
@@ -158,4 +159,17 @@ test('no instrument silently shows a blank skill layer to its tutors', () => {
       + 'INSTRUMENTS_WITHOUT_SKILLS with a reason.',
     );
   }
+});
+
+test('cards show the rarest skills first and at most three of them', () => {
+  const catalogue = {
+    a: { tags: ['strumming', 'dynamics'] },
+    b: { tags: ['strumming', 'dynamics'] },
+    c: { tags: ['strumming', 'syncopation'] },
+  };
+  const song = { tags: ['strumming', 'dynamics', 'syncopation', 'swing feel'] };
+  assert.deepEqual(
+    cardSkillLabelsForSong(song, { catalogue }),
+    ['Swing feel', 'Syncopation', 'Dynamics'],
+  );
 });

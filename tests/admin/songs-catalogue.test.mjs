@@ -61,7 +61,7 @@ test('RSL Acoustic 2026 intake is complete for every populated Soundslice list',
     .filter(([songId]) => songId.startsWith('fc_song_ac26_'))
     .map(([, song]) => song);
 
-  assert.equal(songs.length, 25);
+  assert.equal(songs.length, 33);
   assert.ok(songs.every((song) => song.instruments.length === 1 && song.instruments[0] === 'Guitar'));
   assert.ok(songs.every((song) => song.contentType === 'song'));
   assert.ok(songs.every((song) => song.tags.includes('2026 syllabus')));
@@ -69,7 +69,7 @@ test('RSL Acoustic 2026 intake is complete for every populated Soundslice list',
   const countsByList = Object.groupBy(songs, (song) => song.soundslice.sourceListId);
   assert.deepEqual(
     Object.fromEntries(Object.entries(countsByList).map(([listId, rows]) => [listId, rows.length])),
-    { CZZG7: 9, '5ZZG7': 9, LZZG7: 4, '3JZG7': 2, '-BwG7': 1 }
+    { CZZG7: 9, '5ZZG7': 9, lZZG7: 4, LZZG7: 8, '3JZG7': 2, '-BwG7': 1 }
   );
 
   const populatedLevels = new Set(songs.map((song) => song.level));
@@ -228,6 +228,7 @@ test("artist 'RSL' is only used where RSL really is the artist", () => {
     // rslawards.com product pages, which group Originals separately from covers.
     'Guitar:Route 66', 'Guitar:Runaway Road', 'Guitar:Pocket Change',
     'Guitar:Call Across the Mountain', 'Guitar:Ignite', 'Guitar:Toledo Sun',
+    'Guitar:Surfer Ticket', 'Guitar:December', 'Guitar:Restless',
   ]);
 
   const unverified = Object.values(SONGS_CATALOGUE)

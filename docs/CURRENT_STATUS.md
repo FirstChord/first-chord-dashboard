@@ -30,6 +30,19 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Song cards show three distinctive skills, and the capo tags are gone —
+  2026-09-18:** eight more RSL Acoustic 2026 slices catalogued (Grade 2 ×4,
+  Grade 3 ×4; Surfer Ticket, December, Restless pinned as verified Originals).
+  Looking at the shelf showed two problems. All seven `capo` tags were wrong:
+  the July seeding agents described the original recordings, not the RSL
+  arrangements, and no backed-up score mentions a capo. And cards listed every
+  skill A–Z, so whatever sorted first led and the near-universal ones (steady
+  pulse, dynamics, strumming, open chords — ~35 songs each) filled every card.
+  Cards now show at most three, rarest across the catalogue first
+  (`cardSkillLabelsForSong`), full list on hover; the tags themselves are
+  unchanged. Policy: a tag must be true of the arrangement — what can't be
+  checked is left off. Next: derive metre from the MusicXML scores, which
+  already disagree with 36 time-signature tags.
 - **Student records show an age — 2026-09-18:** the student list has an Age
   column and the record header leads with it. MMS stays the only home for the
   fact — no new sheet column: an exact `DateOfBirth` set in MMS wins; otherwise
@@ -141,28 +154,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   deliberately **not** refactored to share code: it has no route-level tests and
   it emails real parents. Contract:
   `docs/workflows/practice-chat/delivery.md` → Shared Lessons.
-- **Lesson duration disagreements are now an Issue Queue card — DEPLOYED
-  2026-09-15:** duration is the quiet input to money — it picks the weekly price
-  band in `payment-value-helpers.mjs` and the minutes a tutor is paid for — and
-  three systems hold it: the MMS calendar, the MMS billing profile, and the
-  Students sheet. Nothing compared them, so a disagreement mispriced a student
-  instead of failing. `LESSON DURATION MISMATCH` (source `lesson_duration`)
-  raises one card per student: **18 on the first run, 13 of them priced apart,
-  5 latent.** It quotes the money by re-deriving from the live price table with
-  the duration swapped, so a price change can't leave it lying. Flat-priced
-  students are excluded — group (£20/wk) and orchestra (£42.50/mo) pay the same
-  whatever the duration, so no disagreement can move their money; that is asked
-  of the pricing model with two durations rather than hardcoding lesson kinds.
-  Manual payers are deliberately kept: they are absent from the Stripe forecast
-  but still counted in the revenue estimate. The billing-profile half is latent
-  rather than cosmetic — `buildScheduleContext` falls back to the profile
-  duration whenever a student has no upcoming lesson, so a stale profile becomes
-  the price input the moment the calendar has a gap. Policy: MMS keeps duration —
-  it records what was booked and taught, the sheet records what someone typed —
-  so the fix is to surface the disagreement, not pick a winner. Flipping the
-  preference to the sheet was measured and rejected (~£170/wk of line items
-  moving to net −£7/wk). `Schedule_Context.warnings` is now a recorded format
-  contract: the detector matches one exact sentence.
 
 ## Current operating contracts
 

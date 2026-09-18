@@ -1,11 +1,11 @@
 ---
 status: supporting
 audience: [human, agent]
-last_verified: 2026-09-03
+last_verified: 2026-09-18
 ---
 # Song Catalogue — Coverage and Gaps
 
-Last updated: 2026-09-03 · **337 entries** · Teaching layer: 263 entries carry a `tutorNote`, 180 a `studentNote` (every *song* by a known artist is covered; Rockschool Originals and technical exercises are deliberately blank rather than invented — write those only from the actual scores)
+Last updated: 2026-09-18 · **345 entries** · Teaching layer: 268 entries carry a `tutorNote`, 185 a `studentNote` (every *song* by a known artist is covered; Rockschool Originals and technical exercises are deliberately blank rather than invented — write those only from the actual scores)
 
 The single home for *what repertoire exists, what is missing, and why*. Coverage numbers
 here are a snapshot; the catalogue itself (`lib/config/songs-catalogue.mjs`) is the truth.
@@ -36,7 +36,7 @@ list, so a new unverified marker cannot be added silently:
 | Piano (Rock School 2025) | Home To Philadelphia, Vanishing Footprints, Short Fuse, Midnight Song, Step By Step, Circus Waltz, Ignite, Le Noche En Havana, Cinnamon Roll, Elevator Shoes, Get Going, Contemplation, Camden Square |
 | Bass | Noisy Neighbour, Do Balanco, Slam Dunk Funk |
 | Electric Guitar | Route 66, Cashville, Helicopter, Headline Act, Just Don't Know, Overrated |
-| Guitar (acoustic, RSL 2026) | Route 66, Runaway Road, Pocket Change, Call Across the Mountain, Ignite, Toledo Sun |
+| Guitar (acoustic, RSL 2026) | Route 66, Runaway Road, Pocket Change, Call Across the Mountain, Ignite, Toledo Sun, Surfer Ticket, December, Restless |
 
 **Piano's markers were audited on 2026-07-14, and 13 of 26 were WRONG.** The assumption
 that "they're all Rockschool originals" was reasonable and false: *Danny* is Daniel
@@ -65,23 +65,23 @@ book and are correctly unbadged.
 
 The RSL series runs **Debut → Grade 6**. Levels are only comparable *inside* a series.
 
-### Guitar (acoustic) — 81 entries · 118 students
+### Guitar (acoustic) — 89 entries · 118 students
 | Level | Songs | Exercises |
 |---|---|---|
 | Debut | 18 | 2 |
 | Grade 1 | 15 | 2 |
-| Grade 2 | 6 | 2 |
-| Grade 3 | 13 | 2 |
+| Grade 2 | 10 | 2 |
+| Grade 3 | 17 | 2 |
 | Grade 4 | 8 | — |
 | Grade 5 | 6 | 2 |
 | Grade 6 | 5 | — |
 
-The available RSL Acoustic 2026 lists contributed **25 pieces**: complete Debut
-and Grade 1 books (9 each), plus the 4 Grade 3, 2 Grade 4 and 1 Grade 5 slices
-that currently exist. Grade 2's 2026 Soundslice list is empty. The older and
+The available RSL Acoustic 2026 lists contributed **33 pieces**: complete Debut
+and Grade 1 books (9 each), plus the 4 Grade 2, 8 Grade 3, 2 Grade 4 and 1
+Grade 5 slices that currently exist (Grade 2 and 3 topped up 2026-09-18). The older and
 2026 pieces deliberately share their grade shelf; plain text beneath the artist
 shows `RSL legacy book` / `RSL 2018 book` or `RSL 2026 syllabus` without adding
-a second badge system. All six acoustic `artist: 'RSL'` rows are verified
+a second badge system. All nine acoustic `artist: 'RSL'` rows are verified
 Rockschool Originals, not unresolved attribution markers.
 
 ### Electric Guitar — 60 entries · 5 students
@@ -124,8 +124,8 @@ Rockschool Originals, not unresolved attribution markers.
 
 | Instrument | Level | Missing |
 |---|---|---|
-| Guitar | Grade 2 (2026) | **All the Way From America, Ascension, Beautiful Things, City of Stars, I Remember Everything, Killing Me Softly, New Rules, Surfer Ticket, Willow Tree** — list `lZZG7` exists but is empty |
-| Guitar | Grade 3 (2026) | **December, Restless, Tears, Wade in the Water, Walking Home Blues** |
+| Guitar | Grade 2 (2026) | **All the Way From America, Ascension, I Remember Everything, New Rules, Willow Tree** |
+| Guitar | Grade 3 (2026) | **Walking Home Blues** |
 | Guitar | Grade 4 (2026) | **I Walk the Line, Bad Moon Rising, The Perfect Pair, Love Is a Losing Game, Parallel Lines, All In Good Time, Promise** |
 | Guitar | Grade 5 (2026) | **Runaway, Deeper Well, S P E Y S I D E, Listen to the Music, Many of Horror, Rusty Swing, Low Bias, The Way Home** |
 | Guitar | Grade 5 | **Songbird** |

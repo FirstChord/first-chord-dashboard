@@ -30,7 +30,7 @@ import {
   inferStudentLevel,
   inferStudentSeries,
 } from '@/lib/songs/shelf-helpers.mjs';
-import { skillLabelsForSong } from '@/lib/songs/skills-helpers.mjs';
+import { cardSkillLabelsForSong, skillLabelsForSong } from '@/lib/songs/skills-helpers.mjs';
 import { summariseTeachingHistory } from '@/lib/songs/teaching-history.mjs';
 import { PATH_TEMPLATES } from '@/lib/config/path-templates.mjs';
 
@@ -622,9 +622,11 @@ export default function SongBrowser({ student }) {
                 const songHistory = history?.[song.songId] || null;
                 const historyLine = summariseTeachingHistory(songHistory);
                 const historyOpen = historyOpenFor === song.songId;
-                // What the song teaches, from the tags it already carries.
+                // What the song teaches, from the tags it already carries —
+                // its three most distinctive skills, with the rest on hover.
                 // Absent on a song nobody has tagged yet, which is honest.
-                const skillLabels = skillLabelsForSong(song);
+                const skillLabels = cardSkillLabelsForSong(song);
+                const allSkillLabels = skillLabelsForSong(song);
                 const syllabusLabel = syllabusLabelForSong(song);
                 return (
                   <div
@@ -672,7 +674,10 @@ export default function SongBrowser({ student }) {
                       </p>
                     )}
                     {skillLabels.length > 0 && (
-                      <p className="mt-1.5 flex flex-wrap gap-1">
+                      <p
+                        className="mt-1.5 flex flex-wrap gap-1"
+                        title={allSkillLabels.length > skillLabels.length ? allSkillLabels.join(' · ') : undefined}
+                      >
                         {skillLabels.map((label) => (
                           <span
                             key={label}
