@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import PaymentSetupCompletionButton from '@/components/admin/PaymentSetupCompletionButton';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
+import { getStudentAgesByMmsId } from '@/lib/admin/mms';
 import { assessPaymentSetupCompletion } from '@/lib/admin/payment-summary.mjs';
 import {
   buildStripeCustomerDashboardUrl,
@@ -96,7 +97,7 @@ function StripeLinkageSummary({ student, showSetupCompletion = false }) {
 }
 
 export default async function AdminStudentsPage({ searchParams }) {
-  const students = await getOperationalAdminStudents();
+  const [students, ages] = await Promise.all([getOperationalAdminStudents(), getStudentAgesByMmsId()]);
   const resolvedSearchParams = await searchParams;
   const rawQuery = getSearchQuery(resolvedSearchParams);
   const paymentExpectationFilter = getPaymentExpectationFilter(resolvedSearchParams);
@@ -174,7 +175,7 @@ export default async function AdminStudentsPage({ searchParams }) {
         <table className="min-w-full divide-y divide-slate-200">
           <thead className="bg-blue-50/70">
             <tr>
-              {['Name', 'Tutor', 'Instrument', 'Email', 'Contact', 'Payment', 'MMS ID', 'Flags'].map((header) => (
+              {['Name', 'Age', 'Tutor', 'Instrument', 'Email', 'Contact', 'Payment', 'MMS ID', 'Flags'].map((header) => (
                 <th
                   key={header}
                   className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500"
@@ -191,6 +192,9 @@ export default async function AdminStudentsPage({ searchParams }) {
                   <Link href={`/admin/students/${student.mmsId}`} className="font-medium text-slate-900 hover:underline">
                     {student.fullName || student.mmsId}
                   </Link>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-700" title={ages[student.mmsId]?.detail || undefined}>
+                  {ages[student.mmsId]?.short || '—'}
                 </td>
                 <td className="px-4 py-3 text-sm text-slate-700">{student.tutor || '—'}</td>
                 <td className="px-4 py-3 text-sm text-slate-700">{student.instrument || '—'}</td>
@@ -213,7 +217,7 @@ export default async function AdminStudentsPage({ searchParams }) {
             ))}
             {!visibleStudents.length ? (
               <tr>
-                <td colSpan={8} className="px-4 py-6 text-sm text-slate-600">
+                <td colSpan={9} className="px-4 py-6 text-sm text-slate-600">
                   No matching student records found.
                 </td>
               </tr>

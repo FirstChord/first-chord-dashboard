@@ -5,6 +5,7 @@ import { getPlanningDashboard } from '@/lib/admin/planning';
 import { buildStudentPracticeTimeline } from '@/lib/admin/practice-timeline-helpers.mjs';
 import { getStudentTimelineProjection } from '@/lib/admin/student-timeline.js';
 import { formatTimeWithSchool } from '@/lib/admin/student-lifecycle.mjs';
+import { getStudentAgesByMmsId } from '@/lib/admin/mms';
 import AdminStudentDetailClient from '@/components/admin/AdminStudentDetailClient';
 
 export default async function AdminStudentDetailPage({ params }) {
@@ -18,9 +19,10 @@ export default async function AdminStudentDetailPage({ params }) {
     notFound();
   }
 
-  const [tutorOptions, history] = await Promise.all([
+  const [tutorOptions, history, ages] = await Promise.all([
     getActiveTutorOptions(),
     getStudentTimelineProjection({ student }),
+    getStudentAgesByMmsId(),
   ]);
 
   const linkedPlanningItems = (planning.items || [])
@@ -50,6 +52,7 @@ export default async function AdminStudentDetailPage({ params }) {
       recentCommunications={history.recentCommunications}
       studentTimeline={history.timeline}
       timeWithSchool={formatTimeWithSchool(history.lifecycleRow || {})}
+      age={ages[student.mmsId] || null}
     />
   );
 }

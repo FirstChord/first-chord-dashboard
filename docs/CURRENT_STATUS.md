@@ -30,6 +30,15 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Student records show an age — 2026-09-18:** the student list has an Age
+  column and the record header leads with it. MMS stays the only home for the
+  fact — no new sheet column: an exact `DateOfBirth` set in MMS wins; otherwise
+  the sign-up form's "Students Age" note line is rolled forward by whole years
+  since `DateStarted` and shown as `~12` (hover gives "9 at sign-up (Mar 2024)").
+  A sibling form ("9 and 6") shows nothing rather than a guess. One cached
+  all-students read (6h TTL, ~1s cold) feeds both pages and never fails a
+  render. Students who predate the form show `—`; typing a DOB into MMS fixes
+  them. `lib/admin/student-age.mjs`.
 - **A household can have two parents and two payers — 2026-09-17:** Calan
   Clacherty's separated parents split his fees. Two flat assumptions surfaced.
   MMS holds `Family.Parents[]` and `buildPracticeNoteEmailRecipients` was already
@@ -154,27 +163,7 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   preference to the sheet was measured and rejected (~£170/wk of line items
   moving to net −£7/wk). `Schedule_Context.warnings` is now a recorded format
   contract: the detector matches one exact sentence.
-- **A tutor absence closes when its linked cards are *settled*, and can be closed
-  by hand — DEPLOYED 2026-09-15:** Tom's 15 Sept absence card sat on the board for
-  fifteen days saying "Every linked card is done" with nothing that would close
-  it. Six linked pause cards were done and one was parked; the planning board
-  reads parked as closed, the server handoff demanded `done`. "Done or parked"
-  now has one home, `isSettledPlanningStatus`, used by both, and the planning
-  route runs the handoff on any settling status (parking the last card used to
-  trigger nothing). The capture card gained a **Close this absence** tick, shown
-  only when nothing it delegated is still open; closing it by hand also resolves
-  the `Tutor_Absence_State` row, or the card returns. Policy: the workflow
-  screen's Resolve guard reads `messageState`, which planning cards never write
-  back to, so the tick is the intended human exit, not a bypass. A pause card
-  whose student is missing from the Students tab now names the MMS id instead of
-  reading "Pause a student". That student was Florence Bartlett (`sdt_B4zSJc`),
-  active in MMS since 3 Sept but in neither the Students sheet nor the registry;
-  both records were added by hand on 2026-09-15. The `add-student` skill only
-  ever described the registry — a registry-only student has a working portal and
-  is still "Unknown student" on every admin card — and it still minted FC student
-  IDs from the `forename:surname:email` seed retired in 2026-09. It now picks
-  between `/admin/onboard` and the manual path first, and Theta is documented as
-  optional.
+
 ## Current operating contracts
 
 | Area | Current boundary |

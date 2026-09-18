@@ -49,6 +49,7 @@ export default function AdminStudentDetailClient({
   recentCommunications = [],
   studentTimeline = null,
   timeWithSchool = '',
+  age = null,
 }) {
   const [activeView, setActiveView] = useState('overview');
   const [form, setForm] = useState({
@@ -108,6 +109,7 @@ export default function AdminStudentDetailClient({
     ].filter(Boolean).join(' ')
     : 'No cached schedule context';
   const headerMeta = [
+    age?.label,
     form.instrument,
     form.tutor || form.registryTutor,
     form.lessonLength ? `${form.lessonLength} minutes` : '',
@@ -502,7 +504,7 @@ export default function AdminStudentDetailClient({
           </Link>
           <h2 className="mt-2 text-2xl font-semibold text-slate-900">{student.fullName || student.mmsId}</h2>
           {headerMeta.length ? (
-            <p className="mt-1 text-sm text-slate-600">{headerMeta.join(' · ')}</p>
+            <p className="mt-1 text-sm text-slate-600" title={age?.detail || undefined}>{headerMeta.join(' · ')}</p>
           ) : null}
         </div>
         <button
