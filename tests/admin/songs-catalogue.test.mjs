@@ -25,6 +25,7 @@ test('catalogue passes validation', () => {
 const NAME_LEAK_EXCEPTIONS = new Set([
   'fc_song_cat_and_mouse: contains "cat"', // RSL Classical Piano G1 exam piece title
   'fc_song_kiss_from_a_rose: contains "rose"', // Seal, RSL Acoustic Grade 6 exam piece
+  'fc_song_bass_the_bottle: contains "scott"', // Artist Gil Scott-Heron, RSL Bass Grade 5
 ]);
 
 test('catalogue contains no student first names (ships in the client bundle)', () => {

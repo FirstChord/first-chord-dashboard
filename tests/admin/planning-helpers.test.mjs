@@ -20,12 +20,16 @@ import {
   calculateFridayReviewDate,
   calculateMondayScheduleDate,
   calculateMonthEndDate,
+  calculateNewsletterMailchimpDate,
   calculateNextMeetingDate,
   requiresEarlyStripeTimingReview,
   buildMondaySchedulePlanningItem,
   buildMonthEndExpensesPlanningItem,
+  buildNewsletterMailchimpPlanningItem,
   shouldRefreshMonthEndExpensesPlanningItem,
+  shouldRefreshNewsletterMailchimpPlanningItem,
   MONTH_END_EXPENSES_PLANNING_ID,
+  NEWSLETTER_MAILCHIMP_PLANNING_ID,
   extractReflectionIntentions,
   buildReflectionIntentionDismissalNote,
   extractDismissedReflectionIntentions,
@@ -155,11 +159,12 @@ test('builds the Monday scheduling item dated to Monday', () => {
 // the prompt" — the Friday and Monday prompts both died silently in July 2026
 // because a park was read as never-again. Strictly past (not <=): a prompt
 // parked on its own day stays parked that day and re-arms from the next.
-test('a parked recurring prompt re-arms once its date has passed — for all three prompts', () => {
+test('a parked recurring prompt re-arms once its date has passed — for every seeded prompt', () => {
   const cases = [
     ['school-forward', shouldRefreshSchoolForwardPlanningItem, 'planning_weekly_school_forward_review'],
     ['monday', shouldRefreshMondaySchedulePlanningItem, MONDAY_SCHEDULE_PLANNING_ID],
     ['month-end', shouldRefreshMonthEndExpensesPlanningItem, MONTH_END_EXPENSES_PLANNING_ID],
+    ['mailchimp', shouldRefreshNewsletterMailchimpPlanningItem, NEWSLETTER_MAILCHIMP_PLANNING_ID],
   ];
   for (const [label, shouldRefresh, planningId] of cases) {
     // Parked with a past date (the July 2026 live state) → must refresh.
@@ -205,6 +210,39 @@ test('refreshes the month-end item when missing or completed-and-past', () => {
     { planningId: MONTH_END_EXPENSES_PLANNING_ID, targetDate: '2026-06-30', status: 'done' }, NOW), false);
   assert.equal(shouldRefreshMonthEndExpensesPlanningItem(
     { planningId: MONTH_END_EXPENSES_PLANNING_ID, targetDate: '2026-05-31', status: 'done' }, NOW), true);
+});
+
+test('schedules the Mailchimp reminder on the final meeting before the next newsletter', () => {
+  assert.equal(calculateNewsletterMailchimpDate(new Date('2026-09-18T12:00:00.000Z')), '2026-09-28'); // Oct 1 is Thu -> Mon
+  assert.equal(calculateNewsletterMailchimpDate(new Date('2026-10-10T12:00:00.000Z')), '2026-10-30'); // Nov 1 is Sun -> Fri
+  assert.equal(calculateNewsletterMailchimpDate(new Date('2026-11-10T12:00:00.000Z')), '2026-11-30'); // Dec 1 is Tue -> Mon
+  assert.equal(calculateNewsletterMailchimpDate(new Date('2026-12-10T12:00:00.000Z')), '2026-12-31'); // Jan 1 is Fri -> Thu
+  assert.equal(calculateNewsletterMailchimpDate(new Date('2027-01-29T12:00:00.000Z')), '2027-01-29'); // Feb 1 is Mon -> Fri
+  assert.equal(calculateNewsletterMailchimpDate(new Date('2027-04-10T12:00:00.000Z')), '2027-04-30'); // May 1 is Sat -> Fri
+  assert.equal(calculateNewsletterMailchimpDate(new Date('2027-08-10T12:00:00.000Z')), '2027-08-30'); // Sep 1 is Wed -> Mon
+  assert.equal(calculateNewsletterMailchimpDate(new Date('2027-01-29T12:00:00.000Z'), { skipToday: true }), '2027-02-26');
+});
+
+test('builds a monthly Mailchimp-only newsletter reminder', () => {
+  const item = buildNewsletterMailchimpPlanningItem({ now: new Date('2026-09-18T12:00:00.000Z') });
+  assert.equal(item.planningId, NEWSLETTER_MAILCHIMP_PLANNING_ID);
+  assert.equal(item.targetDate, '2026-09-28');
+  assert.equal(item.itemType, 'action');
+  assert.equal(item.status, 'waiting');
+  assert.equal(item.area, 'admin');
+  assert.match(item.title, /Mailchimp/);
+  assert.match(item.nextAction, /family emails/i);
+  assert.doesNotMatch(`${item.title} ${item.notes} ${item.nextAction}`, /WhatsApp/i);
+});
+
+test('refreshes the Mailchimp reminder only after a settled occurrence is due', () => {
+  assert.equal(shouldRefreshNewsletterMailchimpPlanningItem({}, NOW), true);
+  assert.equal(shouldRefreshNewsletterMailchimpPlanningItem(
+    { planningId: NEWSLETTER_MAILCHIMP_PLANNING_ID, targetDate: '2026-06-29', status: 'waiting' }, NOW), false);
+  assert.equal(shouldRefreshNewsletterMailchimpPlanningItem(
+    { planningId: NEWSLETTER_MAILCHIMP_PLANNING_ID, targetDate: '2026-06-29', status: 'done' }, NOW), false);
+  assert.equal(shouldRefreshNewsletterMailchimpPlanningItem(
+    { planningId: NEWSLETTER_MAILCHIMP_PLANNING_ID, targetDate: '2026-05-29', status: 'done' }, NOW), true);
 });
 
 test('extracts next-improvement intentions from a reflection note', () => {
