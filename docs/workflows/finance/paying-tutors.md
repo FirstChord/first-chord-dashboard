@@ -29,9 +29,12 @@ For hourly tutors, each payable slot is `hourly rate × duration / 60`. A group
 slot adds £2 once to that slot, regardless of duration or student count; it is
 never multiplied per student.
 
-## Before Wednesday: prepare and agree the figures
+## Monday cycle: prepare and agree the figures
 
-1. Open **Finance → Payroll**. The date at the top is the intended pay date.
+1. Open **Finance → Payroll**. The date at the top is the Monday cycle date.
+   A normal weekly period includes that previous Monday and ends on the Sunday
+   immediately before the cycle date. A biweekly period covers the two complete
+   Monday–Sunday weeks.
    **Load** only rebuilds the preview after changing this date; it does not
    create or send a payment.
 2. Select a tutor. Open **Adjustments, invoice tracking and period** when the
@@ -98,10 +101,10 @@ A reviewed unpaid statement locks cadence correction. For a biweekly tutor, the
 payroll page marks the alternating short window **Not due this week** and
 refuses to review/email it early.
 
-## Wednesday: create and pay the Wise batch
+## After confirmation: create and pay the Wise batch
 
-1. Open Payroll and check the date. If Wednesday is already selected, there is
-   no need to click **Load**.
+1. Open Payroll and check the cycle date. If the intended Monday is already
+   selected, there is no need to click **Load**.
 2. Read the top line and open **Ready to pay**. Check the tutor count and amount,
    not only the headline total. The bottom of the section names every tutor in
    the current Wise CSV and shows their amount, so the batch can be checked at a

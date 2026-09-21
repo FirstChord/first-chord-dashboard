@@ -2,7 +2,7 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
 import { getPayrollRunRows, getTutorWiseRows } from '@/lib/admin/sheets';
-import { nextWednesday } from '@/lib/admin/payroll-helpers.mjs';
+import { nextMonday } from '@/lib/admin/payroll-helpers.mjs';
 import { parseTutorWise, buildWiseBatch, selectPayableReviewedRuns, toWiseCsv } from '@/lib/admin/wise-helpers.mjs';
 
 export const dynamic = 'force-dynamic';
@@ -21,7 +21,7 @@ export async function GET(request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const payDate = `${searchParams.get('payDate') || nextWednesday()}`.slice(0, 10);
+  const payDate = `${searchParams.get('payDate') || nextMonday()}`.slice(0, 10);
   // The payroll review page supplies the saved IDs held because an explicit MMS
   // refresh found attendance drift. Exclusion-only input cannot add an unreviewed
   // row; it keeps the downloaded CSV aligned with the visible reviewed batch.

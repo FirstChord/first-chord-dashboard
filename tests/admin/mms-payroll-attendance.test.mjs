@@ -12,7 +12,7 @@ import {
 // Two contracts live here:
 //
 // 1. MMS compares EndDate against EventStartDate at midnight, so it excludes the
-//    end day. Payroll windows are inclusive of periodEnd (a Wednesday run covers
+//    end day. Payroll windows are inclusive of periodEnd (a Monday run covers
 //    through the Tuesday), so searchAttendanceForPayroll must widen the bound by
 //    one day. Regression: a Tuesday EndDate silently dropped every Tuesday lesson.
 //

@@ -40,6 +40,18 @@ test('a clean draft with an incomplete cadence reads as not due, while attendanc
   assert.equal(getPayrollWorkflowState({ status: 'draft', cadenceDue: false, reviewPastCount: 1 }).key, 'attendance');
 });
 
+test('cutover requires a known historical start and skips empty statements', () => {
+  assert.equal(getPayrollWorkflowState({ status: 'draft', cutoverNeedsStart: true }).key, 'cutover_start');
+  assert.equal(getPayrollWorkflowState({ status: 'draft', cutoverNothingOwed: true }).key, 'nothing_due');
+});
+
+test('cutover can never become payable without tutor confirmation, even if a stale row says normal', () => {
+  const cutoff = { status: 'reviewed', period_end: '2026-09-20', payment_route: 'normal' };
+  assert.equal(isPayrollRunReadyForPayment(cutoff), false);
+  assert.equal(isPayrollRunReadyForPayment({ ...cutoff, tutor_response: 'confirmed' }), true);
+  assert.equal(getPayrollWorkflowState({ ...cutoff, isCutover: true }).key, 'send');
+});
+
 test('material statement changes require a fresh tutor response', () => {
   const existing = {
     period_start: '2026-07-01',

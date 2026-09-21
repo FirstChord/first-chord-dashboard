@@ -31,6 +31,11 @@ The source contains the manual pilot path:
   and append actor/before/after/effective timing to `Event_Log`;
 - the payroll preview derives whether a complete cadence has accrued. A
   biweekly tutor cannot be reviewed after only one week;
+- ordinary periods are Monday-inclusive/Sunday-inclusive in storage, equivalent
+  to Monday-to-Monday with the second Monday excluded;
+- the one-off 21 September 2026 cutover settles legacy pay through Sunday 20
+  September, requires tutor confirmation, and refuses to infer an unrecorded
+  historical start date;
 - the reviewed statement page is the preview for one explicit Gmail send to a
   verified address. The email contains no amount or student names, only the
   private 30-day statement link;
@@ -66,7 +71,7 @@ verified contact details are populated and the risky rollout checks below pass.
 - successful and failed delivery counts, including whether Gmail timeouts are
   actually found in Sent;
 - confirmation/query response times by channel;
-- proof that biweekly due dates survive several alternating Wednesdays;
+- proof that biweekly due dates survive several alternating Mondays;
 - the reminder threshold (start with a human judgement around 24–48 hours);
 - an agreed pilot cohort and rollback owner.
 

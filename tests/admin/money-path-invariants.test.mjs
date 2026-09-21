@@ -17,6 +17,12 @@ test('an incomplete biweekly window can never become payment-ready', () => {
   assert.equal(isPayrollRunReadyForPayment({ status: 'draft', invoiceCadence: 'biweekly' }), false);
 });
 
+test('the one-off cutoff can never enter Wise before the tutor confirms it', () => {
+  const row = { status: 'reviewed', period_end: '2026-09-20', payment_route: 'normal' };
+  assert.equal(isPayrollRunReadyForPayment(row), false);
+  assert.equal(isPayrollRunReadyForPayment({ ...row, tutor_response: 'confirmed' }), true);
+});
+
 // Small deterministic PRNG (mulberry32) so property failures reproduce exactly.
 function rng(seed) {
   let a = seed >>> 0;

@@ -8,7 +8,7 @@ import {
   buildPayrollPeriod,
   buildPayrollPreview,
   buildPayrollRunId,
-  nextWednesday,
+  nextMonday,
   normalisePayrollRunRow,
   isPayrollWindowDue,
   resolveTutorPayrollWindow,
@@ -30,20 +30,21 @@ function attendance(overrides = {}) {
   };
 }
 
-test('nextWednesday returns today when today is Wednesday and the next Wednesday otherwise', () => {
-  assert.equal(nextWednesday(new Date('2026-06-24T10:00:00Z')), '2026-06-24');
-  assert.equal(nextWednesday(new Date('2026-06-25T10:00:00Z')), '2026-07-01');
+test('nextMonday returns today when today is Monday and the next Monday otherwise', () => {
+  assert.equal(nextMonday(new Date('2026-09-21T10:00:00Z')), '2026-09-21');
+  assert.equal(nextMonday(new Date('2026-09-22T10:00:00Z')), '2026-09-28');
+  assert.equal(nextMonday(new Date('2026-09-20T23:30:00Z')), '2026-09-21'); // Monday in London during BST
 });
 
-test('buildPayrollPeriod uses Wednesday pay date with weekly and biweekly windows', () => {
-  assert.deepEqual(buildPayrollPeriod({ payDate: '2026-07-01', cadence: 'weekly' }), {
-    payDate: '2026-07-01',
-    periodStart: '2026-06-24',
-    periodEnd: '2026-06-30',
+test('buildPayrollPeriod uses a Monday cycle date with Monday-Sunday weekly and biweekly windows', () => {
+  assert.deepEqual(buildPayrollPeriod({ payDate: '2026-09-28', cadence: 'weekly' }), {
+    payDate: '2026-09-28',
+    periodStart: '2026-09-21',
+    periodEnd: '2026-09-27',
     days: 7,
     cadence: 'weekly',
   });
-  assert.equal(buildPayrollPeriod({ payDate: '2026-07-01', cadence: 'biweekly' }).periodStart, '2026-06-17');
+  assert.equal(buildPayrollPeriod({ payDate: '2026-09-28', cadence: 'biweekly' }).periodStart, '2026-09-14');
 });
 
 test('buildPayrollPeriod supports a three-week window per tutor', () => {
@@ -57,6 +58,34 @@ test('a biweekly tutor becomes due only when a complete two-week window has accr
   assert.equal(isPayrollWindowDue({ periodStart: '2026-09-09', periodEnd: '2026-09-15', cadence: 'biweekly' }), false);
   assert.equal(isPayrollWindowDue({ periodStart: '2026-09-02', periodEnd: '2026-09-15', cadence: 'biweekly' }), true);
   assert.equal(isPayrollWindowDue({ periodStart: '2026-09-09', periodEnd: '2026-09-15', cadence: 'biweekly', basis: 'override' }), true);
+  assert.equal(isPayrollWindowDue({ periodStart: '2026-09-17', periodEnd: '2026-09-20', cadence: 'biweekly', cutover: true }), true);
+});
+
+test('cutover closes through Sunday, requires confirmation, and refuses to guess an unknown historical start', () => {
+  const tutorPay = parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly', invoice_cadence: 'biweekly' }]);
+  const withHistory = buildPayrollPreview({
+    payDate: '2026-09-21',
+    tutorPay,
+    savedRuns: [{ payroll_id: 'old', tutor_short_name: 'Calum', status: 'paid', period_start: '2026-09-07', period_end: '2026-09-16' }],
+    attendanceRows: [attendance({ EventID: 'cutover', EventStartDate: '2026-09-17T16:00:00' })],
+  }).rows.find((row) => row.tutorShortName === 'Calum');
+  assert.equal(withHistory.periodStart, '2026-09-17');
+  assert.equal(withHistory.periodEnd, '2026-09-20');
+  assert.equal(withHistory.isCutover, true);
+  assert.equal(withHistory.cadenceDue, true);
+  assert.equal(withHistory.cutoverNeedsStart, false);
+  assert.equal(withHistory.paymentRoute, 'confirmation');
+
+  const withoutHistory = buildPayrollPreview({ payDate: '2026-09-21', tutorPay }).rows.find((row) => row.tutorShortName === 'Calum');
+  assert.equal(withoutHistory.cutoverNeedsStart, true);
+
+  const manuallyAnchored = buildPayrollPreview({
+    payDate: '2026-09-21',
+    tutorPay,
+    overrides: { Calum: { start: '2026-09-14' } },
+  }).rows.find((row) => row.tutorShortName === 'Calum');
+  assert.equal(manuallyAnchored.cutoverNeedsStart, false);
+  assert.equal(manuallyAnchored.periodStart, '2026-09-14');
 });
 
 test('a paid run shows £0 owed but keeps finalAmount as the record', () => {

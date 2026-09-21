@@ -1,4 +1,4 @@
-import { formatPayrollDate } from '@/lib/admin/payroll-helpers.mjs';
+import { formatPayrollDate, PAYROLL_NEW_SYSTEM_START } from '@/lib/admin/payroll-helpers.mjs';
 import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 
 function hoursLabel(minutes) {
@@ -40,16 +40,22 @@ export default function TutorStatementView({ statement }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">First Chord Music School</p>
-          <h2 className="mt-1 text-2xl font-bold text-slate-900">{isReceipt ? 'Payment receipt' : 'Payment statement'}</h2>
+          <h2 className="mt-1 text-2xl font-bold text-slate-900">{statement.isCutover ? 'Cutover ' : ''}{isReceipt ? 'payment receipt' : 'payment statement'}</h2>
           <p className="mt-1 text-lg font-semibold text-slate-800">{statement.tutor}</p>
           <p className="text-sm text-slate-500">
-            {formatPayrollDate(statement.periodStart)} – {formatPayrollDate(statement.periodEnd)} · {statement.cadence}
+            {formatPayrollDate(statement.periodStart)} – {formatPayrollDate(statement.periodEnd)} · {statement.isCutover ? 'one-off cutover' : statement.cadence}
           </p>
         </div>
         <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${isReceipt ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700'}`}>
           {recordStatus(statement)}
         </span>
       </div>
+
+      {statement.isCutover ? (
+        <p className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-950">
+          This one-off statement closes legacy pay through {formatPayrollDate(statement.periodEnd)}. New Monday-based periods begin {formatPayrollDate(PAYROLL_NEW_SYSTEM_START)}.
+        </p>
+      ) : null}
 
       <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl bg-slate-50 px-4 py-3 text-xs sm:grid-cols-3 print:border print:border-slate-200 print:bg-white">
         <div>

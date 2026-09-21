@@ -29,3 +29,17 @@ test('email content contains the private review link but no student or amount de
   assert.doesNotMatch(content.plainText, /£|student/u);
   assert.match(content.html, /Review pay statement/u);
 });
+
+test('cutover email explains the one-off boundary without adding pay detail', () => {
+  const content = buildTutorStatementEmailContent({
+    tutorName: 'Dean Parker',
+    periodStart: '2026-09-14',
+    periodEnd: '2026-09-20',
+    statementUrl: 'https://example.com/pay/statement/private-token',
+    isCutover: true,
+  });
+  assert.match(content.subject, /cutover pay statement/u);
+  assert.match(content.plainText, /closes the previous payroll cycle through Sunday 20 September/u);
+  assert.match(content.plainText, /Monday-based periods start on Monday 21 September/u);
+  assert.doesNotMatch(content.plainText, /£|student/u);
+});

@@ -296,7 +296,8 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
   [song coverage](./reference/song-catalogue-coverage.md).
 - **Tutor payroll Phase 3:** the source now has verified payroll contacts,
   one-at-a-time admin-previewed Gmail delivery, admin-recorded existing
-  weekly/biweekly choices, and a complete-cadence due guard. Live rollout
+  weekly/biweekly choices, Monday–Sunday periods, a confirmation-gated one-off
+  cutover through 20 September 2026, and a complete-cadence due guard. Live rollout
   remains gated by populating verified contact/cadence data and proving the manual pilot;
   scheduled delivery and WhatsApp reminders remain unbuilt.
 - **Pause clarity:** distinguish Pause History, sheet expectation, and live Stripe

@@ -82,6 +82,16 @@ test('buildTutorStatement flags unrecorded lessons in the window', () => {
   assert.equal(statement.hasUnrecorded, true);
 });
 
+test('a statement ending at the migration boundary is labelled as a one-off cutover', () => {
+  const statement = buildTutorStatement({
+    savedRow: { ...savedRow, periodStart: '2026-09-14', periodEnd: '2026-09-20' },
+    previewRow,
+  });
+  assert.equal(statement.isCutover, true);
+  assert.match(renderTutorStatementText(statement), /cutover payment statement/u);
+  assert.match(renderTutorStatementText(statement), /New Monday-based periods begin/u);
+});
+
 test('renderTutorStatementText includes the tutor, period and frozen total', () => {
   const text = renderTutorStatementText(buildTutorStatement({ savedRow, previewRow }));
   assert.match(text, /David Husz/);

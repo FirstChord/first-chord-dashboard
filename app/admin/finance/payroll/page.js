@@ -12,7 +12,11 @@ import {
   buildPayrollAttendanceQuery,
   buildPayrollPreview,
   formatPayrollDate,
-  nextWednesday,
+  nextMonday,
+  isPayrollCutoverPeriod,
+  PAYROLL_CUTOVER_PERIOD_END,
+  PAYROLL_CUTOVER_RUN_DATE,
+  PAYROLL_NEW_SYSTEM_START,
 } from '@/lib/admin/payroll-helpers.mjs';
 import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 import { parseTutorWise, buildWiseBatch, selectPayableReviewedRuns } from '@/lib/admin/wise-helpers.mjs';
@@ -43,10 +47,13 @@ async function savePayrollRunAction(formData) {
   const adjustmentAmount = Number.parseFloat(`${formData.get('adjustment_amount') || '0'}`) || 0;
   const finalAmount = Math.round((expectedAmount + adjustmentAmount) * 100) / 100;
   const payrollId = `${formData.get('payroll_id') || ''}`.trim();
-  const paymentRoute = `${formData.get('payment_route') || 'normal'}`.trim() === 'confirmation' ? 'confirmation' : 'normal';
+  const periodEnd = `${formData.get('period_end') || ''}`.trim();
+  const paymentRoute = isPayrollCutoverPeriod({ periodEnd })
+    ? 'confirmation'
+    : (`${formData.get('payment_route') || 'normal'}`.trim() === 'confirmation' ? 'confirmation' : 'normal');
   const nextStatement = {
     period_start: `${formData.get('period_start') || ''}`.trim(),
-    period_end: `${formData.get('period_end') || ''}`.trim(),
+    period_end: periodEnd,
     lesson_count: `${formData.get('lesson_count') || '0'}`.trim(),
     teaching_minutes: `${formData.get('teaching_minutes') || '0'}`.trim(),
     expected_amount: expectedAmount,
@@ -66,7 +73,7 @@ async function savePayrollRunAction(formData) {
     payroll_id: payrollId,
     pay_date: `${formData.get('pay_date') || ''}`.trim(),
     period_start: `${formData.get('period_start') || ''}`.trim(),
-    period_end: `${formData.get('period_end') || ''}`.trim(),
+    period_end: periodEnd,
     tutor: `${formData.get('tutor') || ''}`.trim(),
     tutor_short_name: `${formData.get('tutor_short_name') || ''}`.trim(),
     teacher_id: `${formData.get('teacher_id') || ''}`.trim(),
@@ -331,7 +338,7 @@ function PayrollTutorCard({ row, payDate }) {
               {workflow.label}
             </span>
             <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600">
-              {row.invoiceCadence}
+              {row.isCutover ? 'one-off cutover' : row.invoiceCadence}
             </span>
             {row.payModel === 'salary' ? (
               <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs text-violet-700">salary</span>
@@ -359,6 +366,13 @@ function PayrollTutorCard({ row, payDate }) {
         </div>
       </div>
 
+      {row.isCutover ? (
+        <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
+          <p className="font-semibold">One-off payroll cutover</p>
+          <p className="mt-1">This closes legacy pay through {formatPayrollDate(PAYROLL_CUTOVER_PERIOD_END)}. New Monday-based periods start {formatPayrollDate(PAYROLL_NEW_SYSTEM_START)}. Tutor confirmation is required before payment.</p>
+        </div>
+      ) : null}
+
       <div className={`mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${workflowClass}`}>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Next</p>
@@ -376,12 +390,23 @@ function PayrollTutorCard({ row, payDate }) {
       ) : null}
       {row.windowEmpty ? (
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          Already paid through {formatPayrollDate(row.lastPaidThrough)} — nothing outstanding for this pay date.
+          Already paid through {formatPayrollDate(row.lastPaidThrough)} — nothing outstanding for this cycle date.
         </div>
       ) : null}
       {row.windowCapped ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           Window capped at 35 days back. If this invoice covers more, set a custom window start.
+        </div>
+      ) : null}
+      {row.cutoverNeedsStart ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-semibold">Previous paid-through date is not recorded here.</p>
+          <p className="mt-1">Open the period controls and set <strong>Window start</strong> to the day after this tutor was last paid. Review is blocked so the dashboard cannot guess historical coverage.</p>
+        </div>
+      ) : null}
+      {row.cutoverNothingOwed ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          Nothing is outstanding in this cutoff window, so no statement needs to be sent.
         </div>
       ) : null}
       {!row.cadenceDue && !row.windowEmpty ? (
@@ -477,15 +502,22 @@ function PayrollTutorCard({ row, payDate }) {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <label className="block sm:min-w-64">
             <span className="text-xs font-semibold text-slate-600">Payment route</span>
-            <select name="payment_route" defaultValue={row.paymentRoute || 'normal'} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
-              <option value="normal">Pay normally · confirmation optional</option>
-              <option value="confirmation">Tutor confirmation required</option>
-            </select>
+            {row.isCutover ? (
+              <>
+                <input type="hidden" name="payment_route" value="confirmation" />
+                <div className="mt-1 w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-sm font-medium text-blue-900">Tutor confirmation required</div>
+              </>
+            ) : (
+              <select name="payment_route" defaultValue={row.paymentRoute || 'normal'} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm">
+                <option value="normal">Pay normally · confirmation optional</option>
+                <option value="confirmation">Tutor confirmation required</option>
+              </select>
+            )}
           </label>
           <PayrollSaveButtons
             status={row.status}
             attendanceChanged={row.attendanceChanged}
-            blocked={row.status === 'draft' && Boolean(reviewPast.length || row.overlapsPaid || !row.cadenceDue)}
+            blocked={row.status === 'draft' && Boolean(reviewPast.length || row.overlapsPaid || !row.cadenceDue || row.cutoverNeedsStart || row.cutoverNothingOwed)}
           />
         </div>
         <details className="group mt-3 border-t border-slate-200 pt-3">
@@ -526,7 +558,7 @@ function PayrollTutorCard({ row, payDate }) {
   );
 }
 
-// Preserve the pay date and any window override across a refresh round-trip;
+// Preserve the cycle date and any window override across a refresh round-trip;
 // `refresh` itself is deliberately dropped.
 function buildPayrollQuery(params = {}) {
   const query = new URLSearchParams();
@@ -645,7 +677,7 @@ function staleAttendanceLabel(attendanceAge) {
 
 export default async function AdminPayrollPage({ searchParams }) {
   const params = (await searchParams) || {};
-  const payDate = `${params.payDate || nextWednesday()}`.slice(0, 10);
+  const payDate = `${params.payDate || nextMonday()}`.slice(0, 10);
   const tutorParam = `${params.tutor || ''}`.trim();
   const startParam = `${params.start || ''}`.slice(0, 10);
   const endParam = `${params.end || ''}`.slice(0, 10);
@@ -672,7 +704,7 @@ export default async function AdminPayrollPage({ searchParams }) {
     }
   }
 
-  // The shell — title, pay date, refresh — renders immediately from the URL
+  // The shell — title, cycle date, refresh — renders immediately from the URL
   // alone. Everything that needs Sheets or MMS streams in below it, so the page
   // is never a blank wait for its slowest fetch.
   return (
@@ -691,7 +723,7 @@ export default async function AdminPayrollPage({ searchParams }) {
           </div>
           <form className="flex items-end gap-2">
             <label>
-              <span className="text-xs font-semibold text-slate-500">Pay date</span>
+              <span className="text-xs font-semibold text-slate-500">Cycle date</span>
               <input type="date" name="payDate" defaultValue={payDate} className="mt-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm" />
             </label>
             <button className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Load</button>
@@ -704,6 +736,9 @@ export default async function AdminPayrollPage({ searchParams }) {
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/finance/payroll/settings" className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
             Tutor delivery settings
+          </Link>
+          <Link href={`/admin/finance/payroll?payDate=${PAYROLL_CUTOVER_RUN_DATE}`} className="inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-100">
+            Cutover through {formatPayrollDate(PAYROLL_CUTOVER_PERIOD_END)}
           </Link>
           <Link
             href={`/admin/finance/payroll?${[buildPayrollQuery(params), 'refresh=1'].filter(Boolean).join('&')}`}
