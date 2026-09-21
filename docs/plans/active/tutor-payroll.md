@@ -1,9 +1,9 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-07-20
+last_verified: 2026-09-21
 ---
-# Tutor Payroll: Remaining Phase 3
+# Tutor Payroll: Phase 3 Pilot And Scheduling
 
 ## Shipped Foundation
 
@@ -17,49 +17,70 @@ Do not rebuild the shipped Phase 1/2 flow. Current behaviour lives in
 `lib/admin/tutor-statement*`, `app/pay/statement/[token]/`, payroll helpers, and
 focused tests.
 
+## Shipped Phase 3 Pilot
+
+The source contains the manual pilot path:
+
+- `Tutor_Pay.contact_email` and `contact_email_verified_at` are separate from
+  Wise recipient data;
+- admins carry forward each tutor's already-recorded weekly or biweekly choice
+  and maintain the verified statement address at
+  `/admin/finance/payroll/settings`;
+- cadence corrections are refused while a reviewed run remains unpaid, take effect
+  from the day after the last paid-through period (or today before a first run),
+  and append actor/before/after/effective timing to `Event_Log`;
+- the payroll preview derives whether a complete cadence has accrued. A
+  biweekly tutor cannot be reviewed after only one week;
+- the reviewed statement page is the preview for one explicit Gmail send to a
+  verified address. The email contains no amount or student names, only the
+  private 30-day statement link;
+- `Payroll_Runs` records the delivery claim/result. A `sending` or `unknown`
+  result blocks automatic retry and instructs the admin to check Gmail Sent.
+
+This remains a code and operator pilot until the existing cadence choices and
+verified contact details are populated and the risky rollout checks below pass.
+
 ## Remaining Goal
 
-Phase 3 would let tutors manage pay cadence and receive statement links with less
-admin chasing. It is gated by authenticated tutor identity; a statement bearer
-link proves access to one run, not persistent authority over `Tutor_Pay`.
+- populate and verify active tutors' payroll contact addresses;
+- transcribe the tutors' existing cadence choices rather than asking them again;
+- run several manual email cycles across weekly and biweekly tutors;
+- add an admin batch preview only after the one-at-a-time path has representative
+  evidence;
+- schedule due-statement email only after delivery, confirmation, dispute,
+  ambiguous-Gmail, and missed-email evidence is understood;
+- add a private one-to-one WhatsApp reminder workflow for overdue confirmations,
+  never a payroll link or pay detail in a tutor group.
 
-### 3a: cadence self-service
+## Decisions Recorded
 
-- add tutor authentication and authorization for the tutor's own record
-- expose weekly/biweekly/three-weekly `Tutor_Pay.invoice_cadence`
-- preview the effective next pay window and require confirmation
-- consider admin review for a mid-window change
-- log actor, before/after value, and effective timing
+- weekly and biweekly are the carried-forward cadence choices;
+- a reviewed unpaid statement freezes cadence until paid or reopened;
+- otherwise the new cadence begins with the next unpaid period after the last
+  paid-through date;
+- email is primary; WhatsApp is a private reminder/escalation channel;
+- the existing 30-day bearer-link lifetime stays unchanged for the pilot.
 
-### 3b: statement delivery
+## Scheduling Evidence Still Needed
 
-- add a real `Tutor_Pay.contact_email`; do not use
-  `Tutor_Wise.recipient_email` as a contact address
-- start with an admin-triggered batch preview/send using the existing Gmail
-  pattern
-- retain the signed statement link and tutor confirm/query surface
-- schedule only after the manual batch path has representative evidence
-
-## Decisions Still Needed
-
-- whether cadence changes require admin approval or only tutor confirmation
-- how a mid-period cadence change affects the next since-last-paid window
-- what evidence is required before admin-triggered delivery becomes scheduled
-- tutor statement/link retention and session duration
+- successful and failed delivery counts, including whether Gmail timeouts are
+  actually found in Sent;
+- confirmation/query response times by channel;
+- proof that biweekly due dates survive several alternating Wednesdays;
+- the reminder threshold (start with a human judgement around 24–48 hours);
+- an agreed pilot cohort and rollback owner.
 
 ## Guardrails
 
 - no auto-pay and no Wise API mutation
 - tutor confirmation is a review signal, not payment approval
-- all outbound batches are previewed before the first send
+- outbound messages remain human-previewed during the pilot
 - statements contain student names and tutor pay; enforce tutor-scoped access,
   short-lived links, minimal logs, and the data-protection policy
-- update `Tutor_Pay`/`Payroll_Runs` schema docs and recovery notes with any new
-  field or write
+- Gmail uncertainty is manual follow-up, never a blind retry
 
 ## Done When
 
-An authenticated tutor can safely propose/confirm their cadence; admins can
-preview and send statement links to verified contact emails; failures are
-visible and retry-safe; scheduling, if enabled later, preserves the same human
-payment approval boundary.
+Every active tutor has a verified contact and recorded cadence, the manual email pilot
+has representative evidence, and scheduled delivery (if enabled) preserves the
+same preview, uncertainty, confirmation, and human payment boundaries.

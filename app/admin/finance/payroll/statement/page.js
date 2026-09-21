@@ -7,6 +7,8 @@ import { renderTutorStatementText, buildStatementToken } from '@/lib/admin/tutor
 import TutorStatementView from '@/components/finance/TutorStatementView';
 import CopyStatementButton from '@/components/finance/CopyStatementButton';
 import StatementRecordActions from '@/components/finance/StatementRecordActions';
+import SendStatementEmailButton from '@/components/finance/SendStatementEmailButton';
+import { loadTutorPayrollPreference } from '@/lib/admin/tutor-payroll-preferences';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,23 +49,40 @@ export default async function TutorStatementAdminPage({ searchParams }) {
           This tutor’s pay isn’t reviewed yet — mark them <strong>reviewed</strong> on the payroll page to lock the figure, then generate the statement.
         </div>
       ) : (
-        <StatementReady statement={result.statement} payrollId={payrollId} />
+        <StatementReady statement={result.statement} savedRow={result.savedRow} payrollId={payrollId} />
       )}
     </div>
   );
 }
 
-async function StatementReady({ statement, payrollId }) {
+async function StatementReady({ statement, savedRow, payrollId }) {
   const text = renderTutorStatementText(statement);
   const shareLink = await buildShareLink({ payrollId, tutorShortName: statement.tutorShortName });
+  const payrollPreference = await loadTutorPayrollPreference({ tutorShortName: statement.tutorShortName });
+  const preference = payrollPreference.ok ? payrollPreference.preference : {};
 
   return (
     <>
       <TutorStatementView statement={statement} />
       <StatementRecordActions reference={statement.reference} isReceipt={statement.documentType === 'receipt'} />
 
+      {statement.documentType === 'statement' ? (
+        <section className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Email to tutor</p>
+          <div className="mt-3">
+            <SendStatementEmailButton
+              payrollId={payrollId}
+              recipient={preference.contactEmail || ''}
+              verified={Boolean(preference.contactEmailVerifiedAt)}
+              deliveryStatus={savedRow.statementDeliveryStatus || ''}
+              sentAt={savedRow.statementSentAt || ''}
+            />
+          </div>
+        </section>
+      ) : null}
+
       <section className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Send to tutor</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Manual fallback</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <CopyStatementButton text={text} label="Copy statement text" />
           {shareLink ? <CopyStatementButton text={shareLink} label="Copy link and mark sent" markSentPayrollId={payrollId} /> : null}
@@ -76,7 +95,7 @@ async function StatementReady({ statement, payrollId }) {
           <p className="mt-3 text-xs text-amber-700">Share link unavailable (NEXTAUTH_SECRET not set) — copy the text instead.</p>
         )}
         <p className="mt-2 text-[0.7rem] leading-4 text-slate-400">
-          The link is read-only and needs no login. Nothing is sent automatically — you paste it (or the text) to the tutor yourself.
+          The link is read-only and needs no login. Use this only when email is unavailable or after checking an uncertain Gmail result.
         </p>
       </section>
     </>

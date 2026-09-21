@@ -1,7 +1,7 @@
 ---
 status: supporting
 audience: [human, agent]
-last_verified: 2026-08-10
+last_verified: 2026-09-21
 ---
 # Data Protection Map And Open Decisions
 
@@ -28,7 +28,7 @@ clear access boundaries, and plain-language transparency matter especially.
 | `Communication_Log`, `Parent_Understanding_State` | copied parent communication and human relationship notes | communications 2 years; review subjective understanding notes yearly |
 | planning, absence, pause, issue and event lanes | named operational workflow and audit evidence | workflow rows while active/useful; `Event_Log` proposed 2 years; never erase evidence to fake recovery |
 | song/path/assignment/request/outcome lanes | student IDs, tutor names, learning telemetry and free-text outcomes | review periodically; do not turn tutor-linked outcomes into performance ranking |
-| payroll, pay config, Wise, cover-bank lanes | tutor identity, phone, availability, earnings and recipient IDs | financial records 6 years; contact/availability while engaged |
+| payroll, pay config, Wise, cover-bank lanes and statement emails | tutor identity, statement contact email, phone, availability, earnings, delivery evidence and recipient IDs | financial records 6 years; contact/availability while engaged; Gmail Sent follows mailbox retention |
 | `Stripe_Forecast_Monthly`, `Stripe_Collected_Monthly` | student identity plus forecast/revealed collection amounts used to test finance completeness and investigate discrepancies | proposed 6 years with other financial reconciliation records; one compact row per month |
 | Stripe/MMS/Google/Wise/Soundslice/GitHub | provider-held data required for payments, lessons, content, hosting and code | governed by the school purpose plus provider terms/DPA |
 | Neon PostgreSQL `practice_note_delivery_claims` | pseudonymous delivery key and acting tutor used to prevent duplicate sends | retain while it is required to prove/block delivery replay; no note body |

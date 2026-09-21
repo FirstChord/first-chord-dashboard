@@ -83,6 +83,12 @@ async function savePayrollRunAction(formData) {
     payment_route: paymentRoute,
     statement_sent_at: statementChanged ? '' : `${formData.get('statement_sent_at') || ''}`.trim(),
     statement_sent_by: statementChanged ? '' : `${formData.get('statement_sent_by') || ''}`.trim(),
+    statement_delivery_status: statementChanged ? '' : `${formData.get('statement_delivery_status') || ''}`.trim(),
+    statement_delivery_channel: statementChanged ? '' : `${formData.get('statement_delivery_channel') || ''}`.trim(),
+    statement_delivery_to: statementChanged ? '' : `${formData.get('statement_delivery_to') || ''}`.trim(),
+    statement_delivery_attempted_at: statementChanged ? '' : `${formData.get('statement_delivery_attempted_at') || ''}`.trim(),
+    statement_delivery_message_id: statementChanged ? '' : `${formData.get('statement_delivery_message_id') || ''}`.trim(),
+    statement_delivery_error: statementChanged ? '' : `${formData.get('statement_delivery_error') || ''}`.trim(),
     notes: `${formData.get('notes') || ''}`.trim(),
     reviewed_at: status === 'reviewed' ? reviewedAt : `${formData.get('reviewed_at') || now}`.trim(),
     reviewed_by: status === 'reviewed' ? session.user.email || '' : `${formData.get('reviewed_by') || session.user.email || ''}`.trim(),
@@ -378,6 +384,12 @@ function PayrollTutorCard({ row, payDate }) {
           Window capped at 35 days back. If this invoice covers more, set a custom window start.
         </div>
       ) : null}
+      {!row.cadenceDue && !row.windowEmpty ? (
+        <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+          <p className="font-semibold">Not due this week · {row.invoiceCadence === 'biweekly' ? 'paid every two weeks' : row.invoiceCadence}</p>
+          <p className="mt-1">The next complete pay window is due on {formatPayrollDate(row.nextCadencePayDate)}. This draft cannot be reviewed or emailed early.</p>
+        </div>
+      ) : null}
       {reviewPast.length ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {reviewPast.length} taught lesson{reviewPast.length === 1 ? '' : 's'} not yet marked in MMS — record {reviewPast.length === 1 ? 'it' : 'them'} before trusting this figure.
@@ -445,6 +457,12 @@ function PayrollTutorCard({ row, payDate }) {
           ['existing_status', row.status],
           ['statement_sent_at', row.statementSentAt],
           ['statement_sent_by', row.statementSentBy],
+          ['statement_delivery_status', row.statementDeliveryStatus],
+          ['statement_delivery_channel', row.statementDeliveryChannel],
+          ['statement_delivery_to', row.statementDeliveryTo],
+          ['statement_delivery_attempted_at', row.statementDeliveryAttemptedAt],
+          ['statement_delivery_message_id', row.statementDeliveryMessageId],
+          ['statement_delivery_error', row.statementDeliveryError],
           ['tutor_response', row.tutorResponse],
           ['tutor_responded_at', row.tutorRespondedAt],
           ['tutor_note', row.tutorNote],
@@ -467,7 +485,7 @@ function PayrollTutorCard({ row, payDate }) {
           <PayrollSaveButtons
             status={row.status}
             attendanceChanged={row.attendanceChanged}
-            blocked={row.status === 'draft' && Boolean(reviewPast.length || row.overlapsPaid)}
+            blocked={row.status === 'draft' && Boolean(reviewPast.length || row.overlapsPaid || !row.cadenceDue)}
           />
         </div>
         <details className="group mt-3 border-t border-slate-200 pt-3">
@@ -683,14 +701,19 @@ export default async function AdminPayrollPage({ searchParams }) {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-slate-500">Changed attendance in MMS? Refresh before reviewing the amount.</p>
-        <Link
-          href={`/admin/finance/payroll?${[buildPayrollQuery(params), 'refresh=1'].filter(Boolean).join('&')}`}
-          prefetch={false}
-          className="inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-100"
-          title="Use after recording attendance in MMS"
-        >
-          ↻ Refresh MMS &amp; recalculate
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/finance/payroll/settings" className="inline-flex items-center rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
+            Tutor delivery settings
+          </Link>
+          <Link
+            href={`/admin/finance/payroll?${[buildPayrollQuery(params), 'refresh=1'].filter(Boolean).join('&')}`}
+            prefetch={false}
+            className="inline-flex items-center rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-sm font-semibold text-blue-800 shadow-sm hover:bg-blue-100"
+            title="Use after recording attendance in MMS"
+          >
+            ↻ Refresh MMS &amp; recalculate
+          </Link>
+        </div>
       </div>
 
       {`${params.refreshed || ''}` === '1' ? (

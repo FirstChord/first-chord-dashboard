@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-07-30
+last_verified: 2026-09-21
 ---
 # Paying tutors
 
@@ -15,13 +15,16 @@ clear record.
   durations and tutor/student links used by payroll.
 - **Pause History / WhatsApp context** is evidence for an attendance decision;
   it does not change payroll automatically.
-- **`Tutor_Pay`** supplies rate, cadence, pay model and default payment route.
+- **`Tutor_Pay`** supplies rate, cadence, pay model, verified payroll contact
+  email and default payment route. Its email is not a login or Wise identity.
 - **`Payroll_Runs`** stores the frozen reviewed amount, tutor response and the
   dashboard's paid marker. It is a reconciliation ledger, not bank truth.
 - **`Tutor_Wise`** supplies the saved Wise recipient details.
 - **Wise** is where the payment is actually uploaded and approved.
 
 Nothing on the payroll page sends money or WhatsApp messages automatically.
+The reviewed statement page can send one explicitly approved Gmail message; it
+does not schedule itself and it never pays the tutor.
 For hourly tutors, each payable slot is `hourly rate × duration / 60`. A group
 slot adds £2 once to that slot, regardless of duration or student count; it is
 never multiplied per student.
@@ -59,8 +62,16 @@ never multiplied per student.
    - **Tutor confirmation required** holds it out until the tutor confirms.
 6. Click **Review and generate statement**. Review freezes the figure in
    `Payroll_Runs`; a draft or unrecorded lesson cannot silently enter the batch.
-7. Open **Send statement**, click **Copy link and mark sent**, then paste the link
-   into the tutor's WhatsApp conversation. The dashboard does not send it.
+7. Open **Send statement**. The statement itself is the final preview. If the
+   tutor has a verified payroll contact, click **Send email to...**. For the
+   manual fallback, copy the link only into a private one-to-one conversation —
+   never a tutor group. The email contains the private link but no amount or
+   student names.
+
+Before the first email for a tutor, open **Tutor delivery settings** from the
+payroll page. Enter the address the tutor asked the school to use and tick the
+verification box only after checking it with them. This is deliberately
+separate from `Tutor_Wise.recipient_email` and the Google login map.
 
 ## What the tutor sees
 
@@ -80,6 +91,12 @@ tutor can change Confirmed ↔ Query raised. Once paid, responses are locked.
 
 The link includes **Print or save PDF**. This is a First Chord payment record,
 not a replacement for any invoice the freelancer is required to issue.
+
+The tutor's existing **Every week** or **Every two weeks** choice is recorded by
+an admin in **Tutor delivery settings**; tutors are not asked to choose again.
+A reviewed unpaid statement locks cadence correction. For a biweekly tutor, the
+payroll page marks the alternating short window **Not due this week** and
+refuses to review/email it early.
 
 ## Wednesday: create and pay the Wise batch
 
@@ -120,6 +137,9 @@ resend the same link if useful.
 - A confirmation is agreement with the figure, not proof of payment.
 - Unknown MMS attendance statuses fall to review; they never silently pay.
 - If an MMS write fails, the row stays unresolved and shows the error.
+- `sending` or `unknown` statement delivery means Gmail may already have the
+  email. Check the `musiclessons@` Sent folder; do not press send again merely
+  to make the dashboard green.
 - If a tutor disputes a statement, resolve it and get a fresh confirmation. A
   material statement change automatically clears the stale confirmation and
   returns the run to **Ready to send**.
@@ -135,6 +155,10 @@ resend the same link if useful.
 - Payroll classification/window logic: `lib/admin/payroll-helpers.mjs`
 - Confirmation and printable record: `lib/admin/tutor-statement.js`,
   `lib/admin/tutor-statement-helpers.mjs`, `app/pay/statement/[token]/page.js`
+- Contact/cadence: `lib/admin/tutor-payroll-preferences*`,
+  `app/admin/finance/payroll/settings/`
+- Email delivery: `lib/admin/tutor-statement-email*`,
+  `app/api/admin/payroll/send-statement-email/`
 - Wise selection/CSV: `lib/admin/wise-helpers.mjs`,
   `app/admin/finance/payroll/wise-csv/route.js`
 - State and fragile contracts: `docs/architecture/data/state-tabs.md`

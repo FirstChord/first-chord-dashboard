@@ -294,8 +294,11 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
   recommendation/progress work, or fretboard/chord paths. Finn must still create
   the missing Soundslice slices listed in
   [song coverage](./reference/song-catalogue-coverage.md).
-- **Tutor payroll Phase 3:** scheduled statement delivery and tutor-selected
-  cadence remain gated by persistent tutor auth/contact email.
+- **Tutor payroll Phase 3:** the source now has verified payroll contacts,
+  one-at-a-time admin-previewed Gmail delivery, admin-recorded existing
+  weekly/biweekly choices, and a complete-cadence due guard. Live rollout
+  remains gated by populating verified contact/cadence data and proving the manual pilot;
+  scheduled delivery and WhatsApp reminders remain unbuilt.
 - **Pause clarity:** distinguish Pause History, sheet expectation, and live Stripe
   evidence more clearly without adding Stripe mutation to Issues.
 - **Tutor dashboard auth pilot:** the canonical service now has a reversible

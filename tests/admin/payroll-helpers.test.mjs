@@ -10,6 +10,7 @@ import {
   buildPayrollRunId,
   nextWednesday,
   normalisePayrollRunRow,
+  isPayrollWindowDue,
   resolveTutorPayrollWindow,
   overlapsPaidRun,
 } from '../../lib/admin/payroll-helpers.mjs';
@@ -50,6 +51,12 @@ test('buildPayrollPeriod supports a three-week window per tutor', () => {
   assert.equal(p.days, 21);
   assert.equal(p.periodStart, '2026-06-10');
   assert.equal(p.cadence, 'three-weekly');
+});
+
+test('a biweekly tutor becomes due only when a complete two-week window has accrued', () => {
+  assert.equal(isPayrollWindowDue({ periodStart: '2026-09-09', periodEnd: '2026-09-15', cadence: 'biweekly' }), false);
+  assert.equal(isPayrollWindowDue({ periodStart: '2026-09-02', periodEnd: '2026-09-15', cadence: 'biweekly' }), true);
+  assert.equal(isPayrollWindowDue({ periodStart: '2026-09-09', periodEnd: '2026-09-15', cadence: 'biweekly', basis: 'override' }), true);
 });
 
 test('a paid run shows £0 owed but keeps finalAmount as the record', () => {
@@ -244,6 +251,27 @@ test('buildPayrollPreview uses biweekly cadence per tutor', () => {
   assert.equal(calum.periodEnd, '2026-06-30');
   assert.equal(calum.lessonCount, 2);
   assert.equal(calum.expectedAmount, 24);
+  assert.equal(calum.cadenceDue, true);
+});
+
+test('a biweekly tutor is visibly not due one week after the last paid window', () => {
+  const preview = buildPayrollPreview({
+    payDate: '2026-07-01',
+    tutorPay: parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly', invoice_cadence: 'biweekly' }]),
+    attendanceRows: [attendance({ EventID: 'evt_new', EventStartDate: '2026-06-25T16:00:00' })],
+    savedRuns: [{
+      payroll_id: 'payroll_calum_2026-06-10_2026-06-23',
+      tutor_short_name: 'Calum',
+      status: 'paid',
+      period_start: '2026-06-10',
+      period_end: '2026-06-23',
+    }],
+  });
+  const calum = preview.rows.find((row) => row.tutorShortName === 'Calum');
+  assert.equal(calum.periodStart, '2026-06-24');
+  assert.equal(calum.periodEnd, '2026-06-30');
+  assert.equal(calum.cadenceDue, false);
+  assert.equal(calum.nextCadencePayDate, '2026-07-08');
 });
 
 test('buildPayrollPreview overlays saved reviewed/paid state', () => {

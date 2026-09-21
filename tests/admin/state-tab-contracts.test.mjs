@@ -16,6 +16,7 @@ import {
   NEWSLETTER_ITEMS_HEADERS,
   PRACTICE_CHAT_SESSIONS_HEADERS,
   PRACTICE_NOTES_LOG_HEADERS,
+  PAYROLL_RUNS_HEADERS,
   PROPOSALS_HEADERS,
   SONG_ASSIGNMENTS_HEADERS,
   SONG_OUTCOMES_HEADERS,
@@ -24,6 +25,7 @@ import {
   STRIPE_FORECAST_MONTHLY_HEADERS,
   STUDENT_LIFECYCLE_HEADERS,
   STUDENT_PORTAL_ACCESS_HEADERS,
+  TUTOR_PAY_HEADERS,
 } from '../../lib/admin/sheets/core.mjs';
 import { buildIncomingMessageSheetRow, buildWhatsappGroupMapSheetRow } from '../../lib/admin/sheets/incoming-messages.mjs';
 import { buildPracticeNoteLogSheetRow } from '../../lib/admin/practice-notes-helpers.mjs';
@@ -100,6 +102,23 @@ test('managed sheet headers are unique and snake_case', () => {
       );
     }
   }
+});
+
+test('payroll contact and delivery evidence remain separate from banking identity', () => {
+  for (const header of ['contact_email', 'contact_email_verified_at', 'cadence_effective_from', 'cadence_updated_at', 'cadence_updated_by']) {
+    assert.ok(TUTOR_PAY_HEADERS.includes(header), `Tutor_Pay must keep ${header}`);
+  }
+  assert.ok(!TUTOR_PAY_HEADERS.includes('recipient_email'), 'Wise recipient identity must not leak into Tutor_Pay');
+
+  const deliveryStart = PAYROLL_RUNS_HEADERS.indexOf('statement_delivery_status');
+  assert.deepEqual(PAYROLL_RUNS_HEADERS.slice(deliveryStart, deliveryStart + 6), [
+    'statement_delivery_status',
+    'statement_delivery_channel',
+    'statement_delivery_to',
+    'statement_delivery_attempted_at',
+    'statement_delivery_message_id',
+    'statement_delivery_error',
+  ]);
 });
 
 // Header constants and row builders live a few lines apart but nothing joins

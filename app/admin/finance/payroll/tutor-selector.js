@@ -10,6 +10,7 @@ const toneClass = {
   waiting: 'bg-slate-400',
   ready: 'bg-emerald-500',
   complete: 'bg-slate-300',
+  idle: 'bg-sky-300',
 };
 
 export default function TutorSelector({ rows = [], selectedTutor = '', payDate = '' }) {

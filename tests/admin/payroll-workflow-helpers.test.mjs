@@ -35,6 +35,11 @@ test('a refreshed MMS correction sends a reviewed run back for an explicit save'
   assert.equal(state.readyForPayment, false);
 });
 
+test('a clean draft with an incomplete cadence reads as not due, while attendance still wins', () => {
+  assert.equal(getPayrollWorkflowState({ status: 'draft', cadenceDue: false }).key, 'not_due');
+  assert.equal(getPayrollWorkflowState({ status: 'draft', cadenceDue: false, reviewPastCount: 1 }).key, 'attendance');
+});
+
 test('material statement changes require a fresh tutor response', () => {
   const existing = {
     period_start: '2026-07-01',

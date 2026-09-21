@@ -10,6 +10,13 @@ import { buildPayrollPeriod, buildPayrollPreview } from '../../lib/admin/payroll
 import { buildWiseBatch, selectPayableReviewedRuns } from '../../lib/admin/wise-helpers.mjs';
 import { getPayrollWorkflowState, isPayrollRunReadyForPayment } from '../../lib/admin/payroll-workflow-helpers.mjs';
 
+test('an incomplete biweekly window can never become payment-ready', () => {
+  const state = getPayrollWorkflowState({ status: 'draft', cadenceDue: false, reviewPastCount: 0 });
+  assert.equal(state.key, 'not_due');
+  assert.equal(state.readyForPayment, false);
+  assert.equal(isPayrollRunReadyForPayment({ status: 'draft', invoiceCadence: 'biweekly' }), false);
+});
+
 // Small deterministic PRNG (mulberry32) so property failures reproduce exactly.
 function rng(seed) {
   let a = seed >>> 0;
