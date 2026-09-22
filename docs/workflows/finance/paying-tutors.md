@@ -35,6 +35,10 @@ never multiplied per student.
    A normal weekly period includes that previous Monday and ends on the Sunday
    immediately before the cycle date. A biweekly period covers the two complete
    Monday–Sunday weeks.
+   A future cycle is preview-only: **Review** stays blocked until its Sunday has
+   finished. If an earlier statement is still awaiting confirmation or has a
+   tutor query, the next preview begins after that statement but cannot be
+   reviewed until the earlier one is resolved and paid.
    **Load** only rebuilds the preview after changing this date; it does not
    create or send a payment.
 2. Select a tutor. Open **Adjustments, invoice tracking and period** when the
@@ -75,6 +79,12 @@ Before the first email for a tutor, open **Tutor delivery settings** from the
 payroll page. Enter the address the tutor asked the school to use and tick the
 verification box only after checking it with them. This is deliberately
 separate from `Tutor_Wise.recipient_email` and the Google login map.
+
+For the September 2026 cutover, use the **Cutover through Sun 20 Sept** view.
+Its progress panel is the operator checklist: choose a tutor and follow the
+single **Next** instruction through Prepare → Send → Waiting/Query → Ready to
+pay → Complete. Do not move to a tutor's later cycle while their cutoff remains
+open; the UI and server both block that path.
 
 ## What the tutor sees
 
@@ -146,6 +156,8 @@ resend the same link if useful.
 - If a tutor disputes a statement, resolve it and get a fresh confirmation. A
   material statement change automatically clears the stale confirmation and
   returns the run to **Ready to send**.
+- An unresolved reviewed statement blocks every later row for that tutor from
+  the Wise batch, even if a later row was saved by an older version of the UI.
 - If the Wise CSV total is unexpected, stop and inspect every tutor in **Ready to
   pay**. The batch is intentionally based on saved reviewed-unpaid rows, not just
   the date currently loaded.

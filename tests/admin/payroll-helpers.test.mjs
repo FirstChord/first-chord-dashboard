@@ -11,6 +11,8 @@ import {
   nextMonday,
   normalisePayrollRunRow,
   isPayrollWindowDue,
+  isPayrollPeriodOpen,
+  findBlockingReviewedRun,
   resolveTutorPayrollWindow,
   overlapsPaidRun,
 } from '../../lib/admin/payroll-helpers.mjs';
@@ -34,6 +36,11 @@ test('nextMonday returns today when today is Monday and the next Monday otherwis
   assert.equal(nextMonday(new Date('2026-09-21T10:00:00Z')), '2026-09-21');
   assert.equal(nextMonday(new Date('2026-09-22T10:00:00Z')), '2026-09-28');
   assert.equal(nextMonday(new Date('2026-09-20T23:30:00Z')), '2026-09-21'); // Monday in London during BST
+});
+
+test('an inclusive payroll period stays open until the following London day', () => {
+  assert.equal(isPayrollPeriodOpen('2026-09-27', new Date('2026-09-27T22:30:00Z')), true);
+  assert.equal(isPayrollPeriodOpen('2026-09-27', new Date('2026-09-27T23:30:00Z')), false); // Monday in London
 });
 
 test('buildPayrollPeriod uses a Monday cycle date with Monday-Sunday weekly and biweekly windows', () => {
@@ -86,6 +93,35 @@ test('cutover closes through Sunday, requires confirmation, and refuses to guess
   }).rows.find((row) => row.tutorShortName === 'Calum');
   assert.equal(manuallyAnchored.cutoverNeedsStart, false);
   assert.equal(manuallyAnchored.periodStart, '2026-09-14');
+});
+
+test('an unresolved cutoff reserves its dates and blocks the next period without overlapping it', () => {
+  const tutorPay = parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly' }]);
+  const savedRuns = [
+    { payroll_id: 'paid', tutor_short_name: 'Calum', status: 'paid', period_start: '2026-09-09', period_end: '2026-09-17' },
+    { payroll_id: 'payroll_calum_2026-09-18_2026-09-20', tutor_short_name: 'Calum', status: 'reviewed', period_start: '2026-09-18', period_end: '2026-09-20', tutor_response: 'disputed' },
+  ];
+  const row = buildPayrollPreview({
+    payDate: '2026-09-28',
+    tutorPay,
+    savedRuns,
+    now: new Date('2026-09-22T12:00:00Z'),
+  }).rows.find((entry) => entry.tutorShortName === 'Calum');
+  assert.equal(row.periodStart, '2026-09-21');
+  assert.equal(row.periodEnd, '2026-09-27');
+  assert.equal(row.windowBasis, 'since_pending');
+  assert.equal(row.priorRunPending.periodEnd, '2026-09-20');
+  assert.equal(row.periodOpen, true);
+  assert.equal(row.overlapsOutstanding, null);
+});
+
+test('findBlockingReviewedRun excludes the statement being corrected but finds another open statement', () => {
+  const rows = [
+    { payroll_id: 'old', tutor_short_name: 'Calum', status: 'reviewed', period_end: '2026-09-20' },
+    { payroll_id: 'other', tutor_short_name: 'Kenny', status: 'reviewed', period_end: '2026-09-20' },
+  ];
+  assert.equal(findBlockingReviewedRun(rows, { tutorShortName: 'Calum', payrollId: 'old' }), null);
+  assert.equal(findBlockingReviewedRun(rows, { tutorShortName: 'Calum', payrollId: 'new' }).payrollId, 'old');
 });
 
 test('a paid run shows £0 owed but keeps finalAmount as the record', () => {

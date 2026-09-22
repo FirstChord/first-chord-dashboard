@@ -52,6 +52,16 @@ test('cutover can never become payable without tutor confirmation, even if a sta
   assert.equal(getPayrollWorkflowState({ ...cutoff, isCutover: true }).key, 'send');
 });
 
+test('an open period and an unresolved earlier statement cannot advance', () => {
+  assert.equal(getPayrollWorkflowState({ status: 'draft', periodOpen: true }).key, 'period_open');
+  assert.equal(getPayrollWorkflowState({ status: 'draft', priorRunPending: { tutorResponse: 'disputed' } }).key, 'prior_pending');
+  assert.equal(getPayrollWorkflowState({ status: 'draft', overlapsOutstanding: { periodEnd: '2026-09-20' } }).key, 'statement_overlap');
+  assert.equal(isPayrollRunReadyForPayment(
+    { status: 'reviewed', payment_route: 'normal', period_end: '2026-09-27' },
+    { now: new Date('2026-09-22T12:00:00Z') },
+  ), false);
+});
+
 test('material statement changes require a fresh tutor response', () => {
   const existing = {
     period_start: '2026-07-01',

@@ -36,6 +36,11 @@ The source contains the manual pilot path:
 - the one-off 21 September 2026 cutover settles legacy pay through Sunday 20
   September, requires tutor confirmation, and refuses to infer an unrecorded
   historical start date;
+- future periods remain preview-only until their final Sunday has finished;
+- an unresolved earlier statement reserves its dates, blocks later review, and
+  blocks every later row for that tutor from Wise until it is resolved;
+- the cutover screen provides a progress queue and one next action per tutor so
+  a second operator can run it without knowing the underlying ledger model;
 - the reviewed statement page is the preview for one explicit Gmail send to a
   verified address. The email contains no amount or student names, only the
   private 30-day statement link;

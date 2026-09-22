@@ -14,6 +14,8 @@ import {
   formatPayrollDate,
   nextMonday,
   isPayrollCutoverPeriod,
+  isPayrollPeriodOpen,
+  findBlockingReviewedRun,
   PAYROLL_CUTOVER_PERIOD_END,
   PAYROLL_CUTOVER_RUN_DATE,
   PAYROLL_NEW_SYSTEM_START,
@@ -47,7 +49,12 @@ async function savePayrollRunAction(formData) {
   const adjustmentAmount = Number.parseFloat(`${formData.get('adjustment_amount') || '0'}`) || 0;
   const finalAmount = Math.round((expectedAmount + adjustmentAmount) * 100) / 100;
   const payrollId = `${formData.get('payroll_id') || ''}`.trim();
+  const tutor = `${formData.get('tutor') || ''}`.trim();
+  const tutorShortName = `${formData.get('tutor_short_name') || ''}`.trim();
   const periodEnd = `${formData.get('period_end') || ''}`.trim();
+  if (isPayrollPeriodOpen(periodEnd)) {
+    throw new Error('This payroll period is still open and cannot be reviewed yet.');
+  }
   const paymentRoute = isPayrollCutoverPeriod({ periodEnd })
     ? 'confirmation'
     : (`${formData.get('payment_route') || 'normal'}`.trim() === 'confirmation' ? 'confirmation' : 'normal');
@@ -63,6 +70,10 @@ async function savePayrollRunAction(formData) {
   };
   const existingRuns = await getPayrollRunRows();
   const existingRun = existingRuns.find((row) => `${row.payroll_id ?? row.payrollId ?? ''}`.trim() === payrollId) || null;
+  const blockingRun = findBlockingReviewedRun(existingRuns, { tutorShortName, tutor, payrollId });
+  if (blockingRun) {
+    throw new Error(`Finish the earlier statement ending ${blockingRun.periodEnd} before reviewing this period.`);
+  }
   const statementChanged = status === 'reviewed'
     && existingRun
     && hasMaterialTutorStatementChange(existingRun, nextStatement);
@@ -74,8 +85,8 @@ async function savePayrollRunAction(formData) {
     pay_date: `${formData.get('pay_date') || ''}`.trim(),
     period_start: `${formData.get('period_start') || ''}`.trim(),
     period_end: periodEnd,
-    tutor: `${formData.get('tutor') || ''}`.trim(),
-    tutor_short_name: `${formData.get('tutor_short_name') || ''}`.trim(),
+    tutor,
+    tutor_short_name: tutorShortName,
     teacher_id: `${formData.get('teacher_id') || ''}`.trim(),
     invoice_cadence: `${formData.get('invoice_cadence') || ''}`.trim(),
     pay_model: `${formData.get('pay_model') || ''}`.trim(),
@@ -316,7 +327,7 @@ function PayrollTutorCard({ row, payDate }) {
   const calculatedFinal = row.recalculatedFinalAmount
     ?? Math.round((row.expectedAmount + row.adjustmentAmount) * 100) / 100;
   const owed = row.owedAmount ?? (row.status === 'paid' ? 0 : (row.finalAmount || calculatedFinal));
-  const basisLabel = { since_paid: 'since last paid', first_run: 'default window', override: 'custom window' }[row.windowBasis] || row.windowBasis || '';
+  const basisLabel = { since_paid: 'since last paid', since_pending: 'after earlier statement', first_run: 'default window', override: 'custom window' }[row.windowBasis] || row.windowBasis || '';
   const reviewPast = (row.reviewSlots || []).filter((slot) => slot.timing === 'past');
   const reviewUpcoming = (row.reviewSlots || []).filter((slot) => slot.timing === 'upcoming');
   const workflow = getPayrollWorkflowState(row);
@@ -388,6 +399,22 @@ function PayrollTutorCard({ row, payDate }) {
           ⚠ This window overlaps an already-paid period ({formatPayrollDate(row.overlapsPaid.periodStart)} - {formatPayrollDate(row.overlapsPaid.periodEnd)}). Risk of double-paying — move the window start forward.
         </div>
       ) : null}
+      {row.overlapsOutstanding ? (
+        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+          This window overlaps an earlier statement ({formatPayrollDate(row.overlapsOutstanding.periodStart)}–{formatPayrollDate(row.overlapsOutstanding.periodEnd)}). Finish that statement or move this window forward before reviewing.
+        </div>
+      ) : null}
+      {row.priorRunPending ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <div>
+            <p className="font-semibold">Earlier statement still open</p>
+            <p className="mt-1">Finish {formatPayrollDate(row.priorRunPending.periodStart)}–{formatPayrollDate(row.priorRunPending.periodEnd)} before reviewing this period.</p>
+          </div>
+          <Link href={`/admin/finance/payroll?payDate=${row.priorRunPending.cycleDate}&tutor=${encodeURIComponent(row.tutorShortName)}`} className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100">
+            Open earlier statement
+          </Link>
+        </div>
+      ) : null}
       {row.windowEmpty ? (
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           Already paid through {formatPayrollDate(row.lastPaidThrough)} — nothing outstanding for this cycle date.
@@ -413,6 +440,12 @@ function PayrollTutorCard({ row, payDate }) {
         <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
           <p className="font-semibold">Not due this week · {row.invoiceCadence === 'biweekly' ? 'paid every two weeks' : row.invoiceCadence}</p>
           <p className="mt-1">The next complete pay window is due on {formatPayrollDate(row.nextCadencePayDate)}. This draft cannot be reviewed or emailed early.</p>
+        </div>
+      ) : null}
+      {row.periodOpen && row.cadenceDue && !row.priorRunPending ? (
+        <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+          <p className="font-semibold">This period is still open</p>
+          <p className="mt-1">It includes lessons through {formatPayrollDate(row.periodEnd)}. Review becomes available after that day has finished.</p>
         </div>
       ) : null}
       {reviewPast.length ? (
@@ -517,7 +550,7 @@ function PayrollTutorCard({ row, payDate }) {
           <PayrollSaveButtons
             status={row.status}
             attendanceChanged={row.attendanceChanged}
-            blocked={row.status === 'draft' && Boolean(reviewPast.length || row.overlapsPaid || !row.cadenceDue || row.cutoverNeedsStart || row.cutoverNothingOwed)}
+            blocked={row.status === 'draft' && Boolean(reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.cutoverNothingOwed)}
           />
         </div>
         <details className="group mt-3 border-t border-slate-200 pt-3">
@@ -642,6 +675,15 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
     awaiting: confirmationRows.filter((row) => !row.tutorResponse).length,
   };
   const workspaceRows = activeRows.map((row) => ({ ...row, workflow: getPayrollWorkflowState(row) }));
+  const cutoverProgress = payDate === PAYROLL_CUTOVER_RUN_DATE ? {
+    total: workspaceRows.length,
+    complete: workspaceRows.filter((row) => ['paid', 'nothing_due'].includes(row.workflow.key)).length,
+    prepare: workspaceRows.filter((row) => ['cutover_start', 'attendance', 'mms_changed', 'review', 'window_conflict', 'statement_overlap'].includes(row.workflow.key)).length,
+    send: workspaceRows.filter((row) => row.workflow.key === 'send').length,
+    waiting: workspaceRows.filter((row) => row.workflow.key === 'awaiting').length,
+    queries: workspaceRows.filter((row) => row.workflow.key === 'disputed').length,
+    ready: workspaceRows.filter((row) => row.workflow.key === 'ready').length,
+  } : null;
   const selectedRow = workspaceRows.find((row) => row.tutorShortName === tutorParam)
     || workspaceRows.find((row) => !['paid', 'ready'].includes(row.workflow.key))
     || workspaceRows[0]
@@ -662,6 +704,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
     disputed,
     loadError,
     attendanceAge,
+    cutoverProgress,
   };
 });
 
@@ -790,6 +833,41 @@ function PayrollWorkspaceFallback() {
   );
 }
 
+function CutoverGuide({ progress }) {
+  if (!progress) return null;
+  const pct = progress.total ? Math.round((progress.complete / progress.total) * 100) : 0;
+  const stages = [
+    ['Prepare', progress.prepare, 'Check dates, attendance and amount'],
+    ['Send', progress.send, 'Statement ready to email'],
+    ['Waiting', progress.waiting, 'Tutor has not replied yet'],
+    ['Queries', progress.queries, 'Correction or conversation needed'],
+    ['Ready to pay', progress.ready, 'Confirmed and available for Wise'],
+  ];
+  return (
+    <section className="rounded-[1.4rem] border border-blue-200 bg-blue-50/80 p-5 text-blue-950">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">One-off cutover queue</p>
+          <h3 className="mt-1 text-lg font-semibold">{progress.complete} of {progress.total} tutors complete</h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-blue-900">Choose a tutor below and follow the single <strong>Next</strong> instruction: check → review → send → wait for confirmation → pay in Wise → mark paid. Nothing emails or pays automatically.</p>
+        </div>
+        <span className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-blue-900">{pct}% complete</span>
+      </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-blue-100" aria-label={`${pct}% of tutor cutovers complete`}>
+        <div className="h-full rounded-full bg-blue-600" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        {stages.map(([label, count, hint]) => (
+          <div key={label} className="rounded-xl border border-blue-100 bg-white/80 px-3 py-2.5">
+            <p className="text-sm font-semibold">{count} · {label}</p>
+            <p className="mt-0.5 text-[0.68rem] leading-4 text-slate-500">{hint}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 async function PayrollWorkspace({ payDate, tutor, start, end }) {
   const {
     selectedRow,
@@ -802,6 +880,7 @@ async function PayrollWorkspace({ payDate, tutor, start, end }) {
     amountConflicts,
     disputed,
     loadError,
+    cutoverProgress,
   } = await loadPayrollWorkspace(payDate, tutor, start, end);
 
   return (
@@ -811,6 +890,8 @@ async function PayrollWorkspace({ payDate, tutor, start, end }) {
           MMS payroll attendance could not be loaded: {loadError}
         </section>
       ) : null}
+
+      <CutoverGuide progress={cutoverProgress} />
 
       <section className="space-y-4">
         <TutorSelector rows={selectorRows} selectedTutor={selectedTutor} payDate={payDate} />

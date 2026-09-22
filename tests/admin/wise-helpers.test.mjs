@@ -158,6 +158,15 @@ test('selectPayableReviewedRuns holds a disputed row out of the batch and surfac
   assert.equal(disputed[0].note, 'missing a lesson');
 });
 
+test('an earlier disputed statement blocks a newer normal row for the same tutor', () => {
+  const { rows, disputed } = selectPayableReviewedRuns([
+    savedRun({ payroll_id: 'cutoff', period_end: '2026-09-20', payment_route: 'confirmation', tutor_response: 'disputed', tutor_note: 'wrong lesson' }),
+    savedRun({ payroll_id: 'newer', period_start: '2026-09-21', period_end: '2026-09-21', payment_route: 'normal', tutor_response: '' }),
+  ]);
+  assert.equal(rows.length, 0);
+  assert.equal(disputed.length, 1);
+});
+
 test('selectPayableReviewedRuns holds confirmation-required rows until confirmed', () => {
   const waiting = selectPayableReviewedRuns([{
     payroll_id: 'pay_waiting',

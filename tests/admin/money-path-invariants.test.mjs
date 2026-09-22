@@ -23,6 +23,13 @@ test('the one-off cutoff can never enter Wise before the tutor confirms it', () 
   assert.equal(isPayrollRunReadyForPayment({ ...row, tutor_response: 'confirmed' }), true);
 });
 
+test('a future-ending payroll row can never enter Wise', () => {
+  assert.equal(isPayrollRunReadyForPayment(
+    { status: 'reviewed', payment_route: 'normal', period_end: '2026-09-27' },
+    { now: new Date('2026-09-22T12:00:00Z') },
+  ), false);
+});
+
 // Small deterministic PRNG (mulberry32) so property failures reproduce exactly.
 function rng(seed) {
   let a = seed >>> 0;
