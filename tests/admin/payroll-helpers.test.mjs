@@ -115,6 +115,35 @@ test('an unresolved cutoff reserves its dates and blocks the next period without
   assert.equal(row.overlapsOutstanding, null);
 });
 
+test('a reviewed custom cutoff reopens on its own cycle instead of becoming an empty later preview', () => {
+  const tutorPay = parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly' }]);
+  const row = buildPayrollPreview({
+    payDate: '2026-09-21',
+    tutorPay,
+    attendanceRows: [attendance({ EventID: 'cutoff', EventStartDate: '2026-09-18T16:00:00' })],
+    savedRuns: [{
+      payroll_id: 'payroll_calum_2026-09-18_2026-09-20',
+      pay_date: '2026-09-21',
+      tutor_short_name: 'Calum',
+      status: 'reviewed',
+      period_start: '2026-09-18',
+      period_end: '2026-09-20',
+      lesson_count: '1',
+      teaching_minutes: '30',
+      expected_amount: '12',
+      final_amount: '12',
+    }],
+  }).rows.find((entry) => entry.tutorShortName === 'Calum');
+
+  assert.equal(row.payrollId, 'payroll_calum_2026-09-18_2026-09-20');
+  assert.equal(row.periodStart, '2026-09-18');
+  assert.equal(row.periodEnd, '2026-09-20');
+  assert.equal(row.windowBasis, 'override');
+  assert.equal(row.windowEmpty, false);
+  assert.equal(row.status, 'reviewed');
+  assert.equal(row.priorRunPending, null);
+});
+
 test('findBlockingReviewedRun excludes the statement being corrected but finds another open statement', () => {
   const rows = [
     { payroll_id: 'old', tutor_short_name: 'Calum', status: 'reviewed', period_end: '2026-09-20' },
