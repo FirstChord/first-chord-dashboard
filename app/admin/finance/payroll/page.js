@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
-import { getPauseHistoryRows, getPayrollRunRows, getStudentsSheetRows, getTutorPayRows, getTutorWiseRows, upsertPayrollRunRow } from '@/lib/admin/sheets';
+import { getPauseHistoryRows, getPayrollRunRows, getStudentsSheetRows, getTutorLifecycleRows, getTutorPayRows, getTutorWiseRows, upsertPayrollRunRow } from '@/lib/admin/sheets';
 import { peekPayrollAttendanceAge, searchAttendanceForPayroll } from '@/lib/admin/mms';
 import { parseTutorPay } from '@/lib/admin/cost-helpers.mjs';
 import {
@@ -16,6 +16,7 @@ import {
   isPayrollCutoverPeriod,
   isPayrollPeriodOpen,
   findBlockingReviewedRun,
+  selectPayrollRosterRows,
   PAYROLL_CUTOVER_PERIOD_END,
   PAYROLL_CUTOVER_RUN_DATE,
   PAYROLL_NEW_SYSTEM_START,
@@ -149,6 +150,7 @@ async function markBatchPaidAction(formData) {
   const now = new Date().toISOString();
   const existing = await getPayrollRunRows();
   const byId = new Map(existing.map((row) => [`${row.payroll_id ?? ''}`.trim(), row]));
+  let markedCount = 0;
 
   for (const id of ids) {
     const row = byId.get(id);
@@ -161,9 +163,13 @@ async function markBatchPaidAction(formData) {
       paid_by: session.user.email || '',
       updated_at: now,
     });
+    markedCount += 1;
   }
 
   revalidatePath('/admin/finance/payroll');
+  const payDate = `${formData.get('payDate') || ''}`.trim().slice(0, 10);
+  const query = new URLSearchParams({ payDate: /^\d{4}-\d{2}-\d{2}$/u.test(payDate) ? payDate : nextMonday(), paid: markedCount ? '1' : '0' });
+  redirect(`/admin/finance/payroll?${query}`);
 }
 
 function minutesLabel(minutes) {
@@ -619,12 +625,13 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
     ? { [tutorParam]: { start: startParam, end: endParam } }
     : {};
 
-  const [tutorPayRows, savedRuns, tutorWiseRows, studentRows, pauseRows] = await Promise.all([
+  const [tutorPayRows, savedRuns, tutorWiseRows, studentRows, pauseRows, lifecycleRows] = await Promise.all([
     getTutorPayRows(),
     getPayrollRunRows(),
     getTutorWiseRows(),
     getStudentsSheetRows(),
     getPauseHistoryRows(),
+    getTutorLifecycleRows(),
   ]);
 
   // allowExpired: a save re-renders this whole page inside its own POST, and the
@@ -652,8 +659,9 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
   // Salaried tutors (Finn/Tom/Fennella) are paid a fixed wage, not per-lesson via
   // this Wise reconciliation — keep them off the payroll page entirely. Totals and
   // the Wise batch already exclude salary, so this is display-only.
-  const activeRows = addPauseEvidenceToPayrollRows(preview.rows, studentRows, pauseRows)
+  const activeRows = addPauseEvidenceToPayrollRows(selectPayrollRosterRows(preview.rows, lifecycleRows, savedRuns), studentRows, pauseRows)
     .filter((row) => row.payModel !== 'salary');
+  const reviewLessonCount = activeRows.reduce((total, row) => total + row.reviewLessonCount, 0);
   // A refreshed correction must go back through the existing human save step.
   // Hold every saved row for that tutor out of this rendered Wise batch so an
   // older duplicate window cannot become the fallback payment by accident.
@@ -673,7 +681,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
   const wiseCsvParams = new URLSearchParams({ payDate });
   if (heldPayrollIds.length) wiseCsvParams.set('excludePayrollIds', heldPayrollIds.join(','));
   // Tutor confirmation tally across reviewed (unpaid) rows — the "am I informed" surface.
-  const reviewedRows = preview.rows.filter((row) => row.status === 'reviewed');
+  const reviewedRows = activeRows.filter((row) => row.status === 'reviewed');
   const confirmationRows = reviewedRows.filter((row) => row.paymentRoute === 'confirmation');
   const confirmations = {
     confirmed: confirmationRows.filter((row) => row.tutorResponse === 'confirmed').length,
@@ -699,6 +707,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
 
   return {
     preview,
+    reviewLessonCount,
     selectedRow,
     selectedTutor,
     selectorRows,
@@ -806,6 +815,17 @@ export default async function AdminPayrollPage({ searchParams }) {
         </section>
       ) : null}
 
+      {`${params.paid || ''}` === '1' ? (
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900" role="status">
+          Payroll rows marked paid. Check the refreshed Ready to pay list before preparing another Wise batch.
+        </section>
+      ) : null}
+      {`${params.paid || ''}` === '0' ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+          No reviewed rows were marked paid. Refresh the Wise batch before trying again.
+        </section>
+      ) : null}
+
       {refreshError ? (
         <section className="rounded-[1.6rem] border border-rose-200 bg-rose-50 p-5 text-sm text-rose-900">
           MMS payroll attendance could not be refreshed: {refreshError}
@@ -820,11 +840,11 @@ export default async function AdminPayrollPage({ searchParams }) {
 }
 
 async function PayrollSummaryLine({ payDate, tutor, start, end }) {
-  const { preview, wiseBatch, confirmations, attendanceAge } = await loadPayrollWorkspace(payDate, tutor, start, end);
+  const { reviewLessonCount, wiseBatch, confirmations, attendanceAge } = await loadPayrollWorkspace(payDate, tutor, start, end);
   const stale = staleAttendanceLabel(attendanceAge);
   return (
     <p className="mt-2 text-sm text-slate-500">
-      {formatMoney(wiseBatch.totalAmount)} ready · {preview.totals.reviewLessonCount} lesson{preview.totals.reviewLessonCount === 1 ? '' : 's'} need review · {confirmations.awaiting} awaiting
+      {formatMoney(wiseBatch.totalAmount)} ready · {reviewLessonCount} lesson{reviewLessonCount === 1 ? '' : 's'} need review · {confirmations.awaiting} awaiting
       {stale ? <span className="text-slate-400"> · MMS attendance from {stale}, refreshing</span> : null}
     </p>
   );

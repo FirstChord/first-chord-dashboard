@@ -71,8 +71,9 @@ never multiplied per student.
    `Payroll_Runs`; a draft or unrecorded lesson cannot silently enter the batch.
 7. Open **Send statement**. The statement itself is the final preview. If the
    tutor has a verified payroll contact, click **Send email to...**. For the
-   manual fallback, copy the link only into a private one-to-one conversation —
-   never a tutor group. The email contains the private link but no amount or
+   manual fallback, copy the link, share it in a private one-to-one conversation,
+   then click **I shared this link privately**. Copying alone does not record a
+   delivery. Never use a tutor group. The email contains the private link but no amount or
    student names.
 
 Before the first email for a tutor, open **Tutor delivery settings** from the
@@ -85,6 +86,9 @@ Its progress panel is the operator checklist: choose a tutor and follow the
 single **Next** instruction through Prepare → Send → Waiting/Query → Ready to
 pay → Complete. Do not move to a tutor's later cycle while their cutoff remains
 open; the UI and server both block that path.
+The live queue follows `Tutor_Lifecycle`: a retired tutor drops out after their
+reviewed statements are settled. Their paid historical runs and statement links
+remain available; an unresolved reviewed run keeps them in the queue.
 
 ## What the tutor sees
 

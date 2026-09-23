@@ -85,7 +85,7 @@ async function StatementReady({ statement, savedRow, payrollId }) {
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Manual fallback</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <CopyStatementButton text={text} label="Copy statement text" />
-          {shareLink ? <CopyStatementButton text={shareLink} label="Copy link and mark sent" markSentPayrollId={payrollId} /> : null}
+          {shareLink ? <CopyStatementButton text={shareLink} label="Copy private link" markSentPayrollId={savedRow.statementSentAt ? '' : payrollId} /> : null}
         </div>
         {shareLink ? (
           <p className="mt-3 break-all rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
@@ -95,7 +95,7 @@ async function StatementReady({ statement, savedRow, payrollId }) {
           <p className="mt-3 text-xs text-amber-700">Share link unavailable (NEXTAUTH_SECRET not set) — copy the text instead.</p>
         )}
         <p className="mt-2 text-[0.7rem] leading-4 text-slate-400">
-          The link is read-only and needs no login. Use this only when email is unavailable or after checking an uncertain Gmail result.
+          The link is read-only and needs no login. Copy it, share it in a private one-to-one conversation, then mark it sent. Use this only when email is unavailable or after checking an uncertain Gmail result.
         </p>
       </section>
     </>

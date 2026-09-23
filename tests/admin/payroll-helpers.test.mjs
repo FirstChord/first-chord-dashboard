@@ -15,6 +15,7 @@ import {
   findBlockingReviewedRun,
   resolveTutorPayrollWindow,
   overlapsPaidRun,
+  selectPayrollRosterRows,
 } from '../../lib/admin/payroll-helpers.mjs';
 
 function attendance(overrides = {}) {
@@ -31,6 +32,25 @@ function attendance(overrides = {}) {
     Teacher: { ID: overrides.TeacherID || 'tch_zMX5Jc', Name: overrides.TeacherName || 'Calum Steel' },
   };
 }
+
+test('retired tutors leave the live payroll queue after settlement, while open statements remain reachable', () => {
+  const rows = [
+    { tutorShortName: 'Eléna', tutor: 'Eléna Esposito', teacherId: 'tch_elena' },
+    { tutorShortName: 'Patrick', tutor: 'Patrick Shand', teacherId: 'tch_patrick' },
+    { tutorShortName: 'Calum', tutor: 'Calum Steel', teacherId: 'tch_calum' },
+  ];
+  const lifecycleRows = [
+    { teacherId: 'tch_elena', status: 'retired' },
+    { teacherId: 'tch_patrick', status: 'retired' },
+  ];
+  const savedRuns = [
+    { teacher_id: 'tch_elena', tutor_short_name: 'Eléna', status: 'paid' },
+    { teacher_id: 'tch_patrick', tutor_short_name: 'Patrick', status: 'reviewed' },
+  ];
+  assert.deepEqual(selectPayrollRosterRows(rows, lifecycleRows, savedRuns).map((row) => row.tutorShortName), ['Patrick', 'Calum']);
+  assert.deepEqual(selectPayrollRosterRows(rows, lifecycleRows, [{ ...savedRuns[1], status: 'paid' }]).map((row) => row.tutorShortName), ['Calum']);
+  assert.deepEqual(selectPayrollRosterRows(rows, [], savedRuns).map((row) => row.tutorShortName), ['Eléna', 'Patrick', 'Calum']);
+});
 
 test('nextMonday returns today when today is Monday and the next Monday otherwise', () => {
   assert.equal(nextMonday(new Date('2026-09-21T10:00:00Z')), '2026-09-21');

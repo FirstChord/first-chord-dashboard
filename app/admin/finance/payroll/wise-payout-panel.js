@@ -1,6 +1,22 @@
 'use client';
 
 import { useState } from 'react';
+import { useFormStatus } from 'react-dom';
+
+function MarkBatchPaidButton({ includedCount, downloaded }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={!includedCount || !downloaded || pending}
+      aria-busy={pending}
+      title={!downloaded ? 'Download the Wise CSV first' : ''}
+      className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 disabled:hover:bg-white"
+    >
+      {pending ? 'Recording payment…' : `Mark batch paid${includedCount ? ` (${includedCount})` : ''}`}
+    </button>
+  );
+}
 
 // "Pay out via Wise": download the batch CSV, then (only after downloading and
 // paying in Wise) flip exactly that batch to paid. The batch-paid button stays
@@ -64,14 +80,7 @@ export default function WisePayoutPanel({
           <form action={markBatchPaidAction} onSubmit={confirmBatchPaid}>
             <input type="hidden" name="payDate" value={payDate} />
             <input type="hidden" name="payrollIds" value={payrollIds.join(',')} />
-            <button
-              type="submit"
-              disabled={!includedCount || !downloaded}
-              title={!downloaded ? 'Download the Wise CSV first' : ''}
-              className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 shadow-sm hover:bg-emerald-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400 disabled:hover:bg-white"
-            >
-              Mark batch paid{includedCount ? ` (${includedCount})` : ''}
-            </button>
+            <MarkBatchPaidButton includedCount={includedCount} downloaded={downloaded} />
           </form>
         </div>
       </div>
