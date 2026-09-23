@@ -121,6 +121,12 @@ async function savePayrollRunAction(formData) {
   });
 
   revalidatePath('/admin/finance/payroll');
+  // Do not make the form POST wait for the entire payroll workspace to render
+  // again. That render reads several provider-backed sources and can be slow
+  // even though the reviewed row is already safely persisted, leaving the
+  // button apparently stuck on "Saving…". The frozen statement is both the
+  // proof that the write completed and the next step in the workflow.
+  redirect(`/admin/finance/payroll/statement?pid=${encodeURIComponent(payrollId)}`);
 }
 
 // Flip exactly the reviewed rows that were in the Wise batch to paid, in one go.
