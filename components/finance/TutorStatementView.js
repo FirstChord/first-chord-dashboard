@@ -22,6 +22,8 @@ function recordDate(value) {
 }
 
 function recordStatus(statement) {
+  if (statement.status === 'paid' && statement.paidVia === 'manual' && statement.tutorResponse === 'disputed') return 'Paid · query raised';
+  if (statement.status === 'paid' && statement.paidVia === 'manual' && !statement.tutorResponse) return 'Paid · awaiting confirmation';
   if (statement.status === 'paid') return 'Paid';
   if (statement.tutorResponse === 'confirmed') return 'Confirmed';
   if (statement.tutorResponse === 'disputed') return 'Query raised';
@@ -114,7 +116,7 @@ export default function TutorStatementView({ statement }) {
 
       <p className="mt-5 text-sm text-slate-500">
         {isReceipt
-          ? 'This receipt records the payment marked as paid by First Chord for the lessons above.'
+          ? 'This receipt records the payment marked as paid by First Chord for the lessons above. If anything looks wrong, please tell us.'
           : 'If anything looks off, just reply and we’ll sort it before payment. Thank you!'}
       </p>
       <p className="mt-2 text-[0.7rem] leading-4 text-slate-400">

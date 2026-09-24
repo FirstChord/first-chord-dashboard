@@ -119,6 +119,9 @@ test('payroll contact and delivery evidence remain separate from banking identit
     'statement_delivery_message_id',
     'statement_delivery_error',
   ]);
+  assert.deepEqual(PAYROLL_RUNS_HEADERS.slice(-2), ['tutor_response_source', 'paid_via']);
+  assert.ok(PAYROLL_RUNS_HEADERS.includes('paid_at'));
+  assert.ok(PAYROLL_RUNS_HEADERS.includes('tutor_responded_at'));
 });
 
 // Header constants and row builders live a few lines apart but nothing joins

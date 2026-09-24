@@ -135,6 +135,30 @@ test('an unresolved cutoff reserves its dates and blocks the next period without
   assert.equal(row.overlapsOutstanding, null);
 });
 
+test('a separately paid cutoff stays visible until the tutor responds, without becoming payable again', () => {
+  const tutorPay = parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly' }]);
+  const paid = {
+    payroll_id: 'payroll_calum_2026-09-18_2026-09-20',
+    pay_date: '2026-09-21',
+    tutor_short_name: 'Calum',
+    status: 'paid',
+    paid_via: 'manual',
+    paid_at: '2026-09-24',
+    period_start: '2026-09-18',
+    period_end: '2026-09-20',
+    final_amount: '60',
+  };
+  const preview = (savedRuns) => buildPayrollPreview({ payDate: '2026-09-21', tutorPay, savedRuns })
+    .rows.find((entry) => entry.tutorShortName === 'Calum');
+  const awaiting = preview([paid]);
+  assert.equal(awaiting.payrollId, paid.payroll_id);
+  assert.equal(awaiting.status, 'paid');
+  assert.equal(awaiting.owedAmount, 0);
+  assert.equal(awaiting.overlapsPaid, null);
+  assert.equal(awaiting.tutorResponse, '');
+  assert.notEqual(preview([{ ...paid, tutor_response: 'confirmed' }]).payrollId, paid.payroll_id);
+});
+
 test('a reviewed custom cutoff reopens on its own cycle instead of becoming an empty later preview', () => {
   const tutorPay = parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly' }]);
   const row = buildPayrollPreview({

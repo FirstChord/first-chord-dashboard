@@ -24,6 +24,7 @@ import {
 import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 import { parseTutorWise, buildWiseBatch, selectPayableReviewedRuns } from '@/lib/admin/wise-helpers.mjs';
 import { getPayrollWorkflowState, hasMaterialTutorStatementChange } from '@/lib/admin/payroll-workflow-helpers.mjs';
+import { buildManualCutoverEmailConfirmation, buildManualCutoverPayment } from '@/lib/admin/payroll-manual-settlement-helpers.mjs';
 import { findPauseHistoryCoverageForLesson } from '@/lib/admin/pause-helpers.mjs';
 import AdjustWindowForm from './adjust-window-form';
 import WisePayoutPanel from './wise-payout-panel';
@@ -42,8 +43,7 @@ async function savePayrollRunAction(formData) {
   }
 
   const now = new Date().toISOString();
-  // Individual cards can lock/review a figure, but never originate a payment.
-  // Only the audited batch action marks reviewed rows paid.
+  // Reviewing never originates a payment; payment markers have separate actions.
   const status = `${formData.get('existing_status') || ''}`.trim() === 'paid' ? 'paid' : 'reviewed';
   const existingCreatedAt = `${formData.get('created_at') || ''}`.trim();
   const expectedAmount = Number.parseFloat(`${formData.get('expected_amount') || '0'}`) || 0;
@@ -71,6 +71,9 @@ async function savePayrollRunAction(formData) {
   };
   const existingRuns = await getPayrollRunRows();
   const existingRun = existingRuns.find((row) => `${row.payroll_id ?? row.payrollId ?? ''}`.trim() === payrollId) || null;
+  if (existingRun?.status === 'paid' && (status !== 'paid' || hasMaterialTutorStatementChange(existingRun, nextStatement))) {
+    throw new Error('This statement is already paid. Its period and amount cannot be changed by saving an old form.');
+  }
   const blockingRun = findBlockingReviewedRun(existingRuns, { tutorShortName, tutor, payrollId });
   if (blockingRun) {
     throw new Error(`Finish the earlier statement ending ${blockingRun.periodEnd} before reviewing this period.`);
@@ -116,6 +119,8 @@ async function savePayrollRunAction(formData) {
     tutor_response: statementChanged ? '' : `${formData.get('tutor_response') || ''}`.trim(),
     tutor_responded_at: statementChanged ? '' : `${formData.get('tutor_responded_at') || ''}`.trim(),
     tutor_note: statementChanged ? '' : `${formData.get('tutor_note') || ''}`.trim(),
+    tutor_response_source: statementChanged ? '' : `${formData.get('tutor_response_source') || ''}`.trim(),
+    paid_via: `${formData.get('paid_via') || ''}`.trim(),
     source: 'mms_attendance_preview',
     created_at: existingCreatedAt || now,
     updated_at: now,
@@ -127,6 +132,47 @@ async function savePayrollRunAction(formData) {
   // even though the reviewed row is already safely persisted, leaving the
   // button apparently stuck on "Saving…". The frozen statement is both the
   // proof that the write completed and the next step in the workflow.
+  redirect(`/admin/finance/payroll/statement?pid=${encodeURIComponent(payrollId)}`);
+}
+
+async function recordManualCutoverPaymentAction(formData) {
+  'use server';
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.isAdmin) throw new Error('Not authorised');
+  if (formData.get('payment_verified') !== 'yes') throw new Error('Verify the external payment first.');
+
+  const payrollId = `${formData.get('payroll_id') || ''}`.trim();
+  const runs = await getPayrollRunRows();
+  const row = runs.find((entry) => `${entry.payroll_id || ''}`.trim() === payrollId);
+  if (!row) throw new Error('Statement not found.');
+  const updated = buildManualCutoverPayment(row, {
+    expectedAmount: formData.get('expected_amount'),
+    paymentDate: formData.get('payment_date'),
+    actorEmail: session.user.email,
+  });
+  await upsertPayrollRunRow(updated);
+  revalidatePath('/admin/finance/payroll');
+  redirect(`/admin/finance/payroll/statement?pid=${encodeURIComponent(payrollId)}`);
+}
+
+async function recordManualCutoverConfirmationAction(formData) {
+  'use server';
+
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.isAdmin) throw new Error('Not authorised');
+  if (formData.get('email_verified') !== 'yes') throw new Error('Verify the tutor email reply first.');
+
+  const payrollId = `${formData.get('payroll_id') || ''}`.trim();
+  const runs = await getPayrollRunRows();
+  const row = runs.find((entry) => `${entry.payroll_id || ''}`.trim() === payrollId);
+  if (!row) throw new Error('Statement not found.');
+  const updated = buildManualCutoverEmailConfirmation(row, {
+    confirmationDate: formData.get('confirmation_date'),
+    actorEmail: session.user.email,
+  });
+  await upsertPayrollRunRow(updated);
+  revalidatePath('/admin/finance/payroll');
   redirect(`/admin/finance/payroll/statement?pid=${encodeURIComponent(payrollId)}`);
 }
 
@@ -161,6 +207,7 @@ async function markBatchPaidAction(formData) {
       status: 'paid',
       paid_at: now,
       paid_by: session.user.email || '',
+      paid_via: 'wise',
       updated_at: now,
     });
     markedCount += 1;
@@ -374,7 +421,7 @@ function PayrollTutorCard({ row, payDate }) {
         <div className="text-right">
           <p className="text-2xl font-semibold text-slate-900">{formatMoney(owed)}</p>
           {row.status === 'paid' ? (
-            <p className="text-xs text-emerald-700">paid {formatMoney(row.finalAmount)}{row.paidAt ? ` · ${formatPayrollDate(row.paidAt)}` : ''}</p>
+            <p className="text-xs text-emerald-700">paid {formatMoney(row.finalAmount)}{row.paidAt ? ` · ${formatPayrollDate(row.paidAt)}` : ''}{row.paidVia === 'manual' ? ' · recorded separately' : ''}</p>
           ) : (
             <p className="text-xs text-slate-500">{row.lessonCount} payable · {minutesLabel(row.teachingMinutes)}</p>
           )}
@@ -477,11 +524,17 @@ function PayrollTutorCard({ row, payDate }) {
       ) : null}
       {row.tutorResponse === 'confirmed' ? (
         <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-800">
-          Confirmed ✓ by tutor{row.tutorRespondedAt ? ` · ${formatPayrollDate(row.tutorRespondedAt)}` : ''}.
+          {row.tutorResponseSource === 'email_admin_recorded' ? 'Email confirmation recorded by admin' : 'Confirmed ✓ by tutor'}{row.tutorRespondedAt ? ` · ${formatPayrollDate(row.tutorRespondedAt)}` : ''}.
         </div>
       ) : row.tutorResponse === 'disputed' ? (
         <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
           <strong>Tutor flagged this statement</strong>{row.tutorNote ? `: “${row.tutorNote}”` : '.'} Held out of the Wise batch until you resolve it.
+        </div>
+      ) : null}
+
+      {row.status === 'paid' && row.paidVia === 'manual' && !row.tutorResponse ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          Payment recorded separately; tutor confirmation is still outstanding. Their original private link remains usable and will not add another payment to Wise.
         </div>
       ) : null}
 
@@ -509,6 +562,7 @@ function PayrollTutorCard({ row, payDate }) {
         </details>
       </div>
 
+      {!(row.status === 'paid' && row.paidVia === 'manual') ? (
       <form action={savePayrollRunAction} className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
         {[
           ['payroll_id', row.payrollId],
@@ -536,6 +590,8 @@ function PayrollTutorCard({ row, payDate }) {
           ['tutor_response', row.tutorResponse],
           ['tutor_responded_at', row.tutorRespondedAt],
           ['tutor_note', row.tutorNote],
+          ['tutor_response_source', row.tutorResponseSource],
+          ['paid_via', row.paidVia],
           ['reviewed_at', row.reviewedAt],
           ['reviewed_by', row.reviewedBy],
           ['paid_at', row.paidAt],
@@ -599,6 +655,42 @@ function PayrollTutorCard({ row, payDate }) {
           </div>
         </details>
       </form>
+      ) : null}
+      {row.isCutover && row.status === 'reviewed' ? (
+        <form action={recordManualCutoverPaymentAction} className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+          <input type="hidden" name="payroll_id" value={row.payrollId} />
+          <input type="hidden" name="expected_amount" value={row.finalAmount} />
+          <details>
+            <summary className="cursor-pointer font-semibold">Already paid separately?</summary>
+            <p className="mt-2">Only use this when you have already paid this exact {formatMoney(row.finalAmount)} statement separately from this batch. Tutor confirmation can still be gathered later. This records payment only; it sends no email and makes no payment.</p>
+            <label className="mt-3 block">Date actually paid
+              <input required name="payment_date" type="date" className="mt-1 block w-full rounded-xl border border-amber-300 bg-white px-3 py-2" />
+            </label>
+            <label className="mt-3 flex items-start gap-2">
+              <input required name="payment_verified" value="yes" type="checkbox" className="mt-1" />
+              <span>I checked the tutor, statement amount, date and separate payment record.</span>
+            </label>
+            <button type="submit" className="mt-3 rounded-xl bg-amber-900 px-4 py-2 font-semibold text-white hover:bg-amber-800">Record already paid</button>
+          </details>
+        </form>
+      ) : null}
+      {row.isCutover && row.status === 'paid' && row.paidVia === 'manual' && row.tutorResponse !== 'confirmed' ? (
+        <form action={recordManualCutoverConfirmationAction} className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+          <input type="hidden" name="payroll_id" value={row.payrollId} />
+          <details>
+            <summary className="cursor-pointer font-semibold">Tutor confirmed by email?</summary>
+            <p className="mt-2">If the tutor replied to confirm this exact statement, record that response here. If they use the private link instead, it records their confirmation directly. Neither path creates another payment.</p>
+            <label className="mt-3 block">Date of email confirmation (if known)
+              <input name="confirmation_date" type="date" className="mt-1 block w-full rounded-xl border border-blue-300 bg-white px-3 py-2" />
+            </label>
+            <label className="mt-3 flex items-start gap-2">
+              <input required name="email_verified" value="yes" type="checkbox" className="mt-1" />
+              <span>I checked the tutor’s email reply against this statement.</span>
+            </label>
+            <button type="submit" className="mt-3 rounded-xl bg-blue-900 px-4 py-2 font-semibold text-white hover:bg-blue-800">Record email confirmation</button>
+          </details>
+        </form>
+      ) : null}
     </article>
   );
 }
@@ -680,9 +772,10 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
   const wiseBatch = buildWiseBatch({ rows: payableRows, wiseByKey: parseTutorWise(tutorWiseRows) });
   const wiseCsvParams = new URLSearchParams({ payDate });
   if (heldPayrollIds.length) wiseCsvParams.set('excludePayrollIds', heldPayrollIds.join(','));
-  // Tutor confirmation tally across reviewed (unpaid) rows — the "am I informed" surface.
-  const reviewedRows = activeRows.filter((row) => row.status === 'reviewed');
-  const confirmationRows = reviewedRows.filter((row) => row.paymentRoute === 'confirmation');
+  // Confirmation can remain open after an externally paid cutoff, but that
+  // row is still excluded from Wise because its payment status is paid.
+  const confirmationRows = activeRows.filter((row) => row.paymentRoute === 'confirmation'
+    && (row.status === 'reviewed' || (row.status === 'paid' && row.paidVia === 'manual' && row.tutorResponse !== 'confirmed')));
   const confirmations = {
     confirmed: confirmationRows.filter((row) => row.tutorResponse === 'confirmed').length,
     disputed: confirmationRows.filter((row) => row.tutorResponse === 'disputed').length,
@@ -694,8 +787,8 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
     complete: workspaceRows.filter((row) => ['paid', 'nothing_due'].includes(row.workflow.key)).length,
     prepare: workspaceRows.filter((row) => ['cutover_start', 'attendance', 'mms_changed', 'review', 'window_conflict', 'statement_overlap'].includes(row.workflow.key)).length,
     send: workspaceRows.filter((row) => row.workflow.key === 'send').length,
-    waiting: workspaceRows.filter((row) => row.workflow.key === 'awaiting').length,
-    queries: workspaceRows.filter((row) => row.workflow.key === 'disputed').length,
+    waiting: workspaceRows.filter((row) => ['awaiting', 'paid_awaiting'].includes(row.workflow.key)).length,
+    queries: workspaceRows.filter((row) => ['disputed', 'paid_query'].includes(row.workflow.key)).length,
     ready: workspaceRows.filter((row) => row.workflow.key === 'ready').length,
   } : null;
   const selectedRow = workspaceRows.find((row) => row.tutorShortName === tutorParam)
@@ -875,7 +968,7 @@ function CutoverGuide({ progress }) {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">One-off cutover queue</p>
           <h3 className="mt-1 text-lg font-semibold">{progress.complete} of {progress.total} tutors complete</h3>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-blue-900">Choose a tutor below and follow the single <strong>Next</strong> instruction: check → review → send → wait for confirmation → pay in Wise → mark paid. Nothing emails or pays automatically.</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-blue-900">Choose a tutor below and follow the single <strong>Next</strong> instruction: check → review → send → confirm → pay and record payment. If already paid separately, record that payment now and keep confirmation outstanding. Nothing emails or pays automatically.</p>
         </div>
         <span className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-blue-900">{pct}% complete</span>
       </div>

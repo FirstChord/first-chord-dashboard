@@ -58,6 +58,18 @@ test('paid payroll runs become dated payment receipts using the same stable refe
   assert.match(renderTutorStatementText(statement), /Paid:/);
 });
 
+test('a separately paid receipt can still show confirmation outstanding', () => {
+  const statement = buildTutorStatement({
+    savedRow: { ...savedRow, status: 'paid', paidVia: 'manual', paidAt: '2026-09-24', tutorResponse: '' },
+    previewRow,
+  });
+  assert.equal(statement.documentType, 'receipt');
+  assert.equal(statement.paidVia, 'manual');
+  assert.equal(statement.tutorResponse, '');
+  assert.match(renderTutorStatementText(statement), /Paid:/u);
+  assert.doesNotMatch(renderTutorStatementText(statement), /before payment/u);
+});
+
 test('buildStatementReference is readable and deterministic for tutor records', () => {
   assert.equal(buildStatementReference({
     payrollId: 'payroll_elena_x',

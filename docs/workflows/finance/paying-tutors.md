@@ -90,6 +90,22 @@ The live queue follows `Tutor_Lifecycle`: a retired tutor drops out after their
 reviewed statements are settled. Their paid historical runs and statement links
 remain available; an unresolved reviewed run keeps them in the queue.
 
+If a cutover tutor was already paid against their own invoice separately from
+the Wise batch, open their cutoff card's **Already paid separately?** section.
+Enter the actual payment date, check the exact saved amount against the payment
+record, and tick the verification box. **Record already paid** stamps payment
+only, even if the tutor has not yet confirmed. It sends no email, makes no
+payment and removes that statement from Wise. The card remains **Paid · awaiting
+confirmation**, and their original private link still accepts a response. If
+they reply by email instead, use **Tutor confirmed by email?** after receiving
+the reply; enter its date only if known. Never record confirmation before it
+happens. A query on an already-paid record remains visible for resolution but
+cannot create another Wise payment. `tutor_response_source` distinguishes a
+signed-link response from an admin-recorded email reply, and `paid_via=manual`
+means paid separately from the batch, not a claim about the payment rail.
+`paid_at` is the actual payment date entered by the admin; `updated_at` is when
+the dashboard recorded it. The bank or invoice remains payment truth.
+
 ## What the tutor sees
 
 The signed link needs no login and expires after 30 days. It shows a referenced

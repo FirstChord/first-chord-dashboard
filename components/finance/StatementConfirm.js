@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 
 // Confirm / dispute controls on the public statement link (Phase 2). Posts the
 // signed token back — no login. On success it flips to a thank-you state.
-export default function StatementConfirm({ token, initialResponse = '', initialNote = '' }) {
+export default function StatementConfirm({ token, initialResponse = '', initialNote = '', alreadyPaid = false, locked = false }) {
   const router = useRouter();
   const [response, setResponse] = useState(initialResponse);
   const [note, setNote] = useState(initialNote);
@@ -42,10 +42,10 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
   if (response === 'confirmed') {
     return (
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        Thanks — you’ve confirmed this statement. First Chord will process your payment. ✓
-        <button type="button" onClick={() => setShowDispute(true)} className="ml-2 text-emerald-800 underline">
+        {alreadyPaid ? 'Thanks — you’ve confirmed the statement for the payment already made. ✓' : 'Thanks — you’ve confirmed this statement. First Chord will process your payment. ✓'}
+        {!locked ? <button type="button" onClick={() => setShowDispute(true)} className="ml-2 text-emerald-800 underline">
           Actually, something’s off
-        </button>
+        </button> : null}
         {showDispute ? <DisputeBox note={note} setNote={setNote} onSubmit={() => submit('disputed')} pending={pending === 'disputed'} /> : null}
       </div>
     );
@@ -54,13 +54,15 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
   if (response === 'disputed') {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        Thanks for flagging this — First Chord has been notified and will be in touch before any payment.
-        <button type="button" onClick={() => submit('confirmed')} disabled={pending === 'confirmed'} className="ml-2 text-amber-900 underline disabled:opacity-60">
+        {alreadyPaid ? 'Thanks for flagging this — First Chord will review the statement and payment already made.' : 'Thanks for flagging this — First Chord has been notified and will be in touch before any payment.'}
+        {!locked ? <button type="button" onClick={() => submit('confirmed')} disabled={pending === 'confirmed'} className="ml-2 text-amber-900 underline disabled:opacity-60">
           It’s fine now — confirm
-        </button>
+        </button> : null}
       </div>
     );
   }
+
+  if (locked) return <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">This pay record has already been settled. Contact First Chord if anything needs correcting.</div>;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-4 text-sm">

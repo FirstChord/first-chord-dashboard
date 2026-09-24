@@ -31,6 +31,8 @@ export default async function PublicStatementPage({ params }) {
               token={token}
               initialResponse={result.statement.tutorResponse}
               initialNote={result.statement.tutorNote}
+              alreadyPaid={result.statement.status === 'paid' && result.statement.paidVia === 'manual'}
+              locked={result.statement.status === 'paid' && result.statement.paidVia !== 'manual'}
             />
           </div>
           <p className="text-center text-xs text-slate-400 print:hidden">

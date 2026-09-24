@@ -23,6 +23,14 @@ test('the one-off cutoff can never enter Wise before the tutor confirms it', () 
   assert.equal(isPayrollRunReadyForPayment({ ...row, tutor_response: 'confirmed' }), true);
 });
 
+test('a separately paid cutoff remains out of Wise even if the tutor confirms later', () => {
+  const row = { payroll_id: 'cutoff', tutor: 'Calum Steel', tutor_short_name: 'Calum', status: 'paid', paid_via: 'manual', period_end: '2026-09-20', final_amount: '60' };
+  assert.equal(isPayrollRunReadyForPayment(row), false);
+  assert.equal(isPayrollRunReadyForPayment({ ...row, tutor_response: 'confirmed' }), false);
+  assert.deepEqual(selectPayableReviewedRuns([row, { ...row, tutor_response: 'confirmed' }]).rows, []);
+  assert.equal(getPayrollWorkflowState(row).key, 'paid_awaiting');
+});
+
 test('a future-ending payroll row can never enter Wise', () => {
   assert.equal(isPayrollRunReadyForPayment(
     { status: 'reviewed', payment_route: 'normal', period_end: '2026-09-27' },
