@@ -133,7 +133,7 @@ export default function QuickLinks({ student, activeTutor = '', onOpenPracticeCh
     }] : []),
     {
       id: VIDEO_GUIDE_LINK_ID,
-      name: "Video Lesson Guide",
+      name: "Practice Video Guidance",
       icon: <Video className="h-14 w-14 p-2 text-[#2F6B3D]" />,
       url: VIDEO_GUIDE_IMAGE,
       instruction: "How to make a practice video for an absent student",
@@ -192,7 +192,7 @@ export default function QuickLinks({ student, activeTutor = '', onOpenPracticeCh
           onClick={() => setShowVideoGuide(false)}
           role="dialog"
           aria-modal="true"
-          aria-label="Video Lesson Guide"
+          aria-label="Practice Video Guidance"
         >
           <div className="relative max-h-full" onClick={(e) => e.stopPropagation()}>
             <button
