@@ -115,6 +115,29 @@ test('cutover closes through Sunday, requires confirmation, and refuses to guess
   assert.equal(manuallyAnchored.periodStart, '2026-09-14');
 });
 
+test('a historical paid-through marker anchors the cutoff without inventing an amount or payment date', () => {
+  const tutorPay = parseTutorPay([{ tutor: 'Hamish', hourly_rate: '24', pay_model: 'hourly', invoice_cadence: 'biweekly' }]);
+  const marker = {
+    payroll_id: 'payroll_hamish_paid_through_2026-09-15',
+    tutor_short_name: 'Hamish',
+    status: 'paid_through',
+    period_end: '2026-09-15',
+    source: 'manual_paid_through_attestation',
+  };
+  const preview = (overrides = {}) => buildPayrollPreview({
+    payDate: '2026-09-21', tutorPay, savedRuns: [marker], overrides,
+  }).rows.find((entry) => entry.tutorShortName === 'Hamish');
+  const row = preview();
+  assert.equal(row.periodStart, '2026-09-16');
+  assert.equal(row.periodEnd, '2026-09-20');
+  assert.equal(row.manualPaidThrough, '2026-09-15');
+  assert.equal(row.overlapsPaid, null);
+  assert.equal(row.cutoverNothingOwed, true);
+  assert.equal(row.status, 'draft');
+  assert.equal(row.finalAmount, 0);
+  assert.equal(preview({ Hamish: { start: '2026-09-15' } }).overlapsPaid.isBoundary, true);
+});
+
 test('an unresolved cutoff reserves its dates and blocks the next period without overlapping it', () => {
   const tutorPay = parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly' }]);
   const savedRuns = [

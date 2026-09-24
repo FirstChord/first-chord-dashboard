@@ -455,7 +455,14 @@ function PayrollTutorCard({ row, payDate }) {
 
       {row.overlapsPaid ? (
         <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          ⚠ This window overlaps an already-paid period ({formatPayrollDate(row.overlapsPaid.periodStart)} - {formatPayrollDate(row.overlapsPaid.periodEnd)}). Risk of double-paying — move the window start forward.
+          {row.overlapsPaid.isBoundary
+            ? `⚠ This window reaches before the reported paid-through boundary (${formatPayrollDate(row.overlapsPaid.periodEnd)}). Move its start forward to avoid double-paying.`
+            : `⚠ This window overlaps an already-paid period (${formatPayrollDate(row.overlapsPaid.periodStart)} - ${formatPayrollDate(row.overlapsPaid.periodEnd)}). Risk of double-paying — move the window start forward.`}
+        </div>
+      ) : null}
+      {row.isCutover && row.manualPaidThrough ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          Historical paid-through boundary: {formatPayrollDate(row.manualPaidThrough)}. The earlier payment amount and date were not recorded here.
         </div>
       ) : null}
       {row.overlapsOutstanding ? (

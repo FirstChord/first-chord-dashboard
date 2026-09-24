@@ -90,6 +90,18 @@ The live queue follows `Tutor_Lifecycle`: a retired tutor drops out after their
 reviewed statements are settled. Their paid historical runs and statement links
 remain available; an unresolved reviewed run keeps them in the queue.
 
+A tutor entering the cutover with no saved payroll history may have a known
+historical paid-through date but no reliable amount or payment date for the old
+manual invoices. In that case an explicit `Payroll_Runs` row with
+`status=paid_through`, `source=manual_paid_through_attestation`, and only the
+known `period_end` establishes the boundary. It is **not** a payment run:
+`period_start`, amount and `paid_at` remain blank, it cannot produce a statement
+or enter Wise, and its notes state who reported the boundary. The preview starts
+the next day, and an override reaching back into the covered dates is blocked.
+If the remaining cutoff days currently have no payable lessons, the cutoff
+shows **Nothing owed**; do not fabricate a £0 payment or silently close later
+dates as paid. A later MMS correction still needs review.
+
 If a cutover tutor was already paid against their own invoice separately from
 the Wise batch, open their cutoff card's **Already paid separately?** section.
 Enter the actual payment date, check the exact saved amount against the payment

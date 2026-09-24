@@ -31,6 +31,12 @@ test('a separately paid cutoff remains out of Wise even if the tutor confirms la
   assert.equal(getPayrollWorkflowState(row).key, 'paid_awaiting');
 });
 
+test('a historical paid-through boundary is not a payment or a Wise candidate', () => {
+  const marker = { payroll_id: 'paid_through_hamish_2026-09-15', tutor: 'Hamish Roberts', tutor_short_name: 'Hamish', status: 'paid_through', period_end: '2026-09-15', final_amount: '' };
+  assert.equal(isPayrollRunReadyForPayment(marker), false);
+  assert.deepEqual(selectPayableReviewedRuns([marker]).rows, []);
+});
+
 test('a future-ending payroll row can never enter Wise', () => {
   assert.equal(isPayrollRunReadyForPayment(
     { status: 'reviewed', payment_route: 'normal', period_end: '2026-09-27' },
