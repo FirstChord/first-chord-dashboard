@@ -1,5 +1,6 @@
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Video, X } from 'lucide-react';
 import { ShootingStarIcon } from '@/components/shared/FCIcons';
 import { generateSmartUrls } from '@/lib/config';
 import { resolvePracticeChatAsrModel } from '@/lib/config/practice-chat-asr.mjs';
@@ -12,6 +13,8 @@ const CANONICAL_PRACTICE_CHAT_DASHBOARD_BASE_URL =
 // Identifies the Practice Chat row without matching on its visible label, which
 // is copy and changes.
 const PRACTICE_CHAT_LINK_ID = 'practice-chat';
+const VIDEO_GUIDE_LINK_ID = 'video-lesson-guide';
+const VIDEO_GUIDE_IMAGE = '/practice-video-guide.jpg';
 
 function isLocalDashboardHost(hostname = '') {
   return ['localhost', '127.0.0.1'].includes(hostname);
@@ -53,6 +56,17 @@ function buildPracticeChatUrl(student, activeTutor = '', priorNote = null) {
 }
 
 export default function QuickLinks({ student, activeTutor = '', onOpenPracticeChat, priorNote = null }) {
+  const [showVideoGuide, setShowVideoGuide] = useState(false);
+
+  useEffect(() => {
+    if (!showVideoGuide) return undefined;
+    const closeOnEscape = (e) => {
+      if (e.key === 'Escape') setShowVideoGuide(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [showVideoGuide]);
+
   // Early return if no student is provided
   if (!student) {
     return (
@@ -116,7 +130,14 @@ export default function QuickLinks({ student, activeTutor = '', onOpenPracticeCh
       ),
       url: "https://canva.link/fkczhbdl8kv75d7",
       instruction: "Tutor resource for piano lessons",
-    }] : [])
+    }] : []),
+    {
+      id: VIDEO_GUIDE_LINK_ID,
+      name: "Video Lesson Guide",
+      icon: <Video className="h-14 w-14 p-2 text-[#2F6B3D]" />,
+      url: VIDEO_GUIDE_IMAGE,
+      instruction: "How to make a practice video for an absent student",
+    }
     // Seasonal show link. Keep hidden until the next show; update copy/form URL before re-enabling.
     /*
     ,{
@@ -146,7 +167,12 @@ export default function QuickLinks({ student, activeTutor = '', onOpenPracticeCh
                   e.preventDefault();
                   onOpenPracticeChat(link.url, student.name || 'Practice Chat');
                 }
-              : undefined
+              : link.id === VIDEO_GUIDE_LINK_ID
+                ? (e) => {
+                    e.preventDefault();
+                    setShowVideoGuide(true);
+                  }
+                : undefined
           }
           className="flex items-center gap-3 p-4 bg-white rounded-lg border border-[#2F6B3D]/25 hover:border-[#2F6B3D]/50 hover:shadow-md transition-all group"
         >
@@ -160,6 +186,33 @@ export default function QuickLinks({ student, activeTutor = '', onOpenPracticeCh
           <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-gray-600" />
         </a>
       ))}
+      {showVideoGuide && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setShowVideoGuide(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Video Lesson Guide"
+        >
+          <div className="relative max-h-full" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setShowVideoGuide(false)}
+              className="absolute -right-3 -top-3 rounded-full bg-white p-1.5 shadow-md hover:bg-gray-100"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5 text-gray-700" />
+            </button>
+            <Image
+              src={VIDEO_GUIDE_IMAGE}
+              alt="Practice video structure and how to record, upload and invoice"
+              width={905}
+              height={1280}
+              className="max-h-[90vh] w-auto rounded-lg shadow-xl"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
