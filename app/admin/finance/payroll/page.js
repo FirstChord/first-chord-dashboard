@@ -415,7 +415,9 @@ function PayrollTutorCard({ row, payDate }) {
             ) : null}
           </div>
           <p className="mt-1 text-sm text-slate-500">
-            {formatPayrollDate(row.periodStart)} - {formatPayrollDate(row.periodEnd)} · {row.windowDays} days{basisLabel ? ` · ${basisLabel}` : ''}{row.windowEndCustom ? ' · custom end' : ''}
+            {row.cutoverPaidThrough
+              ? `Paid through ${formatPayrollDate(row.manualPaidThrough)} · historical payment boundary`
+              : `${formatPayrollDate(row.periodStart)} - ${formatPayrollDate(row.periodEnd)} · ${row.windowDays} days${basisLabel ? ` · ${basisLabel}` : ''}${row.windowEndCustom ? ' · custom end' : ''}`}
           </p>
         </div>
         <div className="text-right">
@@ -439,7 +441,9 @@ function PayrollTutorCard({ row, payDate }) {
       {row.isCutover ? (
         <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
           <p className="font-semibold">One-off payroll cutover</p>
-          <p className="mt-1">This closes legacy pay through {formatPayrollDate(PAYROLL_CUTOVER_PERIOD_END)}. New Monday-based periods start {formatPayrollDate(PAYROLL_NEW_SYSTEM_START)}. Tutor confirmation is required before payment.</p>
+          <p className="mt-1">{row.cutoverPaidThrough
+            ? `Historical payment is recorded through ${formatPayrollDate(PAYROLL_CUTOVER_PERIOD_END)}; no new cutoff statement or payment is needed. New Monday-based periods start ${formatPayrollDate(PAYROLL_NEW_SYSTEM_START)}.`
+            : `This closes legacy pay through ${formatPayrollDate(PAYROLL_CUTOVER_PERIOD_END)}. New Monday-based periods start ${formatPayrollDate(PAYROLL_NEW_SYSTEM_START)}. Tutor confirmation is required before payment.`}</p>
         </div>
       ) : null}
 
@@ -481,7 +485,7 @@ function PayrollTutorCard({ row, payDate }) {
           </Link>
         </div>
       ) : null}
-      {row.windowEmpty ? (
+      {row.windowEmpty && !row.cutoverPaidThrough ? (
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
           Already paid through {formatPayrollDate(row.lastPaidThrough)} — nothing outstanding for this cycle date.
         </div>
@@ -791,7 +795,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
   const workspaceRows = activeRows.map((row) => ({ ...row, workflow: getPayrollWorkflowState(row) }));
   const cutoverProgress = payDate === PAYROLL_CUTOVER_RUN_DATE ? {
     total: workspaceRows.length,
-    complete: workspaceRows.filter((row) => ['paid', 'nothing_due'].includes(row.workflow.key)).length,
+    complete: workspaceRows.filter((row) => ['paid', 'nothing_due', 'paid_through'].includes(row.workflow.key)).length,
     prepare: workspaceRows.filter((row) => ['cutover_start', 'attendance', 'mms_changed', 'review', 'window_conflict', 'statement_overlap'].includes(row.workflow.key)).length,
     send: workspaceRows.filter((row) => row.workflow.key === 'send').length,
     waiting: workspaceRows.filter((row) => ['awaiting', 'paid_awaiting'].includes(row.workflow.key)).length,
@@ -799,7 +803,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
     ready: workspaceRows.filter((row) => row.workflow.key === 'ready').length,
   } : null;
   const selectedRow = workspaceRows.find((row) => row.tutorShortName === tutorParam)
-    || workspaceRows.find((row) => !['paid', 'ready'].includes(row.workflow.key))
+    || workspaceRows.find((row) => !['paid', 'nothing_due', 'paid_through'].includes(row.workflow.key))
     || workspaceRows[0]
     || null;
   const selectedTutor = selectedRow?.tutorShortName || '';
@@ -975,7 +979,7 @@ function CutoverGuide({ progress }) {
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-700">One-off cutover queue</p>
           <h3 className="mt-1 text-lg font-semibold">{progress.complete} of {progress.total} tutors complete</h3>
-          <p className="mt-1 max-w-2xl text-sm leading-6 text-blue-900">Choose a tutor below and follow the single <strong>Next</strong> instruction: check → review → send → confirm → pay and record payment. If already paid separately, record that payment now and keep confirmation outstanding. Nothing emails or pays automatically.</p>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-blue-900">Choose a remaining tutor and follow the single <strong>Next</strong> instruction: check → review → send → confirm → pay and record payment. Already-paid statements awaiting confirmation stay in this queue. Historical paid-through boundaries and finished tutors are grouped below. Nothing emails or pays automatically.</p>
         </div>
         <span className="rounded-full bg-white px-3 py-1.5 text-sm font-semibold text-blue-900">{pct}% complete</span>
       </div>
@@ -1020,7 +1024,7 @@ async function PayrollWorkspace({ payDate, tutor, start, end }) {
       <CutoverGuide progress={cutoverProgress} />
 
       <section className="space-y-4">
-        <TutorSelector rows={selectorRows} selectedTutor={selectedTutor} payDate={payDate} />
+        <TutorSelector rows={selectorRows} selectedTutor={selectedTutor} payDate={payDate} groupCompleted={Boolean(cutoverProgress)} />
         {selectedRow ? (
           <PayrollTutorCard key={selectedRow.payrollId} row={selectedRow} payDate={payDate} />
         ) : (

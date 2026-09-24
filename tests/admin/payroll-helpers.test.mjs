@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { parseTutorPay } from '../../lib/admin/cost-helpers.mjs';
+import { getPayrollWorkflowState } from '../../lib/admin/payroll-workflow-helpers.mjs';
 import {
   attendanceQueryCoversPeriod,
   buildPayrollAttendanceQuery,
@@ -138,6 +139,48 @@ test('a historical paid-through marker anchors the cutoff without inventing an a
   assert.equal(preview({ Hamish: { start: '2026-09-15' } }).overlapsPaid.isBoundary, true);
 });
 
+test('a paid cutoff stays visible on its own cycle, but not on later payroll cycles', () => {
+  const savedRuns = [
+    {
+      payroll_id: 'cutover_arion', tutor_short_name: 'Arion', pay_date: '2026-09-21',
+      period_start: '2026-09-16', period_end: '2026-09-20', status: 'paid',
+      final_amount: '72', tutor_response: 'confirmed',
+    },
+    {
+      payroll_id: 'cutover_calum', tutor_short_name: 'Calum', pay_date: '2026-09-21',
+      period_start: '2026-09-18', period_end: '2026-09-20', status: 'paid',
+      final_amount: '60', paid_via: 'manual', tutor_response: '',
+    },
+  ];
+  const cutoff = buildPayrollPreview({ payDate: '2026-09-21', savedRuns });
+  const arion = cutoff.rows.find((row) => row.tutorShortName === 'Arion');
+  const calum = cutoff.rows.find((row) => row.tutorShortName === 'Calum');
+  assert.equal(arion.periodStart, '2026-09-16');
+  assert.equal(arion.status, 'paid');
+  assert.equal(arion.finalAmount, 72);
+  assert.equal(getPayrollWorkflowState(arion).key, 'paid');
+  assert.equal(calum.periodStart, '2026-09-18');
+  assert.equal(getPayrollWorkflowState(calum).key, 'paid_awaiting');
+
+  const nextCycle = buildPayrollPreview({ payDate: '2026-09-28', savedRuns });
+  assert.equal(nextCycle.rows.find((row) => row.tutorShortName === 'Arion').periodStart, '2026-09-21');
+  assert.equal(nextCycle.rows.find((row) => row.tutorShortName === 'Arion').status, 'draft');
+});
+
+test('an attested paid-through-cutoff boundary is complete without a fake run', () => {
+  const row = buildPayrollPreview({
+    payDate: '2026-09-21',
+    savedRuns: [{
+      payroll_id: 'scott_paid_through', tutor_short_name: 'Scott', status: 'paid_through',
+      period_end: '2026-09-20', source: 'manual_paid_through_attestation',
+    }],
+  }).rows.find((entry) => entry.tutorShortName === 'Scott');
+  assert.equal(row.manualPaidThrough, '2026-09-20');
+  assert.equal(row.windowEmpty, true);
+  assert.equal(row.status, 'draft');
+  assert.equal(getPayrollWorkflowState(row).key, 'paid_through');
+});
+
 test('an unresolved cutoff reserves its dates and blocks the next period without overlapping it', () => {
   const tutorPay = parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly' }]);
   const savedRuns = [
@@ -158,7 +201,7 @@ test('an unresolved cutoff reserves its dates and blocks the next period without
   assert.equal(row.overlapsOutstanding, null);
 });
 
-test('a separately paid cutoff stays visible until the tutor responds, without becoming payable again', () => {
+test('a separately paid cutoff stays visible after response, without becoming payable again', () => {
   const tutorPay = parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', pay_model: 'hourly' }]);
   const paid = {
     payroll_id: 'payroll_calum_2026-09-18_2026-09-20',
@@ -179,7 +222,10 @@ test('a separately paid cutoff stays visible until the tutor responds, without b
   assert.equal(awaiting.owedAmount, 0);
   assert.equal(awaiting.overlapsPaid, null);
   assert.equal(awaiting.tutorResponse, '');
-  assert.notEqual(preview([{ ...paid, tutor_response: 'confirmed' }]).payrollId, paid.payroll_id);
+  const confirmed = preview([{ ...paid, tutor_response: 'confirmed' }]);
+  assert.equal(confirmed.payrollId, paid.payroll_id);
+  assert.equal(confirmed.owedAmount, 0);
+  assert.equal(getPayrollWorkflowState(confirmed).key, 'paid');
 });
 
 test('a reviewed custom cutoff reopens on its own cycle instead of becoming an empty later preview', () => {

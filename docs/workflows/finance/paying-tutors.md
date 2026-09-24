@@ -86,6 +86,10 @@ Its progress panel is the operator checklist: choose a tutor and follow the
 single **Next** instruction through Prepare → Send → Waiting/Query → Ready to
 pay → Complete. Do not move to a tutor's later cycle while their cutoff remains
 open; the UI and server both block that path.
+The cutoff page projects saved paid statements back onto that cycle, so they
+stay counted as complete even after payment advances the next payable window.
+Finished tutors are collapsed below the remaining queue; a separately paid
+statement awaiting the tutor's reply stays visible as unfinished.
 The live queue follows `Tutor_Lifecycle`: a retired tutor drops out after their
 reviewed statements are settled. Their paid historical runs and statement links
 remain available; an unresolved reviewed run keeps them in the queue.
@@ -101,6 +105,9 @@ the next day, and an override reaching back into the covered dates is blocked.
 If the remaining cutoff days currently have no payable lessons, the cutoff
 shows **Nothing owed**; do not fabricate a £0 payment or silently close later
 dates as paid. A later MMS correction still needs review.
+When an attested boundary itself reaches Sun 20 Sept, the cutoff shows **Paid
+through cutoff** and is complete without inventing a statement, confirmation,
+amount or payment date.
 
 If a cutover tutor was already paid against their own invoice separately from
 the Wise batch, open their cutoff card's **Already paid separately?** section.
