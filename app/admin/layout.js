@@ -2,6 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PawPrint } from 'lucide-react';
 import { AdminSignOutButton } from '@/components/admin/AdminAuthButton';
+import DashboardFeedbackButton from '@/components/admin/DashboardFeedbackButton';
 import AdminPrimaryNavigation from '@/components/admin/AdminPrimaryNavigation';
 
 // The whole /admin tree reads live data (Sheets, MMS) per request; without this,
@@ -30,7 +31,10 @@ export default function AdminLayout({ children }) {
               <PawPrint className="h-5 w-5 shrink-0 fill-slate-900 text-slate-900" aria-label="Vince’s sign-off" />
             </h1>
           </div>
-          <AdminSignOutButton />
+          <div className="flex items-center gap-2">
+            <DashboardFeedbackButton />
+            <AdminSignOutButton />
+          </div>
         </div>
         <nav aria-label="Admin dashboard" className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 pb-4">
           <AdminPrimaryNavigation />

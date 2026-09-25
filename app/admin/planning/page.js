@@ -10,6 +10,7 @@ const ALLOWED_INITIAL_FILTERS = new Set([
   'due_now',
   'meeting',
   'school_notes',
+  'dashboard_feedback',
   'learning_note',
   'strategic_note',
   'unassigned',

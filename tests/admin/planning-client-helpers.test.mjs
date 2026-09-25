@@ -194,7 +194,7 @@ test('a combined tutor-absence pause card carries its own parent message', () =>
 test('filterPlanningItems routes every chip: done/parked veil, search, owners, types, momentum', () => {
   const items = [
     { planningId: 'a', title: 'Fix billing', status: 'active', owner: 'Fennella', itemType: 'action', momentum: 'moving' },
-    { planningId: 'b', title: 'Showcase idea', status: 'inbox', owner: 'Unassigned', itemType: 'idea', momentum: 'stalled' },
+    { planningId: 'b', title: 'Showcase idea', status: 'inbox', owner: 'Unassigned', itemType: 'idea', momentum: 'stalled', linkedWorkflowId: 'dashboard-feedback' },
     { planningId: 'c', title: 'Shipped thing', status: 'done', owner: 'Finn', itemType: 'action', momentum: '' },
     { planningId: 'd', title: 'Parked initiative', status: 'parked', owner: 'Finn', itemType: 'initiative', momentum: '' },
     { planningId: 'e', title: 'Due plan', status: 'active', owner: 'Finn', itemType: 'action', momentum: 'moving', targetDate: '2020-01-01' },
@@ -216,6 +216,7 @@ test('filterPlanningItems routes every chip: done/parked veil, search, owners, t
   assert.deepEqual(ids({ filter: 'unassigned' }), ['b']);
   assert.deepEqual(ids({ filter: 'due_now' }), ['e']);
   assert.deepEqual(ids({ filter: 'school_notes' }), ['b']);
+  assert.deepEqual(ids({ filter: 'dashboard_feedback' }), ['b']);
 
   // Item-type chips, and unknown filters fall through to a momentum match.
   assert.deepEqual(ids({ filter: 'idea' }), ['b']);

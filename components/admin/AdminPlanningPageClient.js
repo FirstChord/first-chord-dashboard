@@ -67,6 +67,7 @@ const PRIMARY_REVIEW_FILTERS = [
 const ADVANCED_REVIEW_FILTERS = [
   { value: '', label: 'More filters' },
   { value: 'meeting', label: 'Meeting' },
+  { value: 'dashboard_feedback', label: 'Dashboard reports' },
   { value: 'unassigned', label: 'Unassigned' },
   { value: 'no_next_action', label: 'No next action' },
   { value: 'waiting_status', label: 'Waiting' },
