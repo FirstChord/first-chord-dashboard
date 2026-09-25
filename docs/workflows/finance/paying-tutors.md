@@ -49,6 +49,7 @@ never multiplied per student.
    - **Present** → MMS `Present` → tutor paid.
    - **Absent · tutor paid** → MMS `AbsentNoMakeup` → tutor paid.
    - **Cancelled · £0** → MMS `AbsentNotice` → excluded from tutor pay.
+   - **Tutor absent · £0** → MMS `TeacherAbsentNoMakeup` → recorded but excluded from tutor pay. Do not re-mark it as an unrecorded lesson.
    - When a high/medium-confidence payment-pause record covers the exact lesson,
      payroll may prioritise the £0 choice. This is still a human decision.
 

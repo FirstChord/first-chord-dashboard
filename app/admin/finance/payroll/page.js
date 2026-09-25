@@ -520,7 +520,7 @@ function PayrollTutorCard({ row, payDate }) {
       ) : null}
       {reviewPast.length ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {reviewPast.length} taught lesson{reviewPast.length === 1 ? '' : 's'} not yet marked in MMS — record {reviewPast.length === 1 ? 'it' : 'them'} before trusting this figure.
+          {reviewPast.length} lesson status{reviewPast.length === 1 ? '' : 'es'} need review in MMS before trusting this figure. Record attendance only if genuinely unmarked.
           {reviewUpcoming.length ? ` (${reviewUpcoming.length} more upcoming — those resolve themselves.)` : ''}
         </div>
       ) : null}
@@ -550,9 +550,9 @@ function PayrollTutorCard({ row, payDate }) {
       ) : null}
 
       <div className="mt-4 space-y-3">
-        {/* Lead with the genuine open loop: taught but not yet recorded in MMS. */}
+        {/* Lead with statuses payroll cannot yet classify; only genuinely unmarked rows need an MMS write. */}
         {reviewPast.length ? (
-          <SlotList title="Needs recording" slots={reviewPast} withDecision />
+          <SlotList title="Needs attendance review" slots={reviewPast} withDecision />
         ) : null}
 
         <details className="group rounded-2xl border border-slate-200 bg-white px-4 py-3">

@@ -402,6 +402,50 @@ test('AbsentNoMakeup is payable (invoiced); AbsentNotice is excluded (£0); only
   assert.equal(calum.payableSlots[0].isPaidAbsence, true);
 });
 
+test('recorded TeacherAbsentNoMakeup lessons are £0 exclusions, not unmarked work', () => {
+  const teacherId = 'tch_z2j2Jf'; // David
+  const absentDurations = [60, 30, 45, 30, 30];
+  const payableDurations = [60, 45, 30, 30, 30];
+  const absent = absentDurations.map((duration, index) => attendance({
+    TeacherID: teacherId,
+    EventID: `david_absent_${index}`,
+    AttendanceStatus: 'TeacherAbsentNoMakeup',
+    EventStartDate: `2026-08-25T${15 + index}:00:00`,
+    EventDuration: duration,
+  }));
+  const payable = payableDurations.map((duration, index) => attendance({
+    TeacherID: teacherId,
+    EventID: `david_present_${index}`,
+    AttendanceStatus: 'Present',
+    EventStartDate: `2026-09-${String(1 + index).padStart(2, '0')}T16:00:00`,
+    EventDuration: duration,
+  }));
+  const preview = buildPayrollPreview({
+    payDate: '2026-09-21',
+    savedRuns: [{
+      payroll_id: 'david_prior', tutor_short_name: 'David', status: 'paid',
+      period_start: '2026-08-12', period_end: '2026-08-18',
+    }],
+    attendanceRows: [...absent, ...payable],
+  });
+  const david = preview.rows.find((row) => row.tutorShortName === 'David');
+  assert.equal(david.excludedLessonCount, 5);
+  assert.equal(david.reviewPastCount, 0);
+  assert.equal(david.lessonCount, 5);
+  assert.equal(david.expectedAmount, 78);
+  assert.equal(getPayrollWorkflowState(david).key, 'review');
+});
+
+test('unrecognised tutor-absence statuses still require review', () => {
+  const preview = buildPayrollPreview({
+    payDate: '2026-07-01',
+    attendanceRows: [attendance({ AttendanceStatus: 'TeacherAbsentMakeup' })],
+  });
+  const calum = preview.rows.find((row) => row.tutorShortName === 'Calum');
+  assert.equal(calum.reviewLessonCount, 1);
+  assert.equal(calum.lessonCount, 0);
+});
+
 test('a mixed group with AbsentNotice + Unrecorded still needs review', () => {
   const preview = buildPayrollPreview({
     payDate: '2026-07-01',

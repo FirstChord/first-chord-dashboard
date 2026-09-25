@@ -37,6 +37,23 @@ test('a historical paid-through boundary is not a payment or a Wise candidate', 
   assert.deepEqual(selectPayableReviewedRuns([marker]).rows, []);
 });
 
+test('a recorded tutor absence cannot become payable or an unrecorded-lesson blocker', () => {
+  const row = buildPayrollPreview({
+    payDate: '2026-09-21',
+    savedRuns: [{ tutor_short_name: 'David', status: 'paid', period_start: '2026-08-12', period_end: '2026-08-18' }],
+    attendanceRows: [{
+      ID: 'atn_teacher_absent', EventID: 'evt_teacher_absent', TeacherID: 'tch_z2j2Jf',
+      AttendanceStatus: 'TeacherAbsentNoMakeup', EventStartDate: '2026-08-25T15:30:00', EventDuration: 60,
+      StudentID: 'student_one',
+    }],
+  }).rows.find((entry) => entry.tutorShortName === 'David');
+  assert.equal(row.excludedLessonCount, 1);
+  assert.equal(row.reviewLessonCount, 0);
+  assert.equal(row.expectedAmount, 0);
+  assert.equal(row.owedAmount, 0);
+  assert.equal(getPayrollWorkflowState(row).key, 'nothing_due');
+});
+
 test('a future-ending payroll row can never enter Wise', () => {
   assert.equal(isPayrollRunReadyForPayment(
     { status: 'reviewed', payment_route: 'normal', period_end: '2026-09-27' },
