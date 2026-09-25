@@ -45,6 +45,11 @@ export default function DashboardFeedbackButton() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // The login screen shares the admin layout, but there is no authenticated
+  // creator yet and middleware will refuse the write. Do not offer a dead-end
+  // report control until the admin is inside the dashboard.
+  if (pathname === '/admin/login') return null;
+
   function show() {
     setState({ pending: false, error: '', report: null });
     setOpen(true);
