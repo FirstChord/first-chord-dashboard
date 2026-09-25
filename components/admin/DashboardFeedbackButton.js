@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Bug, CheckCircle2, Lightbulb, Loader2, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 const TYPES = [
   {
@@ -106,7 +107,7 @@ export default function DashboardFeedbackButton() {
         <span className="sm:hidden">Report</span>
       </button>
 
-      {open ? (
+      {open && typeof document !== 'undefined' ? createPortal(
         <div
           className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/35 p-4 pt-[10vh] backdrop-blur-[1px] sm:items-center sm:pt-4"
           onMouseDown={(event) => {
@@ -247,7 +248,8 @@ export default function DashboardFeedbackButton() {
               </form>
             )}
           </section>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );

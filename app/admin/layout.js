@@ -54,10 +54,8 @@ export default function AdminLayout({ children }) {
           </form>
         </nav>
       </header>
-      {/* No z-index here: a positive z-index makes <main> a stacking context that
-          traps full-screen modal overlays (z-50) below the sticky header (z-20).
-          `relative` (z-auto) keeps content above the decorative cloud via DOM order
-          while letting overlays rise above the header. */}
+      {/* `relative` (z-auto) keeps content above the decorative cloud via DOM order
+          without introducing another page-level stacking context. */}
       <main className="relative mx-auto max-w-7xl px-6 py-8">{children}</main>
       {/* The installed admin app launches into Inbox. Its full header is hidden
           in standalone mode, so this compact bar keeps the three useful mobile
