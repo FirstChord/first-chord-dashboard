@@ -36,9 +36,16 @@ rollout on 26 September 2026. The rules below
 apply to periods beginning on or after 21 September 2026. Cutover settlement
 retains its separate human checks.
 
-- Monday: review and explicitly email the due statements. Weekly tutors paid
-  through 20 September first become due on 28 September; fortnightly tutors
-  first become due on 5 October. Nothing schedules or sends itself.
+- Monday: review and explicitly email the due statements. All new previews are
+  anchored to 21 September: weekly statements first cover 21–27 September and
+  are due 28 September; fortnightly statements cover 21 September–4 October and
+  are due 5 October, then alternate Mondays. Actual payment dates do not move
+  that shared calendar. A new-period override cannot make a short fortnight due
+  early. Nothing schedules or sends itself.
+- A missing or earlier cutover paid-through record remains a separate visible
+  reconciliation check and blocks reviewing the new statement. Moving the
+  preview start to 21 September does not attest that older lessons were paid.
+  Existing reviewed statements retain their exact periods and response history.
 - Wednesday: only confirmed statements enter that week’s file. A response at or
   after 09:00 UK time becomes eligible for the following Wednesday. A missing
   confirmation timestamp is an exception, never assumed timely. Unconfirmed

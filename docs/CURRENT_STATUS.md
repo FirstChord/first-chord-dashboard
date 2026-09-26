@@ -293,7 +293,9 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
   scheduled delivery remains unbuilt. A calmer payroll queue, mandatory
   confirmation, private WhatsApp reminder handoff and checked Wise batch are built
   with production rollout and the Wednesday 09:00 UK cutoff approved by Finn
-  on 26 September 2026. See `docs/plans/active/tutor-payroll.md`.
+  on 26 September 2026. Shared cadence starts 21 September: first weekly
+  statement 28 September, first fortnightly 5 October; legacy coverage gaps
+  remain explicit review blockers. See `docs/plans/active/tutor-payroll.md`.
 - **Pause clarity:** distinguish Pause History, sheet expectation, and live Stripe
   evidence more clearly without adding Stripe mutation to Issues.
 - **Tutor dashboard auth pilot:** the canonical service now has a reversible

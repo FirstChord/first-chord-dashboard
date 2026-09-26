@@ -247,6 +247,13 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
           Window capped at 35 days back. If this invoice covers more, set a custom window start.
         </div>
       ) : null}
+      {row.legacyNeedsReconciliation ? (
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+          <p className="font-semibold">Check the cutover record before reviewing this statement.</p>
+          <p className="mt-1">New statements start on or after 21 September. Resolve any earlier coverage or missing paid-through record in the cutover view; earlier pay has not been written off.</p>
+          <Link className="mt-2 inline-block text-blue-700 underline" href={`/admin/finance/payroll?payDate=2026-09-21&tutor=${encodeURIComponent(row.tutorShortName)}`}>Reconcile cutover</Link>
+        </div>
+      ) : null}
       {row.cutoverNeedsStart ? (
         <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
           <p className="font-semibold">Previous paid-through date is not recorded here.</p>
@@ -380,7 +387,7 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
           <PayrollSaveButtons
             status={row.status}
             attendanceChanged={row.attendanceChanged}
-            blocked={Boolean(reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.cutoverNothingOwed || workflow.key === 'data_unavailable')}
+            blocked={Boolean(reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || workflow.key === 'data_unavailable')}
           />
         </div>
         <details className="group mt-3 border-t border-slate-200 pt-3">

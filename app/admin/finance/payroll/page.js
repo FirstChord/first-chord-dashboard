@@ -301,7 +301,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
   // A refreshed correction must go back through the existing human save step.
   // Hold every saved row for that tutor out of this rendered Wise batch so an
   // older duplicate window cannot become the fallback payment by accident.
-  const attendanceChangedRows = activeRows.filter((row) => row.attendanceChanged || (row.status === 'reviewed' && row.reviewPastCount > 0));
+  const attendanceChangedRows = activeRows.filter((row) => row.legacyNeedsReconciliation || row.attendanceChanged || (row.status === 'reviewed' && row.reviewPastCount > 0));
   const heldTutorKeys = new Set(attendanceChangedRows.map((row) => `${row.tutorShortName || row.tutor}`.trim().toLowerCase()));
   const heldPayrollIds = savedRuns
     .filter((row) => heldTutorKeys.has(`${row.tutor_short_name ?? row.tutorShortName ?? row.tutor ?? row.Tutor ?? ''}`.trim().toLowerCase()))
@@ -335,7 +335,10 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
 
   return {
     preview,
-    cutoverOpen: savedRuns.filter((row) => row.period_end === PAYROLL_CUTOVER_PERIOD_END && (row.status === 'reviewed' || (row.status === 'paid' && row.paid_via === 'manual' && row.tutor_response !== 'confirmed'))).length,
+    cutoverOpen: new Set([
+      ...savedRuns.filter((row) => row.period_end === PAYROLL_CUTOVER_PERIOD_END && (row.status === 'reviewed' || (row.status === 'paid' && row.paid_via === 'manual' && row.tutor_response !== 'confirmed'))).map((row) => row.tutor_short_name || row.tutor),
+      ...activeRows.filter((row) => row.legacyNeedsReconciliation).map((row) => row.tutorShortName),
+    ]).size,
     history: savedRuns.filter((row) => row.status === 'paid').sort((a, b) => `${b.paid_at}`.localeCompare(`${a.paid_at}`)).slice(0, 100),
     selectedRow,
     selectedTutor,
@@ -548,7 +551,7 @@ async function PayrollWorkspace({ payDate, tutor, start, end }) {
       ) : null}
 
       <CutoverGuide progress={cutoverProgress} />
-      {!cutoverProgress && cutoverOpen ? <p className="text-sm text-slate-600">{cutoverOpen} cutover statement{cutoverOpen === 1 ? '' : 's'} still open · <Link className="text-blue-700" href={`/admin/finance/payroll?payDate=${PAYROLL_CUTOVER_RUN_DATE}`}>Open cutover reconciliation</Link></p> : null}
+      {!cutoverProgress && cutoverOpen ? <p className="text-sm text-slate-600">{cutoverOpen} cutover check{cutoverOpen === 1 ? '' : 's'} still open · <Link className="text-blue-700" href={`/admin/finance/payroll?payDate=${PAYROLL_CUTOVER_RUN_DATE}`}>Open cutover reconciliation</Link></p> : null}
 
       <details className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" open={Boolean(wiseBatch.includedCount)}>
         <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-slate-800">

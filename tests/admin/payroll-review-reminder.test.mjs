@@ -10,7 +10,7 @@ test('review refuses missing evidence, stale forms and mismatched calculations',
   assert.throws(() => validatePayrollReview({ ...args, expectedUpdatedAt: 'old' }), /changed/);
   assert.throws(() => validatePayrollReview({ ...args, preview: null }), /evidence/);
   assert.throws(() => validatePayrollReview({ ...args, expectedAmount: '20' }), /calculation changed/);
-  for (const key of ['reviewPastCount', 'overlapsPaid', 'overlapsOutstanding', 'priorRunPending', 'periodOpen', 'cutoverNeedsStart', 'windowCapped'])
+  for (const key of ['reviewPastCount', 'overlapsPaid', 'overlapsOutstanding', 'priorRunPending', 'periodOpen', 'cutoverNeedsStart', 'legacyNeedsReconciliation', 'windowCapped'])
     assert.throws(() => validatePayrollReview({ ...args, preview: { ...args.preview, [key]: 1 } }), /evidence/);
 });
 test('copy audits intent only; an explicit private-send confirmation may record first delivery', async () => {
