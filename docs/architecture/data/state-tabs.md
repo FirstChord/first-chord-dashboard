@@ -173,6 +173,12 @@ Some source formats are fragile because they come from human-edited external sys
   `legacy`. Do not overwrite proposal fields during review or count untouched
   rows as labelled truth. Actionability values are `action_needed`,
   `reply_needed`, `uncertain`, and `no_action`.
+  Version 3 chooses `no_action` only with positive acknowledgement/chatter or
+  settled-matter evidence. Substantive unknown wording and standalone dates ask
+  for review; greetings do not override questions or unresolved clauses. Negated
+  lesson changes are excluded from topic matching. The version is snapshotted on
+  capture/text replacement, and replay never upgrades an existing row or erases
+  its human decision. No historical backfill is implied by a rules deployment.
 - **Tutor names are not a stable key.** The school records tutors under two
   forms and always has: the tutor surface and `Song_Assignments.assigned_by` use
   the short name (`Calum`, `Dean`), while `Practice_Notes_Log.tutor_name` often

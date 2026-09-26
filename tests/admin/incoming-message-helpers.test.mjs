@@ -344,7 +344,7 @@ test('buildIncomingMessageRecord adds category, match, and raw payload', () => {
   assert.equal(record.proposedCategory, 'extended_absence');
   assert.equal(record.classificationActionability, 'action_needed');
   assert.equal(record.classificationDecision, 'unreviewed');
-  assert.equal(record.classificationVersion, '2');
+  assert.equal(record.classificationVersion, '3');
   assert.match(record.matchReasons, /attendance|pause|lesson cover/u);
   assert.match(record.rawJson, /Alex Chang/u);
 });
@@ -984,6 +984,14 @@ test('decideAutoCaptureStatus archives no-signal chatter and keeps work open', (
     messageText: 'Just to note the 24th of June',
     messageAt: '2026-06-19T10:00:00.000Z',
   }), 'inbox');
+  const captured = buildIncomingMessageRecord({
+    source: 'whatsapp_group_auto',
+    messageText: 'Just to note the 24th of June',
+    messageAt: '2030-06-19T10:00:00.000Z',
+  });
+  assert.equal(extractIncomingMessageDates(captured).startDate, '2030-06-24');
+  assert.equal(captured.classificationActionability, 'uncertain');
+  assert.equal(decideAutoCaptureStatus(captured), 'needs_review');
   assert.equal(decideAutoCaptureStatus({ classificationActionability: 'uncertain' }), 'needs_review');
   assert.equal(decideAutoCaptureStatus({ classificationActionability: 'reply_needed' }), 'inbox');
 });

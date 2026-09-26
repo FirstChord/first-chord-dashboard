@@ -69,6 +69,22 @@ the human-final decision so accepted/corrected outcomes can be measured without
 calling untouched guesses knowledge. Neither result authorises a payment,
 pause, attendance, archive, planning, or messaging action.
 
+Classifier version 3 requires positive evidence of an acknowledgement, settled
+matter, or ordinary chatter before choosing `no_action`. Substantive wording
+that matches no topic stays `uncertain` / `needs_review`, including a standalone
+date. Greetings and thanks cannot suppress another question, unresolved clause,
+or request. Questions after a greeting do not require a question mark. Explicitly
+denied cancellations/leaving are excluded from topic matching; a completed break
+with an explicit restart is scheduling evidence. These are proposals for new
+captures or explicitly replaced message text, not a reclassification of stored
+rows. Replays preserve human decisions.
+
+Run `npm run eval:incoming` to measure topic accuracy separately from capture
+outcomes. The synthetic fixture labels expected actionability and actual inbox
+status; the focused tests execute the real capturer with in-memory adapters,
+including replay after review. The report counts missed work and unnecessary
+reviews of recognised chatter separately. It is not a production accuracy claim.
+
 The everyday inbox is a queue/detail workspace: a compact message queue remains
 visible beside one selected card on desktop, while mobile opens that card with a
 sticky **Back to messages** control. The queue shows **x of y**, remembers the

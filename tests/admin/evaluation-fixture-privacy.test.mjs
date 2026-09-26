@@ -7,6 +7,7 @@ import path from 'node:path';
 import {
   INCOMING_MESSAGE_ACTIONABILITY,
   INCOMING_MESSAGE_CATEGORIES,
+  INCOMING_MESSAGE_STATUSES,
 } from '../../lib/admin/incoming-message-helpers.mjs';
 
 const fixturePath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures/incoming-eval-set.json');
@@ -26,7 +27,7 @@ const PROHIBITED_KEYS = new Set([
 ]);
 
 test('incoming evaluation fixture declares synthetic independent provenance', () => {
-  assert.equal(fixture.schemaVersion, 3);
+  assert.equal(fixture.schemaVersion, 4);
   assert.equal(fixture.dataOrigin, 'synthetic_independent_cases');
   assert.match(fixture.description, /synthetic, independent/iu);
   assert.doesNotMatch(fixture.description, /real family|anonymised|chat export/iu);
@@ -53,6 +54,8 @@ test('incoming evaluation fixture has broad independent category coverage', () =
       INCOMING_MESSAGE_ACTIONABILITY.includes(entry.expectedActionability),
       `${entry.id} has an invalid actionability expectation`,
     );
+    assert.ok(INCOMING_MESSAGE_STATUSES.includes(entry.expectedStatus), `${entry.id} has no valid capture expectation`);
+    if (entry.expectedCategory) assert.ok(INCOMING_MESSAGE_CATEGORIES.includes(entry.expectedCategory), entry.id);
   }
   assert.ok(fixture.proposalCases.some((entry) => /ignore previous instructions/iu.test(entry.text)));
   assert.ok(fixture.messages.some((entry) => /rechargeable/iu.test(entry.text)));
