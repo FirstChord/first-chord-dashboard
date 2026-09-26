@@ -1,4 +1,5 @@
 import ScopeBadge from '@/components/admin/ui/ScopeBadge';
+import { SubmitButton } from '@/components/admin/ui/SubmitButton';
 import Link from 'next/link';
 import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth';
@@ -136,7 +137,10 @@ export default async function ReconciliationPreviewPage({ searchParams }) {
   return (
     <div className="space-y-6">
       <header>
-        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Internal</p>
+        <Link href="/admin/finance" className="text-xs font-medium text-slate-500 hover:text-slate-800">
+          ← Finance
+        </Link>
+        <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">Internal</p>
         <h2 className="mt-2 flex items-center gap-3 fc-display text-2xl text-slate-900">
           Absence reconciliation
           <ScopeBadge>Shadow view — changes nothing</ScopeBadge>
@@ -198,9 +202,9 @@ export default async function ReconciliationPreviewPage({ searchParams }) {
                       <form action={confirmPausedAction}>
                         <input type="hidden" name="mms_id" value={ep.studentMmsId} />
                         <input type="hidden" name="student_name" value={nameByMmsId.get(ep.studentMmsId) || ''} />
-                        <button type="submit" className="rounded-full border border-rose-300 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100">
+                        <SubmitButton variant="danger" size="compact" pendingLabel="Confirming…">
                           Confirm paused (fix flag)
-                        </button>
+                        </SubmitButton>
                       </form>
                     )}
                   />
@@ -235,9 +239,9 @@ export default async function ReconciliationPreviewPage({ searchParams }) {
                       action={cardIds.length ? (
                         <form action={closeRedundantAbsenceCardAction}>
                           <input type="hidden" name="planning_ids" value={cardIds.join(',')} />
-                          <button type="submit" className="rounded-full border border-emerald-300 bg-white px-3 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-100">
+                          <SubmitButton variant="green" size="compact" pendingLabel="Closing…">
                             Close redundant card{cardIds.length > 1 ? ` (${cardIds.length})` : ''}
-                          </button>
+                          </SubmitButton>
                         </form>
                       ) : null}
                     />

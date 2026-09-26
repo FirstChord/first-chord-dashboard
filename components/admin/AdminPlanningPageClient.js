@@ -108,6 +108,9 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
   const [editorMode, setEditorMode] = useState('general');
   const [saveState, setSaveState] = useState({ pending: false, error: '', savedAt: '' });
   const [pendingId, setPendingId] = useState('');
+  // The card whose last save failed, so its error shows on that card rather
+  // than in the page banner above quick capture.
+  const [failedSave, setFailedSave] = useState({ id: '', message: '' });
   const [paymentExpectationOverrides, setPaymentExpectationOverrides] = useState({});
   const [scheduledIntentions, setScheduledIntentions] = useState({});
   const [query, setQuery] = useState('');
@@ -200,6 +203,12 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
     };
   }), [planning.items, planningRelationships]);
 
+  // Matching the message too keeps a stale failure from claiming a later,
+  // unrelated error such as a validation message.
+  const cardErrorFor = (planningId) => (
+    planningId && failedSave.id === planningId && saveState.error === failedSave.message ? saveState.error : ''
+  );
+
   const filteredItems = useMemo(
     () => filterPlanningItems(planningItems, { filter, query, showDone }),
     [planningItems, query, filter, showDone],
@@ -216,15 +225,25 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
       setSaveState({ pending: true, error: '', savedAt: '' });
       setPendingId(targetId);
     }
-    const response = await fetch('/api/admin/planning', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    const data = await response.json();
+    setFailedSave({ id: '', message: '' });
+    let response;
+    let data;
+    try {
+      response = await fetch('/api/admin/planning', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      data = await response.json();
+    } catch (error) {
+      setFailedSave({ id: targetId, message: error.message });
+      throw error;
+    }
 
     if (!response.ok) {
-      throw planningSaveClientError(data, 'Planning save failed');
+      const error = planningSaveClientError(data, 'Planning save failed');
+      setFailedSave({ id: targetId, message: error.message });
+      throw error;
     }
 
     if (!deferApply) setPlanning(data.planning);
@@ -921,7 +940,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
             </span>
           </div>
         )}
-        {saveState.error && !editingItem && (
+        {saveState.error && !editingItem && !cardErrorFor(failedSave.id) && (
           <p className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"><PlanningSaveError message={saveState.error} duplicatePlanningId={saveState.duplicatePlanningId} /></p>
         )}
         <div className={saveState.savedAt || saveState.error ? 'mt-3' : ''}>
@@ -1021,6 +1040,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
                       onTutorAbsenceFinalConfirmationSent={handleTutorAbsenceFinalConfirmationSent}
                       onDefer={handleDefer}
                       pendingId={pendingId}
+                      errorMessage={cardErrorFor(item.planningId)}
                       nearbyPause={nearbyPauseFlags.get(item.planningId)}
                     />
                   ))}
@@ -1064,6 +1084,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
                         onTutorAbsenceNoticeSent={handleTutorAbsenceNoticeSent}
                         onTutorAbsenceFinalConfirmationSent={handleTutorAbsenceFinalConfirmationSent}
                         pendingId={pendingId}
+                        errorMessage={cardErrorFor(item.planningId)}
                         nearbyPause={nearbyPauseFlags.get(item.planningId)}
                       />
                     ))}

@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Archive, Check, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Archive, Check, Pencil, Trash2 } from 'lucide-react';
+import { ActionButton } from '@/components/admin/ui/ActionButton';
+import { usePressedAction } from '@/components/admin/ui/usePressedAction';
 import {
   SCHOOL_FORWARD_PLANNING_ID,
   MONDAY_SCHEDULE_PLANNING_ID,
@@ -45,7 +47,7 @@ import FirstLessonLoopPanel from './FirstLessonLoopPanel';
 // pause items — the full pause toolkit (open the pause tool, copy the parent message,
 // the "Edit dates" repair builder, and the two-checkbox "Mark pause completed" gate).
 // Pure props in (item + studentOptions + handlers); also used inside DueTodayCard.
-export default function PlanningCard({ item, studentOptions = [], paymentExpectationOverrides = {}, onStatus, onArchive, onEdit, onProgress, onFirstLessonStep, onPauseCompleted, onRepairPauseDetails, onOpenPauseTool, onConvertSchoolIdea, onCreateProjectAction, onTutorAbsenceDecision, onTutorAbsenceNoticeSent, onTutorAbsenceFinalConfirmationSent, pendingId, compact = false, nearbyPause = null, sortedEntry = null }) {
+export default function PlanningCard({ item, studentOptions = [], paymentExpectationOverrides = {}, onStatus, onArchive, onEdit, onProgress, onFirstLessonStep, onPauseCompleted, onRepairPauseDetails, onOpenPauseTool, onConvertSchoolIdea, onCreateProjectAction, onTutorAbsenceDecision, onTutorAbsenceNoticeSent, onTutorAbsenceFinalConfirmationSent, pendingId, errorMessage = '', compact = false, nearbyPause = null, sortedEntry = null }) {
   const [progressNote, setProgressNote] = useState('');
   // Starts empty on purpose. The card already states the current next action
   // above; pre-filling the input printed the same sentence twice and made an
@@ -61,6 +63,7 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
   const [pauseMessageConfirmed, setPauseMessageConfirmed] = useState(false);
   const [copyState, setCopyState] = useState('');
   const isPending = pendingId === item.planningId;
+  const { press, pendingFor } = usePressedAction(isPending);
   const isPauseReminder = isPausePlanningItem(item);
   const isSchoolNote = isSchoolNotePlanningItem(item);
   const isFirstLessonCheckin = isFirstLessonCheckinPlanningItem(item);
@@ -207,24 +210,26 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {!isSystemPlanningItem && item.status !== 'parked' ? (
-              <button
-                type="button"
-                onClick={() => onArchive?.(item)}
+              <ActionButton
+                variant={isTutorAbsenceNotice ? 'subtle' : 'danger'}
+                size="compact"
+                onClick={press('archive', () => onArchive?.(item))}
                 disabled={isPending}
-                className={`inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-50 ${isTutorAbsenceNotice ? 'border-slate-200 text-slate-700 hover:bg-slate-50' : 'border-red-100 text-red-700 hover:bg-red-50'}`}
+                pending={pendingFor('archive')}
+                pendingLabel={isTutorAbsenceNotice ? 'Parking…' : 'Removing…'}
+                icon={isTutorAbsenceNotice ? <Archive className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
               >
-                {isTutorAbsenceNotice ? <Archive className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                 {isTutorAbsenceNotice ? 'Park notice' : 'Remove'}
-              </button>
+              </ActionButton>
             ) : null}
-            <button
-              type="button"
+            <ActionButton
+              variant="subtle"
+              size="compact"
               onClick={() => onEdit(item)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              icon={<Pencil className="h-3.5 w-3.5" />}
             >
-              <Pencil className="h-3.5 w-3.5" />
               Edit
-            </button>
+            </ActionButton>
           </div>
         </div>
       )}
@@ -391,30 +396,36 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
             One card now: pause and tell each parent in one go. Notice now, pause later: early notice first, pause nearer the lesson.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
+            <ActionButton
+              variant="warning"
+              size="compact"
               disabled={isPending}
-              onClick={() => onTutorAbsenceDecision?.(item, 'cancel_day', { combined: true })}
-              className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+              pending={pendingFor('absence:combined')}
+              pendingLabel="Saving…"
+              onClick={press('absence:combined', () => onTutorAbsenceDecision?.(item, 'cancel_day', { combined: true }))}
             >
               Cancel → one card now
-            </button>
-            <button
-              type="button"
+            </ActionButton>
+            <ActionButton
+              variant="warning"
+              size="compact"
               disabled={isPending}
-              onClick={() => onTutorAbsenceDecision?.(item, 'cancel_day')}
-              className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-950 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-50"
+              pending={pendingFor('absence:cancel')}
+              pendingLabel="Saving…"
+              onClick={press('absence:cancel', () => onTutorAbsenceDecision?.(item, 'cancel_day'))}
             >
               Cancel → notice now, pause later
-            </button>
-            <button
-              type="button"
+            </ActionButton>
+            <ActionButton
+              variant="green"
+              size="compact"
               disabled={isPending}
-              onClick={() => onTutorAbsenceDecision?.(item, 'cover')}
-              className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-950 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+              pending={pendingFor('absence:cover')}
+              pendingLabel="Saving…"
+              onClick={press('absence:cover', () => onTutorAbsenceDecision?.(item, 'cover'))}
             >
               Cover lessons
-            </button>
+            </ActionButton>
           </div>
         </div>
       ) : null}
@@ -450,22 +461,26 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
             Make it an Action if it is one dated task, or a Project if the outcome needs several Actions.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <button
-              type="button"
+            <ActionButton
+              variant="subtle"
+              size="compact"
               disabled={isPending}
-              onClick={() => onConvertSchoolIdea?.(item, 'action')}
-              className="inline-flex rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-900 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+              pending={pendingFor('convert:action')}
+              pendingLabel="Converting…"
+              onClick={press('convert:action', () => onConvertSchoolIdea?.(item, 'action'))}
             >
               Turn into Action
-            </button>
-            <button
-              type="button"
+            </ActionButton>
+            <ActionButton
+              variant="subtle"
+              size="compact"
               disabled={isPending}
-              onClick={() => onConvertSchoolIdea?.(item, 'initiative')}
-              className="inline-flex rounded-lg border border-violet-200 bg-white px-3 py-1.5 text-xs font-semibold text-violet-900 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-50"
+              pending={pendingFor('convert:initiative')}
+              pendingLabel="Converting…"
+              onClick={press('convert:initiative', () => onConvertSchoolIdea?.(item, 'initiative'))}
             >
               Turn into Project
-            </button>
+            </ActionButton>
           </div>
         </div>
       ) : null}
@@ -498,14 +513,16 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
             title="Do on"
             className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
           />
-          <button
+          <ActionButton
             type="submit"
+            onClick={press('add-action', () => {})}
             disabled={isPending || !projectActionTitle.trim() || !projectActionDate}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            pending={pendingFor('add-action')}
+            pendingLabel="Adding…"
+            icon={<Check className="h-4 w-4" />}
           >
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             Add Action
-          </button>
+          </ActionButton>
           <p className="text-xs leading-5 text-slate-500 md:col-span-3">
             The Project is the outcome. These dated Actions are the work.
           </p>
@@ -515,15 +532,18 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
       {!compact && (
         <div className="mt-4 flex flex-wrap gap-2">
           {['active', 'waiting', 'done', 'parked'].filter((status) => !(isFirstLessonCheckin && status === 'done')).map((status) => (
-            <button
+            <ActionButton
               key={status}
-              type="button"
+              variant="subtle"
+              size="compact"
               disabled={isPending || item.status === status || (status === 'done' && ((isTutorAbsenceCapture && !canCloseAbsence) || isTutorAbsenceNotice || isTutorAbsenceFinalConfirmation || (isProject && openProjectActions.length > 0) || (isPauseReminder && !pausePaymentConfirmed)))}
-              onClick={() => onStatus(item, status)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-pressed={item.status === status}
+              pending={pendingFor(`status:${status}`)}
+              pendingLabel="Saving…"
+              onClick={press(`status:${status}`, () => onStatus(item, status))}
             >
               {labelPlanningStatus(status)}
-            </button>
+            </ActionButton>
           ))}
         </div>
       )}
@@ -636,14 +656,14 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
                   </span>
                 </label>
               </div>
-              <button
-                type="button"
+              <ActionButton
                 disabled={isPending || !canCompletePause}
-                onClick={() => onPauseCompleted(item)}
-                className="inline-flex min-h-10 items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                pending={pendingFor('pause-complete')}
+                pendingLabel="Completing…"
+                onClick={press('pause-complete', () => onPauseCompleted(item))}
               >
-                {isPending ? 'Completing…' : 'Mark pause completed'}
-              </button>
+                Mark pause completed
+              </ActionButton>
               <p className="text-xs leading-5 text-slate-500">
                 This button only logs the confirmation and sets paused-expected — the Stripe change itself happens in the step 1 payment tool.
               </p>
@@ -825,15 +845,20 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
             />
           </>
         )}
-        <button
+        <ActionButton
           type="submit"
+          onClick={press('progress', () => {})}
           disabled={isPending || !progressNote.trim()}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+          pending={pendingFor('progress')}
+          pendingLabel="Saving…"
+          icon={<Check className="h-4 w-4" />}
         >
-          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
           {isSchoolForwardReview ? 'Add Friday reflection' : isOngoing ? 'Log session & set next date' : 'Add note'}
-        </button>
+        </ActionButton>
       </form>
+      ) : null}
+      {errorMessage ? (
+        <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
       ) : null}
     </article>
   );

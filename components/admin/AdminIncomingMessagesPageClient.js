@@ -7,8 +7,9 @@ import TutorMessageBadge from './TutorMessageBadge';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock3, Ellipsis, RefreshCw, Reply, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, ChevronRight, Clock3, Ellipsis, Loader2, RefreshCw, Reply, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/admin/ui/ActionButton';
+import { usePressedAction } from '@/components/admin/ui/usePressedAction';
 import { describeBridgeCoverageGap } from '@/lib/admin/bridge-coverage-helpers.mjs';
 import {
   assessBridgeHealth,
@@ -773,6 +774,8 @@ function MessageQueueItem({ cluster, selected = false, onSelect }) {
 // oldest first; outcome actions apply to all of it so nothing is left behind.
 function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false }) {
   const isPending = entries.some((message) => pendingId === message.incomingId);
+  // pendingId only says this card is busy; the pressed button alone shows it.
+  const { press, pendingFor } = usePressedAction(isPending);
   const isBurst = entries.length > 1;
   const [isPlanOpen, setIsPlanOpen] = useState(false);
   const [isReplyOpen, setIsReplyOpen] = useState(false);
@@ -923,11 +926,11 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
           <button
             type="button"
             disabled={isPending}
-            onClick={() => onSnooze(entries, '')}
+            onClick={press('restore', () => onSnooze(entries, ''))}
             className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
           >
             <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />
-            {isPending ? 'Moving…' : 'Bring back'}
+            {pendingFor('restore') ? 'Moving…' : 'Bring back'}
           </button>
         ) : null}
         {!entry.isSnoozed && entry.createdPlanningId ? (
@@ -952,10 +955,10 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
           <button
             type="button"
             disabled={isPending}
-            onClick={openReply}
+            onClick={press('reply', openReply)}
             className="min-h-11 flex-1 rounded-full border border-violet-200 bg-violet-50 px-3 text-xs font-semibold text-violet-800 transition active:scale-[0.98] disabled:opacity-60"
           >
-            {isPending && canDraftReply ? 'Writing…' : 'Reply'}
+            {pendingFor('reply') && canDraftReply ? 'Writing…' : 'Reply'}
           </button>
         ) : null}
         {isOpen && !entry.isSnoozed ? (
@@ -979,12 +982,15 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
           <button
             type="button"
             disabled={isPending}
-            onClick={() => onReview(entries, 'converted')}
+            onClick={press('handled', () => onReview(entries, 'converted'))}
             aria-label="Mark handled"
+            aria-busy={pendingFor('handled') || undefined}
             title="Mark handled"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 disabled:opacity-60"
           >
-            <Check aria-hidden="true" className="h-4 w-4" />
+            {pendingFor('handled')
+              ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+              : <Check aria-hidden="true" className="h-4 w-4" />}
           </button>
         ) : null}
         <button
@@ -1028,10 +1034,10 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
               <button
                 type="button"
                 disabled={isPending}
-                onClick={() => onReview(entries, 'ignored')}
+                onClick={press('ignored', () => onReview(entries, 'ignored'))}
                 className="min-h-10 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 disabled:opacity-60"
               >
-                No action needed
+                {pendingFor('ignored') ? 'Saving…' : 'No action needed'}
               </button>
             ) : null}
             {isOpen ? (
@@ -1045,8 +1051,10 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
               </button>
             ) : null}
             <ActionButton
-              pending={isPending}
-              onClick={() => onDelete(entries)}
+              pending={pendingFor('delete')}
+              disabled={isPending}
+              pendingLabel="Deleting…"
+              onClick={press('delete', () => onDelete(entries))}
               variant="red"
               className="min-h-10 px-3 text-xs"
             >

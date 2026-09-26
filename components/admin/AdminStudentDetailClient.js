@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
+import { ActionButton } from '@/components/admin/ui/ActionButton';
 import { Field, Input, Select } from '@/components/admin/ui/fields';
+import { usePressedAction } from '@/components/admin/ui/usePressedAction';
 import { buildPauseWorkflowSummary } from '@/lib/admin/pause-workflow-helpers.mjs';
 import { labelCommunicationCategory } from '@/lib/admin/communications-helpers.mjs';
 import PracticeTimelineSection from '@/components/admin/PracticeTimelineSection';
@@ -93,6 +95,15 @@ export default function AdminStudentDetailClient({
   });
   const [leftMonth, setLeftMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [isPending, startTransition] = useTransition();
+  // One transition serves every action on this page; the pressed button alone
+  // shows it, and its outcome is shown beside that button.
+  const { press, pendingFor, pressed, reset: resetPressed } = usePressedAction(isPending);
+  const outcomeMessage = serverState.error || serverState.success;
+  const outcomeNear = (keys) => (outcomeMessage && keys.includes(pressed) ? (
+    <p role={serverState.error ? 'alert' : 'status'} className={`mt-3 text-sm ${serverState.error ? 'text-red-700' : 'text-emerald-700'}`}>
+      {outcomeMessage}
+    </p>
+  ) : null);
   const pauseWorkflow = buildPauseWorkflowSummary({
     pauseSummary: student.pauseSummary,
     pauseCoverageContext,
@@ -122,6 +133,7 @@ export default function AdminStudentDetailClient({
 
   function showView(view, anchor = '') {
     setActiveView(view);
+    resetPressed();
     if (anchor) {
       window.setTimeout(() => {
         document.querySelector(anchor)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -540,7 +552,7 @@ export default function AdminStudentDetailClient({
         })}
       </nav>
 
-      {serverState.success || serverState.error ? (
+      {outcomeMessage && !pressed ? (
         <section className={`rounded-2xl border p-4 text-sm ${
           serverState.error
             ? 'border-red-200 bg-red-50 text-red-800'
@@ -872,14 +884,14 @@ export default function AdminStudentDetailClient({
                   className="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900"
                 />
               </label>
-              <button
-                type="button"
-                onClick={handleMarkStudentLeft}
+              <ActionButton
+                onClick={press('left', handleMarkStudentLeft)}
                 disabled={isPending || exitState.sheetArchived || !leftMonth}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                pending={pendingFor('left')}
+                pendingLabel="Working…"
               >
-                {isPending ? 'Working…' : exitState.sheetArchived ? 'Left ✓' : 'Mark as left'}
-              </button>
+                {exitState.sheetArchived ? 'Left ✓' : 'Mark as left'}
+              </ActionButton>
             </div>
           </div>
         </div>
@@ -893,56 +905,69 @@ export default function AdminStudentDetailClient({
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 1</p>
             <p className="mt-2 text-sm font-medium text-slate-900">Mark inactive/stopped</p>
             <p className="mt-1 text-xs text-slate-600">Updates the Students sheet payment expectation.</p>
-            <button
-              type="button"
-              onClick={handleArchiveStudent}
+            <ActionButton
+              variant="secondary"
+              size="compact"
+              className="mt-3"
+              onClick={press('sheet', handleArchiveStudent)}
               disabled={isPending || exitState.sheetArchived}
-              className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              pending={pendingFor('sheet')}
+              pendingLabel="Saving…"
             >
-              {isPending ? 'Saving…' : archiveAlreadyMarked ? 'Add note' : 'Mark inactive in Sheets'}
-            </button>
+              {archiveAlreadyMarked ? 'Add note' : 'Mark inactive in Sheets'}
+            </ActionButton>
           </div>
           <div className={`rounded-xl border p-4 ${!exitState.registryPresent ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 2</p>
             <p className="mt-2 text-sm font-medium text-slate-900">Remove portal access</p>
             <p className="mt-1 text-xs text-slate-600">Deletes the portal/dashboard registry entry.</p>
-            <button
-              type="button"
-              onClick={handleDeleteRegistryEntry}
+            <ActionButton
+              variant="secondary"
+              size="compact"
+              className="mt-3"
+              onClick={press('registry', handleDeleteRegistryEntry)}
               disabled={isPending || !archiveAlreadyMarked || !exitState.registryPresent || exitState.sheetArchived}
-              className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              pending={pendingFor('registry')}
+              pendingLabel="Saving…"
             >
-              {isPending ? 'Saving…' : exitState.registryPresent ? 'Remove portal access' : 'Done'}
-            </button>
+              {exitState.registryPresent ? 'Remove portal access' : 'Done'}
+            </ActionButton>
           </div>
           <div className={`rounded-xl border p-4 ${exitState.mmsInactive ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 3</p>
             <p className="mt-2 text-sm font-medium text-slate-900">Mark inactive in MMS</p>
             <p className="mt-1 text-xs text-slate-600">Updates MMS student status to Inactive.</p>
-            <button
-              type="button"
-              onClick={handleMarkMmsInactive}
+            <ActionButton
+              variant="secondary"
+              size="compact"
+              className="mt-3"
+              onClick={press('mms', handleMarkMmsInactive)}
               disabled={isPending || !archiveAlreadyMarked || exitState.mmsInactive || exitState.sheetArchived}
-              className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              pending={pendingFor('mms')}
+              pendingLabel="Saving…"
             >
-              {isPending ? 'Saving…' : exitState.mmsInactive ? 'Done' : 'Mark inactive in MMS'}
-            </button>
+              {exitState.mmsInactive ? 'Done' : 'Mark inactive in MMS'}
+            </ActionButton>
           </div>
           <div className={`rounded-xl border p-4 ${exitState.sheetArchived ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 4</p>
             <p className="mt-2 text-sm font-medium text-slate-900">Archive active row</p>
             <p className="mt-1 text-xs text-slate-600">Copies to Students_Archive, then removes from Students.</p>
-            <button
-              type="button"
-              onClick={handleArchiveSheetRow}
+            <ActionButton
+              variant="secondary"
+              size="compact"
+              className="mt-3"
+              onClick={press('archive', handleArchiveSheetRow)}
               disabled={isPending || !archiveAlreadyMarked || exitState.sheetArchived}
-              className="mt-3 rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+              pending={pendingFor('archive')}
+              pendingLabel="Saving…"
             >
-              {isPending ? 'Saving…' : exitState.sheetArchived ? 'Archived' : 'Archive student'}
-            </button>
+              {exitState.sheetArchived ? 'Archived' : 'Archive student'}
+            </ActionButton>
           </div>
         </div>
         </details>
+        {outcomeNear(['left', 'sheet', 'registry', 'mms', 'archive'])}
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           <p className="font-medium">Stripe is still separate.</p>
           <p className="mt-1">
@@ -1142,23 +1167,26 @@ export default function AdminStudentDetailClient({
               <ReadOnlyField label="What closes it" value={pauseWorkflow.closureCondition} />
             </div>
             <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => handleQuickPaymentExpectation('stripe_paused_expected', 'Confirm pause — expect payments paused')}
+              <ActionButton
+                variant="secondary"
+                onClick={press('pause', () => handleQuickPaymentExpectation('stripe_paused_expected', 'Confirm pause — expect payments paused'))}
                 disabled={isPending}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                pending={pendingFor('pause')}
+                pendingLabel="Saving…"
               >
                 Confirm pause — expect payments paused
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickPaymentExpectation('stripe_active_expected', 'Expect payments active')}
+              </ActionButton>
+              <ActionButton
+                variant="secondary"
+                onClick={press('active', () => handleQuickPaymentExpectation('stripe_active_expected', 'Expect payments active'))}
                 disabled={isPending}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                pending={pendingFor('active')}
+                pendingLabel="Saving…"
               >
                 Expect payments active
-              </button>
+              </ActionButton>
             </div>
+            {outcomeNear(['pause', 'active'])}
             {pauseWorkflow.liveStripeMismatch ? (
               <p className="mt-3 text-sm text-amber-700">
                 Live Stripe still disagrees with the current expectation. Refreshing Stripe here is the quickest way to confirm whether the pause loop is actually closed.
@@ -1344,15 +1372,18 @@ export default function AdminStudentDetailClient({
         </section>
 
         <div className="flex items-center gap-4">
-          <button
+          <ActionButton
             type="submit"
+            size="large"
+            onClick={press('save', () => {})}
             disabled={isPending}
-            className="rounded-lg bg-slate-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+            pending={pendingFor('save')}
+            pendingLabel="Saving…"
           >
-            {isPending ? 'Saving…' : 'Save changes'}
-          </button>
-          {serverState.success ? <p className="text-sm text-emerald-700">{serverState.success}</p> : null}
-          {serverState.error ? <p className="text-sm text-red-700">{serverState.error}</p> : null}
+            Save changes
+          </ActionButton>
+          {pressed === 'save' && serverState.success ? <p className="text-sm text-emerald-700">{serverState.success}</p> : null}
+          {pressed === 'save' && serverState.error ? <p role="alert" className="text-sm text-red-700">{serverState.error}</p> : null}
         </div>
       </form>
     </div>

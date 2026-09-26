@@ -186,7 +186,10 @@ export default async function PracticeChatEvaluationPage() {
   return (
     <div className="space-y-10">
       <section>
-        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Signals</p>
+        <Link href="/admin/insights" className="text-xs font-medium text-slate-500 hover:text-slate-800">
+          ← Signals
+        </Link>
+        <p className="mt-2 text-xs uppercase tracking-[0.25em] text-slate-500">Signals</p>
         <h2 className="mt-2 flex flex-wrap items-center gap-3 fc-display text-3xl text-slate-900">
           Practice Chat evaluation
           <ScopeBadge>Read-only</ScopeBadge>

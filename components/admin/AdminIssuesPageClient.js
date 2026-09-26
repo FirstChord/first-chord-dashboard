@@ -1,5 +1,6 @@
 'use client';
 
+import { ActionButton } from '@/components/admin/ui/ActionButton';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SlideOverPanel, panelActionClass } from '@/components/admin/ui/SlideOverPanel';
@@ -90,7 +91,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
     const confirmed = window.confirm(`Remove ${issue.studentName || issue.mmsId} from the portal? This deletes their portal access and dashboard record but will not touch MMS.`);
     if (!confirmed) return;
 
-    setActionState({ pendingId: issue.id, error: '', success: '' });
+    setActionState({ pendingId: issue.id, pendingAction: 'delete', issueId: issue.issueId, error: '', success: '' });
 
     try {
       const response = await fetch(`/api/admin/issues/${issue.mmsId}`, {
@@ -102,7 +103,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
       const payload = await response.json();
 
       if (!response.ok) {
-        setActionState({ pendingId: '', error: payload.error || 'Delete failed', success: '' });
+        setActionState({ pendingId: '', issueId: issue.issueId, error: payload.error || 'Delete failed', success: '' });
         return;
       }
 
@@ -121,7 +122,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
         ))),
       );
     } catch (error) {
-      setActionState({ pendingId: '', error: error.message || 'Delete failed', success: '' });
+      setActionState({ pendingId: '', issueId: issue.issueId, error: error.message || 'Delete failed', success: '' });
     }
   }
 
@@ -139,7 +140,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
 
     const trimmedInstrument = instrumentValue.trim();
     if (!trimmedInstrument) {
-      setActionState({ pendingId: '', error: 'Instrument is required to create a registry entry.', success: '' });
+      setActionState({ pendingId: '', issueId: issue.issueId, error: 'Instrument is required to create a registry entry.', success: '' });
       return;
     }
 
@@ -152,7 +153,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
       return;
     }
 
-    setActionState({ pendingId: issue.issueId, error: '', success: '' });
+    setActionState({ pendingId: issue.issueId, pendingAction: 'create', issueId: issue.issueId, error: '', success: '' });
 
     try {
       const response = await fetch(`/api/admin/issues/${issue.mmsId}`, {
@@ -172,7 +173,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
       const payload = await response.json();
 
       if (!response.ok) {
-        setActionState({ pendingId: '', error: payload.error || 'Create registry entry failed', success: '' });
+        setActionState({ pendingId: '', issueId: issue.issueId, error: payload.error || 'Create registry entry failed', success: '' });
         return;
       }
 
@@ -198,7 +199,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
         ))),
       );
     } catch (error) {
-      setActionState({ pendingId: '', error: error.message || 'Create registry entry failed', success: '' });
+      setActionState({ pendingId: '', issueId: issue.issueId, error: error.message || 'Create registry entry failed', success: '' });
     }
   }
 
@@ -394,7 +395,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
       note = prompted.trim();
     }
 
-    setActionState({ pendingId: issue.issueId, error: '', success: '' });
+    setActionState({ pendingId: issue.issueId, pendingAction: nextStatus, issueId: issue.issueId, error: '', success: '' });
 
     try {
       const response = await fetch(`/api/admin/issues/${issue.mmsId}/state`, {
@@ -411,7 +412,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
       const payload = await response.json();
 
       if (!response.ok) {
-        setActionState({ pendingId: '', error: payload.error || 'Issue update failed', success: '' });
+        setActionState({ pendingId: '', issueId: issue.issueId, error: payload.error || 'Issue update failed', success: '' });
         return;
       }
 
@@ -437,9 +438,15 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
       }
 
       applyUpdate();
-      setActionState({ pendingId: '', error: '', success: '' });
+      // Keeping active leaves the card where it is, so the button itself confirms.
+      setActionState({ pendingId: '', issueId: issue.issueId, doneAction: nextStatus, error: '', success: '' });
+      window.setTimeout(() => {
+        setActionState((current) => (current.doneAction === nextStatus && current.issueId === issue.issueId
+          ? { pendingId: '', error: '', success: '' }
+          : current));
+      }, 1800);
     } catch (error) {
-      setActionState({ pendingId: '', error: error.message || 'Issue update failed', success: '' });
+      setActionState({ pendingId: '', issueId: issue.issueId, error: error.message || 'Issue update failed', success: '' });
     }
   }
 
@@ -505,7 +512,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
       ? `Detective proposal approved. ${baseAuditNote}`
       : baseAuditNote;
 
-    setActionState({ pendingId: issue.issueId, error: '', success: '' });
+    setActionState({ pendingId: issue.issueId, pendingAction: `quick:${action.label}`, issueId: issue.issueId, error: '', success: '' });
 
     try {
       const response = await fetch(`/api/admin/students/${issue.mmsId}`, {
@@ -589,7 +596,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
   }
 
   async function handlePracticeFollowUpHandled(issue) {
-    setActionState({ pendingId: issue.issueId, error: '', success: '' });
+    setActionState({ pendingId: issue.issueId, pendingAction: 'follow_up', issueId: issue.issueId, error: '', success: '' });
 
     try {
       const response = await fetch('/api/admin/practice-notes/follow-up', {
@@ -695,22 +702,24 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
           </div>
         </div>
         <div className="flex flex-wrap gap-2 self-start sm:justify-end">
-          <button
-            type="button"
+          <ActionButton
+            variant="warning"
             onClick={handleReconcilePauseExpectations}
-            disabled={pauseSyncState.pending || stripeScanState.pending}
-            className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm font-semibold text-amber-950 transition hover:border-amber-400 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+            pending={pauseSyncState.pending}
+            disabled={stripeScanState.pending}
+            pendingLabel="Checking pauses…"
           >
-            {pauseSyncState.pending ? 'Checking pauses…' : 'Sync pause expectations'}
-          </button>
-          <button
-            type="button"
+            Sync pause expectations
+          </ActionButton>
+          <ActionButton
+            variant="secondary"
             onClick={handleRunStripeScan}
-            disabled={stripeScanState.pending || pauseSyncState.pending}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+            pending={stripeScanState.pending}
+            disabled={pauseSyncState.pending}
+            pendingLabel="Checking…"
           >
-            {stripeScanState.pending ? 'Checking…' : 'Check Stripe'}
-          </button>
+            Check Stripe
+          </ActionButton>
         </div>
       </header>
 
@@ -735,12 +744,13 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
         </div>
       </details>
 
-      {actionState.error ? (
+      {/* Card actions report on their card; only page-level actions report here. */}
+      {actionState.error && !actionState.issueId ? (
         <section className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           {actionState.error}
         </section>
       ) : null}
-      {actionState.success ? (
+      {actionState.success && !actionState.issueId ? (
         <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
           {actionState.success}
         </section>
@@ -752,6 +762,7 @@ export default function AdminIssuesPageClient({ issues, freshness }) {
             key={view.value}
             type="button"
             onClick={() => setWorkView(view.value)}
+            aria-pressed={workView === view.value}
             className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition ${
               workView === view.value
                 ? 'bg-white text-slate-950 shadow-sm'

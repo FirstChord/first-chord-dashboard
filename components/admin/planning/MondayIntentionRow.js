@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
+import { ActionButton } from '@/components/admin/ui/ActionButton';
+import { usePressedAction } from '@/components/admin/ui/usePressedAction';
 import { PLANNING_OWNERS } from '@/lib/admin/planning-helpers.mjs';
 import { SelectField, TextField, TextAreaField, DateField } from './fields';
 
@@ -13,6 +15,8 @@ export default function MondayIntentionRow({ intention, defaultDueDate, onSchedu
   const [notes, setNotes] = useState('');
   const [owner, setOwner] = useState('Unassigned');
   const [targetDate, setTargetDate] = useState(defaultDueDate);
+  // `pending` is page-wide; only the row that was pressed shows it.
+  const { press, pendingFor } = usePressedAction(pending);
 
   return (
     <div className="rounded-xl border border-slate-100 bg-white px-3 py-2">
@@ -22,19 +26,23 @@ export default function MondayIntentionRow({ intention, defaultDueDate, onSchedu
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
             className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-800 hover:bg-blue-50"
           >
             {expanded ? 'Cancel' : <><Plus className="h-3.5 w-3.5" /> Schedule</>}
           </button>
-          <button
-            type="button"
-            onClick={() => onDismiss(intention)}
+          <ActionButton
+            variant="subtle"
+            size="compact"
+            onClick={press('dismiss', () => onDismiss(intention))}
             disabled={pending}
+            pending={pendingFor('dismiss')}
+            pendingLabel="Dismissing…"
             title="Remove this suggestion from the Monday scheduling list"
-            className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            icon={<X className="h-3.5 w-3.5" />}
           >
-            <X className="h-3.5 w-3.5" /> Dismiss
-          </button>
+            Dismiss
+          </ActionButton>
         </div>
       </div>
       {expanded ? (
@@ -45,15 +53,15 @@ export default function MondayIntentionRow({ intention, defaultDueDate, onSchedu
             <SelectField label="Owner" value={owner} onChange={setOwner} options={PLANNING_OWNERS} />
             <DateField label="Do by" value={targetDate} onChange={setTargetDate} />
           </div>
-          <button
-            type="button"
-            onClick={() => onSchedule({ title, notes, owner, targetDate })}
+          <ActionButton
+            onClick={press('schedule', () => onSchedule({ title, notes, owner, targetDate }))}
             disabled={pending || !title.trim()}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            pending={pendingFor('schedule')}
+            pendingLabel="Adding…"
+            icon={<Plus className="h-4 w-4" />}
           >
-            {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
             Add to board
-          </button>
+          </ActionButton>
         </div>
       ) : null}
     </div>
