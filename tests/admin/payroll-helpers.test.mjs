@@ -688,3 +688,12 @@ test('buildPayrollAttendanceQuery carries no page size of its own', () => {
     ['endDate', 'startDate', 'teacherIds'],
   );
 });
+
+test('an older outstanding statement is the current work without overlapping the next period', () => {
+  const run = { payroll_id: 'payroll_calum_2026-09-21_2026-09-27', tutor: 'Calum', tutor_short_name: 'Calum', period_start: '2026-09-21', period_end: '2026-09-27', pay_date: '2026-09-28', status: 'reviewed', final_amount: '50', payment_route: 'confirmation' };
+  const row = buildPayrollPreview({ payDate: '2026-10-05', savedRuns: [run], preferOutstanding: true, now: new Date('2026-10-05') }).rows.find((entry) => entry.tutorShortName === 'Calum');
+  assert.equal(row.payrollId, run.payroll_id);
+  assert.equal(row.periodStart, '2026-09-21');
+  assert.equal(row.periodEnd, '2026-09-27');
+  assert.equal(row.finalAmount, 50);
+});

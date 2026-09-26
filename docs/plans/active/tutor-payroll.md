@@ -1,7 +1,7 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-09-21
+last_verified: 2026-09-26
 ---
 # Tutor Payroll: Phase 3 Pilot And Scheduling
 
@@ -50,6 +50,22 @@ The source contains the manual pilot path:
 This remains a code and operator pilot until the existing cadence choices and
 verified contact details are populated and the risky rollout checks below pass.
 
+## Calm queue increment — approved for rollout
+
+The working implementation adds a statement-based queue, carried outstanding
+periods, mandatory new-system confirmation, private WhatsApp reminder previews,
+and a signed exact-file Wise handoff. Finn approved the Wednesday 09:00 UK cutoff and production rollout on
+26 September 2026. This is not scheduled
+email or automated payment. Verify live cadence, contacts, paid-through records
+and Wise recipients before the first production run. Michael’s outstanding
+cutover remains a separate exception and must not block other tutors.
+
+Rollout: validate and deploy the code, inspect the queue and
+one reviewed statement without sending, then run the first human-approved
+Monday email cycle. Roll back code first if needed; preserve statement responses,
+paid markers and append-only reminder events. Never retry provider payments to
+repair dashboard records.
+
 ## Remaining Goal
 
 - populate and verify active tutors' payroll contact addresses;
@@ -59,8 +75,8 @@ verified contact details are populated and the risky rollout checks below pass.
   evidence;
 - schedule due-statement email only after delivery, confirmation, dispute,
   ambiguous-Gmail, and missed-email evidence is understood;
-- add a private one-to-one WhatsApp reminder workflow for overdue confirmations,
-  never a payroll link or pay detail in a tutor group.
+- exercise the private one-to-one WhatsApp reminder workflow for overdue
+  confirmations; never share a payroll link or pay detail in a tutor group.
 
 ## Decisions Recorded
 

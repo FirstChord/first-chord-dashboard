@@ -2,67 +2,37 @@
 
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
+import { formatPayrollDate } from '@/lib/admin/payroll-helpers.mjs';
+import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 
-const toneClass = {
-  danger: 'bg-rose-500',
-  warning: 'bg-amber-500',
-  attention: 'bg-blue-500',
-  waiting: 'bg-slate-400',
-  ready: 'bg-emerald-500',
-  complete: 'bg-slate-300',
-  idle: 'bg-sky-300',
-};
-
-export default function TutorSelector({ rows = [], selectedTutor = '', payDate = '', groupCompleted = false }) {
+export default function TutorSelector({ rows = [], selectedTutor = '', payDate = '' }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const ordered = [...rows].sort((a, b) => `${a.tutor}`.localeCompare(`${b.tutor}`));
-  const isComplete = (row) => ['paid', 'nothing_due', 'paid_through'].includes(row.workflow?.key);
-  const remaining = groupCompleted ? ordered.filter((row) => !isComplete(row)) : ordered;
-  const completed = groupCompleted ? ordered.filter(isComplete) : [];
-  const selectedCompleted = completed.some((row) => row.tutorShortName === selectedTutor);
-
   function selectTutor(tutor) {
-    const query = new URLSearchParams();
-    if (payDate) query.set('payDate', payDate);
-    query.set('tutor', tutor);
-    startTransition(() => router.replace(`/admin/finance/payroll?${query.toString()}`, { scroll: false }));
+    const query = new URLSearchParams({ payDate, tutor });
+    startTransition(() => router.replace(`/admin/finance/payroll?${query}`, { scroll: false }));
   }
-
-  function tutorButtons(tutors) {
-    return tutors.map((row) => {
-      const selected = row.tutorShortName === selectedTutor;
-      return (
-        <button
-          key={row.payrollId}
-          type="button"
-          onClick={() => selectTutor(row.tutorShortName)}
-          aria-current={selected ? 'true' : undefined}
-          className={`min-w-[9rem] shrink-0 rounded-xl px-3 py-2.5 text-left transition ${
-            selected ? 'bg-slate-950 text-white shadow-sm' : 'text-slate-700 hover:bg-slate-50'
-          }`}
-        >
-          <span className="flex items-center gap-2 text-sm font-semibold">
-            <span className={`h-2 w-2 rounded-full ${toneClass[row.workflow?.tone] || 'bg-slate-300'}`} aria-hidden />
-            {row.tutorShortName || row.tutor}
-          </span>
-          <span className={`mt-1 block text-xs ${selected ? 'text-slate-300' : 'text-slate-500'}`}>{row.workflow?.label || 'Needs review'}</span>
+  function list(group) {
+    return <ul className="divide-y divide-slate-100">{group.map((row) => (
+      <li key={row.payrollId}>
+        <button type="button" onClick={() => selectTutor(row.tutorShortName)} aria-current={selectedTutor === row.tutorShortName ? 'true' : undefined}
+          className={`w-full rounded-xl px-3 py-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-green-700 ${selectedTutor === row.tutorShortName ? 'bg-green-50' : 'hover:bg-slate-50'}`}>
+          <span className="flex justify-between gap-3 text-sm font-semibold text-slate-900"><span>{row.tutor}</span><span className="shrink-0 tabular-nums">{formatMoney(row.finalAmount)}{row.status === 'draft' ? <span className="ml-1 text-xs font-normal text-slate-500">est.</span> : null}</span></span>
+          <span className="mt-1 block text-xs text-slate-500">{formatPayrollDate(row.periodStart)}–{formatPayrollDate(row.periodEnd)}</span>
+          <span className={`mt-1 block text-xs ${['danger', 'warning'].includes(row.workflow.tone) ? 'text-amber-800' : 'text-slate-600'}`}>{row.workflow.label}{row.group === 'upcoming' && row.nextCadencePayDate ? ` · ${formatPayrollDate(row.nextCadencePayDate)}` : ''}</span>
         </button>
-      );
-    });
+      </li>
+    ))}</ul>;
   }
-
-  return (
-    <nav aria-label="Choose tutor" className={`rounded-2xl border border-slate-200 bg-white p-2 shadow-sm transition-opacity ${pending ? 'opacity-70' : ''}`}>
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5">{tutorButtons(remaining)}</div>
-      {completed.length ? (
-        <details key={selectedCompleted ? selectedTutor : 'closed'} defaultOpen={selectedCompleted} className="mt-2 border-t border-slate-100 pt-2">
-          <summary className="cursor-pointer px-2 py-1 text-sm font-medium text-slate-500">
-            {completed.length} complete · Show finished tutors
-          </summary>
-          <div className="mt-2 flex gap-1.5 overflow-x-auto pb-0.5">{tutorButtons(completed)}</div>
-        </details>
-      ) : null}
-    </nav>
-  );
+  return <nav aria-label="Payroll queue" aria-busy={pending} className={`space-y-4 ${pending ? 'opacity-60' : ''}`}>
+    {[
+      ['handle', 'To handle'], ['waiting', 'Waiting for tutors'], ['ready', 'Ready to pay'], ['upcoming', 'Upcoming'], ['history', 'Complete'],
+    ].map(([key, label]) => {
+      const group = rows.filter((row) => row.group === key);
+      if (!group.length) return null;
+      if (['upcoming', 'history'].includes(key)) return <details key={key} className="rounded-2xl border border-slate-200 bg-white p-2"><summary className="cursor-pointer px-2 py-2 text-sm text-slate-600">{label} · {group.length}</summary>{list(group)}</details>;
+      return <section key={key} className="rounded-2xl border border-slate-200 bg-white p-2"><h3 className="px-2 py-2 text-xs font-semibold text-slate-500">{label} · {group.length}</h3>{list(group)}</section>;
+    })}
+    {!rows.some((row) => row.group === 'handle') ? <p className="px-2 text-sm text-slate-500">Nothing needs your attention here.</p> : null}
+  </nav>;
 }

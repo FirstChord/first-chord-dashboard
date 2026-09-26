@@ -59,6 +59,8 @@ export default function TutorStatementView({ statement }) {
         </p>
       ) : null}
 
+      {!isReceipt && !statement.isCutover && statement.paymentRoute === 'confirmation' ? <p className="mt-4 text-sm text-slate-600">Please confirm or raise a query before 9am on Wednesday (UK time). Unconfirmed statements carry forward to the following week’s payment run.</p> : null}
+
       <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl bg-slate-50 px-4 py-3 text-xs sm:grid-cols-3 print:border print:border-slate-200 print:bg-white">
         <div>
           <dt className="text-slate-400">Reference</dt>

@@ -75,7 +75,7 @@ test('buildWiseBatch includes only reviewed rows with positive owed amount', () 
   assert.equal(result.csvRows[0].amount, '280.00');
   assert.equal(result.csvRows[0].paymentReference, 'FC pay 2026-07-01');
   assert.equal(result.csvRows[0].recipientId, '12345');
-  assert.deepEqual(result.includedTutors, [{ tutor: 'Kenny Bates', owedAmount: 280 }]);
+  assert.deepEqual(result.includedTutors, [{ tutor: 'Kenny Bates', owedAmount: 280, payrollId: 'payroll_kenny_2026-06-24_2026-06-30', periodStart: undefined, periodEnd: '2026-07-01', recipientName: 'Kenny Bates' }]);
   assert.equal(result.missing.length, 0);
   assert.deepEqual(result.includedPayrollIds, ['payroll_kenny_2026-06-24_2026-06-30']);
 });
@@ -89,7 +89,7 @@ test('buildWiseBatch excludes missing-recipient rows from includedPayrollIds', (
   const result = buildWiseBatch({ rows, wiseByKey });
   assert.deepEqual(result.includedPayrollIds, ['payroll_kenny_2026-06-24_2026-06-30']);
   assert.equal(result.missing.length, 1);
-  assert.deepEqual(result.includedTutors, [{ tutor: 'Kenny Bates', owedAmount: 280 }]);
+  assert.deepEqual(result.includedTutors, [{ tutor: 'Kenny Bates', owedAmount: 280, payrollId: 'payroll_kenny_2026-06-24_2026-06-30', periodStart: undefined, periodEnd: '2026-07-01', recipientName: 'Kenny Bates' }]);
 });
 
 test('buildWiseBatch surfaces reviewed rows with no Wise recipient instead of dropping them', () => {
@@ -134,13 +134,12 @@ test('selectPayableReviewedRuns collapses a tutor reviewed under two windows to 
   assert.equal(amountConflicts.length, 0);
 });
 
-test('selectPayableReviewedRuns warns when duplicate reviewed rows disagree on amount', () => {
+test('selectPayableReviewedRuns excludes conflicting amounts until resolved', () => {
   const { rows, amountConflicts } = selectPayableReviewedRuns([
     savedRun({ payroll_id: 'a', final_amount: 211.42, reviewed_at: '2026-07-01T10:00:00.000Z' }),
     savedRun({ payroll_id: 'b', final_amount: 250, reviewed_at: '2026-07-01T12:00:00.000Z' }),
   ]);
-  assert.equal(rows.length, 1);
-  assert.equal(rows[0].owedAmount, 250); // latest reviewed wins
+  assert.equal(rows.length, 0); // Neither conflicting amount is safe to export
   assert.equal(amountConflicts.length, 1);
   assert.equal(amountConflicts[0].tutor, 'David Husz');
   assert.deepEqual(amountConflicts[0].amounts, [211.42, 250]);
