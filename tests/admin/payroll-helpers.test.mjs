@@ -195,7 +195,7 @@ test('an unresolved cutoff reserves its dates and blocks the next period without
   }).rows.find((entry) => entry.tutorShortName === 'Calum');
   assert.equal(row.periodStart, '2026-09-21');
   assert.equal(row.periodEnd, '2026-09-27');
-  assert.equal(row.windowBasis, 'since_pending');
+  assert.equal(row.windowBasis, 'shared_cycle');
   assert.equal(row.priorRunPending.periodEnd, '2026-09-20');
   assert.equal(row.periodOpen, true);
   assert.equal(row.overlapsOutstanding, null);
@@ -696,4 +696,38 @@ test('an older outstanding statement is the current work without overlapping the
   assert.equal(row.periodStart, '2026-09-21');
   assert.equal(row.periodEnd, '2026-09-27');
   assert.equal(row.finalAmount, 50);
+});
+
+
+test('shared cutover anchors weekly and fortnightly first runs without treating legacy pay as settled', () => {
+  const row = ({ cadence = 'weekly', payDate = '2026-09-28', paidThrough = '2026-09-20', overrides = {} } = {}) => buildPayrollPreview({
+    payDate, overrides, now: new Date('2026-10-20T10:00:00Z'),
+    tutorPay: parseTutorPay([{ tutor: 'Calum', hourly_rate: '24', invoice_cadence: cadence }]),
+    savedRuns: paidThrough ? [{ payroll_id: 'boundary', tutor_short_name: 'Calum', status: 'paid_through', period_end: paidThrough }] : [],
+    attendanceRows: [attendance({ EventStartDate: '2026-09-18T12:00:00' }), attendance({ EventID: 'new', EventStartDate: '2026-09-22T12:00:00' })],
+  }).rows.find((entry) => entry.tutorShortName === 'Calum');
+  const weekly = row();
+  assert.deepEqual([weekly.periodStart, weekly.periodEnd, weekly.nextCadencePayDate, weekly.cadenceDue], ['2026-09-21', '2026-09-27', '2026-09-28', true]);
+  assert.equal(weekly.lessonCount, 1); // Legacy lesson cannot enter new statement.
+  const fortnightly = row({ cadence: 'biweekly' });
+  assert.equal(fortnightly.periodStart, '2026-09-21');
+  assert.equal(fortnightly.cadenceDue, false);
+  assert.equal(fortnightly.nextCadencePayDate, '2026-10-05');
+  const due = row({ cadence: 'biweekly', payDate: '2026-10-05' });
+  assert.deepEqual([due.periodStart, due.periodEnd, due.cadenceDue], ['2026-09-21', '2026-10-04', true]);
+  const next = row({ cadence: 'biweekly', payDate: '2026-10-12', paidThrough: '2026-10-04' });
+  assert.equal(next.cadenceDue, false);
+  assert.equal(next.nextCadencePayDate, '2026-10-19');
+  for (const paidThrough of ['', '2026-09-15']) {
+    const legacy = row({ cadence: 'biweekly', paidThrough });
+    assert.equal(legacy.periodStart, '2026-09-21');
+    assert.equal(legacy.nextCadencePayDate, '2026-10-05');
+    assert.equal(legacy.legacyNeedsReconciliation, true);
+    assert.equal(legacy.lastPaidThrough, paidThrough); // No invented payment boundary.
+    assert.equal(getPayrollWorkflowState(legacy).key, 'legacy_reconciliation');
+  }
+  const earlyOverride = row({ cadence: 'biweekly', overrides: { Calum: { start: '2026-09-21', end: '2026-09-27' } } });
+  assert.equal(earlyOverride.cadenceDue, false); // Same path used by server review forms.
+  const crossing = row({ overrides: { Calum: { start: '2026-09-16' } } });
+  assert.equal(crossing.legacyNeedsReconciliation, true);
 });
