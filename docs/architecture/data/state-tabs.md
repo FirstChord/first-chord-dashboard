@@ -83,7 +83,10 @@ glitch** control writes an unassigned Inbox Idea with
 authenticated creator, and explicit `is_pause = false`. Planning's **Dashboard
 reports** filter is the triage queue. This keeps human-noticed glitches and
 improvements out of the system-detected `Issue_Queue`, prevents pause wording
-from entering finance forecasts, and avoids another state tab.
+from entering finance forecasts, and avoids another state tab. Agents read the
+queue with `npm run reports`, which reads the tab directly and never writes.
+Its parser depends on the note layout (`Report type:`, `Dashboard page:`,
+`What was noticed:`) written by `buildDashboardFeedbackPlanningItem`.
 
 ## Future store dispositions
 

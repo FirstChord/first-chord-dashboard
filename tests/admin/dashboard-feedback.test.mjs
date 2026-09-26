@@ -5,6 +5,7 @@ import {
   buildDashboardFeedbackPlanningItem,
   createDashboardFeedbackPostHandler,
   normaliseDashboardFeedbackPagePath,
+  readDashboardFeedbackReport,
   summariseDashboardFeedback,
 } from '../../lib/admin/dashboard-feedback.mjs';
 
@@ -105,4 +106,24 @@ test('dashboard feedback route rejects malformed JSON and reports write failures
   const failed = await handler(jsonRequest({ type: 'glitch', message: 'Broken', pagePath: '/admin' }));
   assert.equal(failed.status, 500);
   assert.deepEqual(await failed.json(), { error: 'Sheets unavailable' });
+});
+
+test('a saved report reads back with its type, page, and full message', () => {
+  const item = buildDashboardFeedbackPlanningItem({
+    type: 'improvement',
+    message: 'Buttons should feel pressed.\nAnd show success.',
+    pagePath: '/admin/finance/payroll?tab=settings',
+  });
+  const report = readDashboardFeedbackReport({ ...item, planningId: 'planning_1', createdAt: '2026-09-26T11:24:00Z' });
+  assert.equal(report.type, 'improvement');
+  assert.equal(report.pagePath, '/admin/finance/payroll');
+  assert.equal(report.message, 'Buttons should feel pressed.\nAnd show success.');
+  assert.equal(report.planningId, 'planning_1');
+});
+
+test('a hand-edited report note still returns its whole text', () => {
+  const report = readDashboardFeedbackReport({ notes: 'Rewritten by hand.' });
+  assert.equal(report.type, '');
+  assert.equal(report.pagePath, '');
+  assert.equal(report.message, 'Rewritten by hand.');
 });

@@ -40,6 +40,11 @@ progress; committing them then reintroduces superseded code. If the line says
 you are behind, diff changed files against `origin/main` before assuming they
 are new.
 
+Admins file glitches and "could be better" notes from the dashboard's **Report
+a glitch** button. Read the open ones with `npm run reports` (`--all` includes
+closed ones, `--json` for structured output). It is read-only and uses the
+local Sheets token, so it works on Finn's Mac, not in CI or the cloud.
+
 ## Fast Code Orientation
 
 Use the Workflow Map below to choose the area and its safety documents. For the
