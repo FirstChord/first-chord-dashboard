@@ -32,9 +32,16 @@ visual prominence:
 
 The shared pressed and focus treatment lives in
 `lib/admin/button-styles.mjs`. Use it through `ActionButton`, `ButtonLink`,
-`ConfirmButton`, or `CopyButton`; do not reproduce those state classes on each
-page. Motion is supplementary: the surface-colour change remains when reduced
-motion is enabled.
+`ConfirmButton`, `CopyButton`, or `SubmitButton`; do not reproduce those state
+classes on each page. Motion is supplementary: the surface-colour change remains
+when reduced motion is enabled.
+
+Every other `<button>` gets a pressed baseline from `app/globals.css`.
+
+- **Only the pressed button shows `…`.** Others may be disabled, but keep their
+  words. `usePressedAction` does this when a parent has one shared busy flag.
+- **Outcomes appear where you pressed**, on the card or beside the button, not
+  in a page banner.
 
 Any new button that triggers async work should give feedback:
 
@@ -49,8 +56,17 @@ Use the shared primitives when practical:
 - `components/admin/ui/ConfirmButton.js`
 - `components/admin/ui/StatusBanner.js`
 - `components/admin/ui/useAsyncAction.js`
+- `components/admin/ui/SubmitButton.js` — for `<form action={serverAction}>`
 
 Plain raw buttons are still fine for local UI state, such as toggles, tabs, expanding sections, or selecting a filter.
+
+## A Way Back
+
+If a button changes what's on screen, the way back is visible:
+
+- panels and modals close with ✕ and Escape
+- a mode switch (edit, a step in a flow) has Cancel or Back
+- a page not in the main navigation has a `← Parent` link at the top
 
 ## Button Roles
 

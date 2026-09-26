@@ -13,7 +13,9 @@ test('AI reply drafting is invoked by one card Reply press and has a standard fa
   assert.match(source, /const drafted = await onDraftReply\(entry\)/u);
   assert.match(source, /if \(drafted\) return/u);
   assert.match(source, /setIsReplyOpen\(true\)/u);
-  assert.match(source, /onClick=\{openReply\}/u);
+  // The Reply button may wrap it to scope its pending label, but it stays the
+  // only caller.
+  assert.match(source, /onClick=\{(?:press\('reply', )?openReply\)?\}/u);
 });
 
 test('the inbox has no bulk or background reply-drafting control', async () => {

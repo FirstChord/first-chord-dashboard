@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import SaveSpendButton from '@/components/admin/SaveSpendButton';
+import { SubmitButton } from '@/components/admin/ui/SubmitButton';
 import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 import { EXPENSE_LOG_CATEGORIES } from '@/lib/admin/cost-helpers.mjs';
 
@@ -321,7 +321,7 @@ function SpendView({ today, spend, totals, addExpenseLogAction, deleteExpenseLog
           <label className="flex items-center gap-2 text-sm text-slate-700 sm:col-span-2"><input name="reimbursable" type="checkbox" className="h-4 w-4" /> Needs reimbursed</label>
           <label className="text-sm font-medium text-slate-700 sm:col-span-2">Notes<textarea name="notes" rows={2} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-base" /></label>
         </div>
-        <SaveSpendButton />
+        <SubmitButton className="mt-4">Save spend</SubmitButton>
       </form>
       <section className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-6 shadow-sm">
         <p className="text-sm text-slate-500">This month</p>
@@ -339,7 +339,7 @@ function SpendView({ today, spend, totals, addExpenseLogAction, deleteExpenseLog
           {spend.latestEntries.length ? spend.latestEntries.map((entry) => (
             <div key={entry.expenseId || `${entry.date}-${entry.description}`} className="flex items-center justify-between gap-4 py-3">
               <div><p className="text-sm font-medium text-slate-900">{entry.description}</p><p className="text-xs text-slate-500">{entry.date} · {entry.category}</p></div>
-              <div className="flex items-center gap-2"><span className="font-semibold tabular-nums text-slate-900">{formatMoney(entry.amount)}</span>{entry.expenseId ? <form action={deleteExpenseLogAction}><input type="hidden" name="expense_id" value={entry.expenseId} /><button type="submit" aria-label={`Delete ${entry.description}`} className="rounded-full px-2 py-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600">×</button></form> : null}</div>
+              <div className="flex items-center gap-2"><span className="font-semibold tabular-nums text-slate-900">{formatMoney(entry.amount)}</span>{entry.expenseId ? <form action={deleteExpenseLogAction}><input type="hidden" name="expense_id" value={entry.expenseId} /><SubmitButton variant="quiet" size="compact" pendingLabel="" aria-label={`Delete ${entry.description}`} className="text-slate-400 hover:bg-rose-50 hover:text-rose-600">×</SubmitButton></form> : null}</div>
             </div>
           )) : <p className="py-4 text-sm text-slate-500">No spend logged this month.</p>}
         </div>

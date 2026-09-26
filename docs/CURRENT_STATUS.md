@@ -30,6 +30,14 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Buttons: only the pressed one speaks — 2026-09-26:** from an admin report.
+  The button blueprint (`a499fda`) existed, but many buttons shared one busy
+  flag, so a whole card or page said "Saving…" at once, and card errors showed
+  in a banner off-screen. `usePressedAction` scopes the spinner to the pressed
+  button; outcomes now show beside it (Issues, Planning, student record,
+  WhatsApp inbox). All buttons get a CSS pressed state; server-action forms use
+  `SubmitButton`; `ui-conventions.md` gained **A Way Back**. Payroll untouched
+  (mid-redesign).
 - **Song cards show three distinctive skills, and the capo tags are gone —
   2026-09-18:** eight more RSL Acoustic 2026 slices catalogued (Grade 2 ×4,
   Grade 3 ×4; Surfer Ticket, December, Restless pinned as verified Originals).
@@ -136,24 +144,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   dead — it is the whole flow for a bookmark launch with no dashboard context,
   and its reminder stays. Its comment, which called it the "Test Studenty pilot"
   fallback, was the thing that was wrong.
-- **A shared lesson can be finished in one action — BUILT, NOT DEPLOYED
-  2026-09-15:** taking attendance for a group through Practice Chat meant doing
-  it twice, and the tool offered each sister a *different* lesson — it picks each
-  student's latest unrecorded record, so Athena resolved to 8 Aug and Sophia to
-  12 Sept. `POST /api/practice-notes/group` pins the lesson from the launched
-  student's event and reads every other member from that same event, which is
-  exact: one MMS event carries one attendance record per student. It is a layer
-  over the single-student path — each member keeps its own delivery key, claim,
-  attendance write and log row, delivered one at a time, and a member that fails
-  never blocks the rest. **One email per household:** both sibling pairs share
-  one parent, so recipients dedupe by address and the carrier names everyone it
-  covers; the rest record `covered_by_group_email`. The server owns that
-  grouping and the PWA sends no recipient field, because a client bug there means
-  a duplicate email to a parent. An `orchestra` lesson marks everyone and emails
-  nobody. Partial is its own reported state. The live single-student route was
-  deliberately **not** refactored to share code: it has no route-level tests and
-  it emails real parents. Contract:
-  `docs/workflows/practice-chat/delivery.md` → Shared Lessons.
 
 ## Current operating contracts
 
@@ -302,8 +292,8 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
   remains gated by populating verified contact/cadence data and proving the manual pilot;
   scheduled delivery remains unbuilt. A calmer payroll queue, mandatory
   confirmation, private WhatsApp reminder handoff and checked Wise batch are built
-  in an isolated worktree pending rollout approval, including the proposed
-  Wednesday 09:00 UK cutoff. See `docs/plans/active/tutor-payroll.md`.
+  with production rollout and the Wednesday 09:00 UK cutoff approved by Finn
+  on 26 September 2026. See `docs/plans/active/tutor-payroll.md`.
 - **Pause clarity:** distinguish Pause History, sheet expectation, and live Stripe
   evidence more clearly without adding Stripe mutation to Issues.
 - **Tutor dashboard auth pilot:** the canonical service now has a reversible

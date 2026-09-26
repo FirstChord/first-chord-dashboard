@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start",
     "state": "node scripts/state.mjs",
+    "reports": "node scripts/dashboard-reports.mjs",
     "pretest:admin": "node scripts/generate-configs.js --no-backup",
     "test:admin": "node --test tests/*.test.mjs tests/admin/*.test.mjs",
     "sync-admin-tutors": "node scripts/sync-admin-tutors.js",

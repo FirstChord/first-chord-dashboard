@@ -1,5 +1,6 @@
 'use client';
 
+import { ActionButton } from '@/components/admin/ui/ActionButton';
 import { AgeChip } from '@/components/admin/ui/AgeChip';
 import IssueExplanationPanel from '@/components/admin/issues/IssueExplanationPanel';
 import { buildIssueEvidenceSummary, formatDateTime } from '@/lib/admin/health-helpers.mjs';
@@ -111,6 +112,11 @@ function IssueCardBody({
   onCopyEmail,
   onOpenRecord,
 }) {
+  // Every action on the card is disabled while one runs, but only the pressed
+  // button says so; the rest stay readable.
+  const cardBusy = [issue.issueId, issue.id].includes(actionState.pendingId) && Boolean(actionState.pendingId);
+  const pendingFor = (key) => cardBusy && actionState.pendingAction === key;
+  const doneFor = (key) => actionState.issueId === issue.issueId && actionState.doneAction === key;
   const paymentActionPath = isPaymentIssue(issue) ? getPaymentActionPath(issue) : [];
   const paymentQuickActions = getPaymentQuickActions(issue);
   const primaryQuickAction = issue.sourcePresent ? getPrimaryPaymentQuickAction(issue, paymentQuickActions) : null;
@@ -225,87 +231,85 @@ function IssueCardBody({
       <div className="mt-5 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           {primaryKind === 'resolve' ? (
-            <button
-              type="button"
+            <ActionButton
+              variant="green"
               onClick={() => onStatusChange(issue, 'resolved')}
-              disabled={actionState.pendingId === issue.issueId}
-              className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              pending={pendingFor('resolved')}
+              disabled={cardBusy}
+              pendingLabel="Saving…"
             >
-              {actionState.pendingId === issue.issueId ? 'Saving…' : 'Mark resolved'}
-            </button>
+              Mark resolved
+            </ActionButton>
           ) : null}
           {primaryKind === 'refresh' ? (
-            <button
-              type="button"
+            <ActionButton
+              variant="blue"
               onClick={() => onRefreshStripe(issue)}
-              disabled={Boolean(liveStripeState?.loading)}
-              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-900 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+              pending={Boolean(liveStripeState?.loading)}
+              pendingLabel="Checking…"
             >
-              {liveStripeState?.loading ? 'Checking…' : 'Refresh Stripe'}
-            </button>
+              Refresh Stripe
+            </ActionButton>
           ) : null}
           {primaryKind === 'quick' && primaryQuickAction ? (
-            <button
-              type="button"
+            <ActionButton
+              variant="blue"
               onClick={() => onPaymentQuickAction(issue, primaryQuickAction)}
-              disabled={actionState.pendingId === issue.issueId}
-              className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm font-medium text-sky-900 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+              pending={pendingFor(`quick:${primaryQuickAction.label}`)}
+              disabled={cardBusy}
+              pendingLabel="Saving…"
             >
-              {actionState.pendingId === issue.issueId ? 'Saving…' : primaryQuickAction.label}
-            </button>
+              {primaryQuickAction.label}
+            </ActionButton>
           ) : null}
           {primaryKind === 'create' ? (
-            <button
-              type="button"
+            <ActionButton
+              variant="green"
               onClick={() => onCreateRegistry(issue)}
-              disabled={actionState.pendingId === issue.issueId}
-              className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+              pending={pendingFor('create')}
+              disabled={cardBusy}
+              pendingLabel="Creating…"
             >
-              {actionState.pendingId === issue.issueId ? 'Creating…' : 'Create registry entry'}
-            </button>
+              Create registry entry
+            </ActionButton>
           ) : null}
           {primaryKind === 'follow_up' ? (
             issue.adminStudentPath ? (
-              <button
-                type="button"
+              <ActionButton
                 onClick={() => onOpenRecord({ path: issue.adminStudentPath, name: getStudentLabel(issue) })}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
               >
                 Open student record
-              </button>
+              </ActionButton>
             ) : null
           ) : null}
           {primaryKind === 'open' && issue.adminStudentPath ? (
-            <button
-              type="button"
+            <ActionButton
               onClick={() => onOpenRecord({ path: issue.adminStudentPath, name: getStudentLabel(issue) })}
-              className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
             >
               Open student record
-            </button>
+            </ActionButton>
           ) : null}
           <details className="rounded-lg px-2 py-2 text-sm text-slate-700">
             <summary className="cursor-pointer list-none font-medium text-slate-500 transition hover:text-slate-900" aria-label="More options">•••</summary>
             <div className="mt-4 space-y-4">
               <div className="flex flex-wrap gap-3">
                 {issue.email ? (
-                  <button
-                    type="button"
+                  <ActionButton
+                    variant="secondary"
                     onClick={() => onCopyEmail(issue)}
                     title="Copy email to search in Stripe"
-                    className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-800 transition hover:bg-slate-100"
+                    success={copiedEmailIssueId === issue.issueId}
+                    successLabel="Email copied"
                   >
-                    {copiedEmailIssueId === issue.issueId ? 'Email copied ✓' : `Copy email: ${issue.email}`}
-                  </button>
+                    {`Copy email: ${issue.email}`}
+                  </ActionButton>
                 ) : null}
                 {issue.adminStudentPath && primaryKind !== 'open' ? (
-                  <button
-                    type="button"
+                  <ActionButton
                     onClick={() => onOpenRecord({ path: issue.adminStudentPath, name: getStudentLabel(issue) })}
-                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
                   >
                     Open student record
-                  </button>
+                  </ActionButton>
                 ) : null}
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -336,72 +340,80 @@ function IssueCardBody({
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
+                <ActionButton
+                  variant="secondary"
                   onClick={() => onStatusChange(issue, 'acknowledged')}
-                  disabled={actionState.pendingId === issue.issueId}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  pending={pendingFor('acknowledged')}
+                  disabled={cardBusy}
+                  success={doneFor('acknowledged')}
+                  pendingLabel="Saving…"
+                  successLabel="Kept active"
                 >
-                  {actionState.pendingId === issue.issueId ? 'Saving…' : 'Keep active'}
-                </button>
+                  Keep active
+                </ActionButton>
                 {issue.sourcePresent && primaryKind !== 'resolve' ? (
-                  <button
-                    type="button"
+                  <ActionButton
+                    variant="green"
                     onClick={() => onStatusChange(issue, 'resolved')}
-                    disabled={actionState.pendingId === issue.issueId}
-                    className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    pending={pendingFor('resolved')}
+                    disabled={cardBusy}
+                    pendingLabel="Saving…"
                   >
-                    {actionState.pendingId === issue.issueId ? 'Saving…' : 'Mark resolved'}
-                  </button>
+                    Mark resolved
+                  </ActionButton>
                 ) : null}
                 {issue.type === 'REGISTRY ONLY' ? (
-                  <button
-                    type="button"
+                  <ActionButton
+                    variant="danger"
                     onClick={() => onDelete(issue)}
-                    disabled={actionState.pendingId === issue.id}
-                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-800 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    pending={pendingFor('delete')}
+                    disabled={cardBusy}
+                    pendingLabel="Removing…"
                   >
-                    {actionState.pendingId === issue.id ? 'Removing…' : 'Remove from portal'}
-                  </button>
+                    Remove from portal
+                  </ActionButton>
                 ) : null}
                 {issue.type === 'PRACTICE NOTE DELIVERY FAILED' && issue.practiceNote ? (
-                  <button
-                    type="button"
+                  <ActionButton
+                    variant="warning"
                     onClick={() => onPracticeFollowUpHandled(issue)}
-                    disabled={actionState.pendingId === issue.issueId}
-                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    pending={pendingFor('follow_up')}
+                    disabled={cardBusy}
+                    pendingLabel="Saving…"
                   >
-                    {actionState.pendingId === issue.issueId ? 'Saving…' : 'Mark follow-up handled'}
-                  </button>
+                    Mark follow-up handled
+                  </ActionButton>
                 ) : null}
                 {!refreshStripeFirst && needsLiveStripeReview(issue) && primaryQuickAction ? (
-                  <button
-                    type="button"
+                  <ActionButton
+                    variant="blue"
                     onClick={() => onRefreshStripe(issue)}
-                    disabled={Boolean(liveStripeState?.loading)}
-                    className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-900 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    pending={Boolean(liveStripeState?.loading)}
+                    pendingLabel="Checking…"
                   >
-                    {liveStripeState?.loading ? 'Checking…' : 'Refresh Stripe'}
-                  </button>
+                    Refresh Stripe
+                  </ActionButton>
                 ) : null}
-                <button
-                  type="button"
+                <ActionButton
+                  variant="warning"
                   onClick={() => onStatusChange(issue, 'ignored')}
-                  disabled={actionState.pendingId === issue.issueId}
-                  className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  pending={pendingFor('ignored')}
+                  disabled={cardBusy}
+                  pendingLabel="Saving…"
                 >
-                  {actionState.pendingId === issue.issueId ? 'Saving…' : 'Ignore'}
-                </button>
+                  Ignore
+                </ActionButton>
                 {secondaryQuickActions.map((action) => (
-                  <button
+                  <ActionButton
                     key={action.label}
-                    type="button"
+                    variant="subtle"
                     onClick={() => onPaymentQuickAction(issue, action)}
-                    disabled={actionState.pendingId === issue.issueId}
-                    className="rounded-lg border border-sky-200 bg-white px-4 py-2 text-sm font-medium text-sky-800 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    pending={pendingFor(`quick:${action.label}`)}
+                    disabled={cardBusy}
+                    pendingLabel="Saving…"
                   >
-                    {actionState.pendingId === issue.issueId ? 'Saving…' : action.label}
-                  </button>
+                    {action.label}
+                  </ActionButton>
                 ))}
               </div>
               {isPaymentIssue(issue) && getPaymentActionHint(issue) ? (

@@ -31,8 +31,8 @@ never multiplied per student.
 
 ## Regular cycle and queue
 
-The new interface is prepared for rollout; the proposed **Wednesday 09:00
-Europe/London** cutoff needs Finn’s approval before deployment. The rules below
+Finn approved the **Wednesday 09:00 Europe/London** cutoff and production
+rollout on 26 September 2026. The rules below
 apply to periods beginning on or after 21 September 2026. Cutover settlement
 retains its separate human checks.
 

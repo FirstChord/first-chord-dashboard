@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Archive, Check, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Archive, Check, Pencil, Trash2 } from 'lucide-react';
+import { ActionButton } from '@/components/admin/ui/ActionButton';
+import { usePressedAction } from '@/components/admin/ui/usePressedAction';
 import { isFirstLessonCheckinPlanningItem, isPausePlanningItem, isTutorAbsenceNoticePlanningItem, isTutorAbsenceFinalConfirmationPlanningItem, canCloseTutorAbsenceCapture, getPlanningStory, getPlanningWhatToDo, dueChipLabel } from '@/lib/admin/planning-client-helpers.mjs';
 import PlanningCard from './PlanningCard';
 
@@ -29,6 +31,7 @@ export default function DueTodayCard({
   onTutorAbsenceFinalConfirmationSent,
   onDefer,
   pendingId,
+  errorMessage = '',
   nearbyPause = null,
 }) {
   const isPause = isPausePlanningItem(item);
@@ -43,6 +46,7 @@ export default function DueTodayCard({
   const due = dueChipLabel(item.targetDate);
   const overdue = due.startsWith('Overdue');
   const isPending = pendingId === item.planningId;
+  const { press, pendingFor } = usePressedAction(isPending);
 
   return (
     <article className={`rounded-2xl border bg-white p-5 shadow-sm ${overdue ? 'border-amber-200' : 'border-slate-200'}`}>
@@ -56,23 +60,25 @@ export default function DueTodayCard({
           </span>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => onArchive?.(item)}
+          <ActionButton
+            variant={isTutorAbsenceNotice ? 'subtle' : 'danger'}
+            size="compact"
+            onClick={press('archive', () => onArchive?.(item))}
             disabled={isPending}
-            className={`inline-flex items-center gap-1.5 rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${isTutorAbsenceNotice ? 'border-slate-200 text-slate-700 hover:bg-slate-50' : 'border-red-100 text-red-700 hover:bg-red-50'}`}
+            pending={pendingFor('archive')}
+            pendingLabel={isTutorAbsenceNotice ? 'Parking…' : 'Removing…'}
+            icon={isTutorAbsenceNotice ? <Archive className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
           >
-            {isTutorAbsenceNotice ? <Archive className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
             {isTutorAbsenceNotice ? 'Park notice' : 'Remove'}
-          </button>
-          <button
-            type="button"
+          </ActionButton>
+          <ActionButton
+            variant="subtle"
+            size="compact"
             onClick={() => onEdit(item)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+            icon={<Pencil className="h-3.5 w-3.5" />}
           >
-            <Pencil className="h-3.5 w-3.5" />
             Edit
-          </button>
+          </ActionButton>
         </div>
       </div>
 
@@ -84,39 +90,41 @@ export default function DueTodayCard({
             delegated is still open. Without this the card could only wait for a
             server sync that had already decided not to run. */}
         {canCloseAbsence ? (
-          <button
-            type="button"
-            onClick={() => onStatus(item, 'done')}
+          <ActionButton
+            onClick={press('done', () => onStatus(item, 'done'))}
             disabled={isPending}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            pending={pendingFor('done')}
+            pendingLabel="Closing…"
+            icon={<Check className="h-4 w-4" />}
           >
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             Close this absence
-          </button>
+          </ActionButton>
         ) : null}
         {!isPause && !isFirstLesson && !isTutorAbsenceCapture && !isTutorAbsenceNotice && !isTutorAbsenceFinalConfirmation && (
-          <button
-            type="button"
-            onClick={() => onStatus(item, 'done')}
+          <ActionButton
+            onClick={press('done', () => onStatus(item, 'done'))}
             disabled={isPending || (item.itemType === 'initiative' && Boolean(item.openProjectActions?.length))}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            pending={pendingFor('done')}
+            pendingLabel="Saving…"
+            icon={<Check className="h-4 w-4" />}
           >
-            {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {item.itemType === 'initiative' && item.openProjectActions?.length ? 'Finish open actions first' : 'Mark done'}
-          </button>
+          </ActionButton>
         )}
-        <button
-          type="button"
-          onClick={() => onDefer(item)}
+        <ActionButton
+          variant="secondary"
+          onClick={press('defer', () => onDefer(item))}
           disabled={isPending}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          pending={pendingFor('defer')}
+          pendingLabel="Deferring…"
         >
           Defer until next meeting
-        </button>
+        </ActionButton>
         {!isPause && !isFirstLesson && !isTutorAbsenceNotice && (
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
           >
             {expanded ? 'Hide details' : isTutorAbsenceCapture || isTutorAbsenceNotice || isTutorAbsenceFinalConfirmation ? 'Open absence action' : 'Details'}
@@ -151,6 +159,9 @@ export default function DueTodayCard({
             compact
           />
         </div>
+      ) : null}
+      {errorMessage ? (
+        <p role="alert" className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p>
       ) : null}
     </article>
   );
