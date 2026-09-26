@@ -374,3 +374,14 @@ test('the Wise batch total equals the sum of its emitted CSV amounts, exactly', 
       'every eligible row must be accounted for: paid or reported missing');
   }
 });
+
+
+test('regular-cycle unconfirmed or late statements cannot enter any Wednesday batch via a normal route', () => {
+  const row = { payroll_id: 'regular', tutor: 'Example', tutor_short_name: 'Example', period_start: '2026-09-21', period_end: '2026-09-27', status: 'reviewed', payment_route: 'normal', final_amount: '96' };
+  for (const now of ['2026-09-28T10:00:00Z', '2026-09-30T08:00:00Z', '2026-10-07T10:00:00Z']) {
+    for (const response of ['', 'disputed']) assert.equal(selectPayableReviewedRuns([{ ...row, tutor_response: response }], { now: new Date(now) }).rows.length, 0);
+  }
+  const late = { ...row, tutor_response: 'confirmed', tutor_responded_at: '2026-09-30T08:01:00Z' };
+  assert.equal(selectPayableReviewedRuns([late], { now: new Date('2026-09-30T10:00:00Z') }).rows.length, 0);
+  assert.equal(selectPayableReviewedRuns([late], { now: new Date('2026-10-07T10:00:00Z') }).rows.length, 1);
+});

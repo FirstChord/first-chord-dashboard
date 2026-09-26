@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-21
+last_verified: 2026-09-26
 ---
 # Paying tutors
 
@@ -28,6 +28,51 @@ does not schedule itself and it never pays the tutor.
 For hourly tutors, each payable slot is `hourly rate × duration / 60`. A group
 slot adds £2 once to that slot, regardless of duration or student count; it is
 never multiplied per student.
+
+## Regular cycle and queue
+
+The new interface is prepared for rollout; the proposed **Wednesday 09:00
+Europe/London** cutoff needs Finn’s approval before deployment. The rules below
+apply to periods beginning on or after 21 September 2026. Cutover settlement
+retains its separate human checks.
+
+- Monday: review and explicitly email the due statements. Weekly tutors paid
+  through 20 September first become due on 28 September; fortnightly tutors
+  first become due on 5 October. Nothing schedules or sends itself.
+- Wednesday: only confirmed statements enter that week’s file. A response at or
+  after 09:00 UK time becomes eligible for the following Wednesday. A missing
+  confirmation timestamp is an exception, never assumed timely. Unconfirmed
+  statements and queries remain outstanding, retaining their original dates;
+  the next period is not silently merged into the statement.
+- The default view stays on the current Monday throughout the week. The oldest
+  reviewed unpaid statement is projected into the normal queue, even if it was
+  reviewed under an earlier cycle. **To handle**, **Waiting for tutors** and
+  **Ready to pay** lead; **Upcoming** and recent payment history are secondary.
+- Period and amount stay visible. Drafts are labelled estimates. Lesson evidence,
+  corrections and period controls open on selection. Cadence remains in delivery
+  settings. No payment or attendance rule is inferred from the visual grouping.
+
+The new system requires confirmation even if an older settings row still says
+`payment_route=normal`. Legacy pre-cutover normal payments retain their behavior.
+A saved statement correction rechecks MMS, rejects a stale form, and clears the
+old response/delivery evidence when its material basis changes. Review errors
+remain beside the form.
+
+## Private WhatsApp reminders
+
+Open **Private WhatsApp reminder** from a reviewed statement. Check the named
+tutor, dates and message; choose **This is a revised statement** only after
+saving a correction. An unresolved query or known MMS drift must be resolved
+before sharing a revised statement. The preview contains the private link, no
+amount or student names. The same signed link renders the current saved version.
+
+**Copy reminder** records `payroll_reminder_copied` in `Event_Log`, not delivery.
+**Open WhatsApp** opens a chooser; manually select the tutor’s private one-to-one
+chat and send it. Never use a group. Only **I sent this privately** records
+`payroll_reminder_sent_admin_confirmed` and, if needed, the statement’s first
+manual delivery. Existing email delivery remains intact. Logs contain the
+payroll ID and channel, not the private bearer link or message text. These
+controls never send, confirm a statement, or mark it paid.
 
 ## Monday cycle: prepare and agree the figures
 
@@ -64,10 +109,7 @@ never multiplied per student.
    out of the visible Wise batch and its generated CSV until the correction is
    checked and saved.
 4. Check the period, lesson detail, total, adjustment, notes and invoice status.
-5. Choose the payment route:
-   - **Pay normally · confirmation optional** lets a reviewed row enter the Wise
-     batch without waiting for the tutor.
-   - **Tutor confirmation required** holds it out until the tutor confirms.
+5. New-system periods always require tutor confirmation. The route selector remains only for legacy periods.
 6. Click **Review and generate statement**. Review freezes the figure in
    `Payroll_Runs`; a draft or unrecorded lesson cannot silently enter the batch.
 7. Open **Send statement**. The statement itself is the final preview. If the
@@ -165,26 +207,32 @@ refuses to review/email it early.
    - `N awaiting` counts confirmation-required reviewed rows still waiting for a
      tutor response.
 3. Check any warnings. A missing `Tutor_Wise` recipient is omitted from the CSV;
-   disputes are held out; duplicate reviewed rows with different totals raise an
-   amount-conflict warning.
-4. Click **Download Wise CSV**. The CSV contains every eligible reviewed-unpaid
-   tutor, regardless of the preview date or custom window currently on screen.
-   The pay-date parameter only names the downloaded file. An older reviewed row
-   remains in future batches until it is marked paid.
+   disputes are held out; duplicate reviewed rows with different totals are excluded until the conflict is resolved.
+4. Click **Download Wise CSV**. The CSV contains the eligible reviewed statements in the visible batch, including carried periods. Download checks fresh MMS attendance, current confirmation and recipient data; a changed figure refuses the file and asks for review. The browser session retains this exact CSV and a signed statement snapshot, which expires after seven days. Treat the retained CSV as sensitive payment/recipient data; it is cleared after recording or explicitly discarding an unused file. New confirmations do not join an already-downloaded batch.
 5. Upload the CSV to Wise, verify recipients and amounts, and approve the
    transfers in Wise.
 6. Only after Wise accepts the payment, return to the same browser session and
-   click **Mark batch paid**. The button deliberately unlocks only after the CSV
-   has been downloaded in that session.
+   tick the confirmation that all transfers in this exact file were approved, then click **Record batch paid**. It uses the signed downloaded snapshot, not the current queue. A failed download never unlocks recording. The snapshot survives reloads in the same browser tab; do not discard it after any payment has been approved.
 
 ## After payment
 
-Marking the batch paid stamps the included `Payroll_Runs` rows and removes them
+Recording the batch paid stamps the included `Payroll_Runs` rows and removes them
 from future Wise batches. The same tutor link now renders a dated **Payment
 receipt**. The tutor can reopen the WhatsApp link and save the receipt as a PDF;
 resend the same link if useful.
 
 ## Safety checks and recovery
+
+- If recording partially fails, keep the downloaded batch and retry recording.
+  Already-paid rows are skipped; never upload/pay again to repair a dashboard
+  record. A changed statement, dispute, missing row or separate payment refuses
+  recording and needs reconciliation against Wise.
+- If only part of a Wise upload was actually paid, do not confirm the whole
+  batch. Keep its file and reconcile the exact transfers before recording.
+- Losing the browser snapshot or exceeding seven days requires checking Wise
+  and the saved statements; re-downloading is not proof that payment is needed.
+- Sheets remains last-write-wins. Fresh reads and signed fingerprints narrow
+  stale-state errors but are not a database transaction across users/services.
 
 - Never click **Mark batch paid** before approving the transfer in Wise.
 - A confirmation is agreement with the figure, not proof of payment.

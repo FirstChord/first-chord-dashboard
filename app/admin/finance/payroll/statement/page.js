@@ -1,3 +1,6 @@
+import PayrollReminder from '@/components/finance/PayrollReminder';
+import { payrollStatementFingerprint } from '@/lib/admin/payroll-batch-helpers.mjs';
+import { getPayrollRunRows } from '@/lib/admin/sheets';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { getServerSession } from 'next-auth';
@@ -60,6 +63,7 @@ async function StatementReady({ statement, savedRow, payrollId }) {
   const shareLink = await buildShareLink({ payrollId, tutorShortName: statement.tutorShortName });
   const payrollPreference = await loadTutorPayrollPreference({ tutorShortName: statement.tutorShortName });
   const preference = payrollPreference.ok ? payrollPreference.preference : {};
+  const raw = (await getPayrollRunRows()).find((row) => row.payroll_id === payrollId);
 
   return (
     <>
@@ -81,8 +85,12 @@ async function StatementReady({ statement, savedRow, payrollId }) {
         </section>
       ) : null}
 
-      <section className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Manual fallback</p>
+      {statement.documentType === 'statement' && shareLink && raw && savedRow.tutorResponse !== 'disputed' && !statement.attendanceChanged && !statement.hasUnrecorded ? (
+        <PayrollReminder payrollId={payrollId} fingerprint={payrollStatementFingerprint(raw)} tutor={statement.tutor} periodStart={statement.periodStart} periodEnd={statement.periodEnd} statementUrl={shareLink} alreadySent={Boolean(savedRow.statementSentAt)} />
+      ) : null}
+      {savedRow.tutorResponse === 'disputed' ? <p className="text-sm text-amber-800">Resolve the query and save any correction in Payroll before sharing a revised statement.</p> : null}
+      <details className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+        <summary className="cursor-pointer text-sm text-slate-600">Other sharing options</summary>
         <div className="mt-3 flex flex-wrap gap-2">
           <CopyStatementButton text={text} label="Copy statement text" />
           {shareLink ? <CopyStatementButton text={shareLink} label="Copy private link" markSentPayrollId={savedRow.statementSentAt ? '' : payrollId} /> : null}
@@ -95,9 +103,9 @@ async function StatementReady({ statement, savedRow, payrollId }) {
           <p className="mt-3 text-xs text-amber-700">Share link unavailable (NEXTAUTH_SECRET not set) — copy the text instead.</p>
         )}
         <p className="mt-2 text-[0.7rem] leading-4 text-slate-400">
-          The link is read-only and needs no login. Copy it, share it in a private one-to-one conversation, then mark it sent. Use this only when email is unavailable or after checking an uncertain Gmail result.
+          The private link lets this tutor confirm or query their statement without a login. Copy it, share it in a private one-to-one conversation, then mark it sent. Use this only when email is unavailable or after checking an uncertain Gmail result.
         </p>
-      </section>
+      </details>
     </>
   );
 }
