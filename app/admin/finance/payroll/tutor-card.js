@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { formatPayrollDate } from '@/lib/admin/payroll-helpers.mjs';
+import { formatPayrollDate, hasCutoverConfirmationWaiver, isPaidCutoverFollowUpOpen } from '@/lib/admin/payroll-helpers.mjs';
 import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 import { getPayrollWorkflowState } from '@/lib/admin/payroll-workflow-helpers.mjs';
 import { requiresPayrollConfirmation } from '@/lib/admin/payroll-cycle-helpers.mjs';
@@ -357,7 +357,12 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
           </details>
         </form>
       ) : null}
-      {row.isCutover && row.status === 'paid' && row.paidVia === 'manual' && row.tutorResponse !== 'confirmed' ? (
+      {hasCutoverConfirmationWaiver(row) && !row.tutorResponse ? (
+        <p className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+          Cutoff confirmation waived by admin on {formatPayrollDate(row.cutoverConfirmationWaivedAt)}. {row.cutoverConfirmationWaiverReason} No tutor confirmation was recorded; the next statement still requires confirmation.
+        </p>
+      ) : null}
+      {isPaidCutoverFollowUpOpen(row) ? (
         <form action={recordManualCutoverConfirmationAction} className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
           <input type="hidden" name="payroll_id" value={row.payrollId} />
           <details>

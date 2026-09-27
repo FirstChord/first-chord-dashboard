@@ -187,6 +187,17 @@ means paid separately from the batch, not a claim about the payment rail.
 `paid_at` is the actual payment date entered by the admin; `updated_at` is when
 the dashboard recorded it. The bank or invoice remains payment truth.
 
+An admin may explicitly waive **only the confirmation follow-up on an already-paid
+manual cutoff**. This is not tutor agreement: `tutor_response`, its source and
+response date stay unchanged. `cutover_confirmation_waived_at`,
+`cutover_confirmation_waived_by` and `cutover_confirmation_waiver_reason` record
+the decision separately on the existing `Payroll_Runs` row. All three are required
+to close the follow-up and place it in completed history. The payment record is
+unchanged and cannot re-enter Wise. This exception does not apply to unpaid
+cutoffs or regular statements; the first new-system statement still requires its
+own real confirmation. The original signed link may still accept a real response;
+a later dispute reopens a paid query for resolution without creating payment.
+
 ## What the tutor sees
 
 The signed link needs no login and expires after 30 days. It shows a referenced

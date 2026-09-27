@@ -20,6 +20,7 @@ import {
   buildPayrollPreview,
   formatPayrollDate,
   isPayrollPeriodOpen,
+  isPaidCutoverFollowUpOpen,
   findBlockingReviewedRun,
   selectPayrollRosterRows,
   PAYROLL_CUTOVER_PERIOD_END,
@@ -336,7 +337,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
   return {
     preview,
     cutoverOpen: new Set([
-      ...savedRuns.filter((row) => row.period_end === PAYROLL_CUTOVER_PERIOD_END && (row.status === 'reviewed' || (row.status === 'paid' && row.paid_via === 'manual' && row.tutor_response !== 'confirmed'))).map((row) => row.tutor_short_name || row.tutor),
+      ...savedRuns.filter((row) => row.period_end === PAYROLL_CUTOVER_PERIOD_END && (row.status === 'reviewed' || isPaidCutoverFollowUpOpen(row))).map((row) => row.tutor_short_name || row.tutor),
       ...activeRows.filter((row) => row.legacyNeedsReconciliation).map((row) => row.tutorShortName),
     ]).size,
     history: savedRuns.filter((row) => row.status === 'paid').sort((a, b) => `${b.paid_at}`.localeCompare(`${a.paid_at}`)).slice(0, 100),

@@ -18,12 +18,14 @@ import {
   FINANCE_SNAPSHOT_HEADERS,
   FINANCE_SNAPSHOT_SHEET,
   getSheetValues,
+  PAYROLL_RUNS_HEADERS,
+  PAYROLL_RUNS_SHEET,
   STRIPE_FORECAST_MONTHLY_HEADERS,
   STRIPE_FORECAST_MONTHLY_SHEET,
   upsertManagedSheetRow,
   withSheetsRetry,
 } from '../../lib/admin/sheets/core.mjs';
-import { appendFinanceSnapshotRow } from '../../lib/admin/sheets/finance.mjs';
+import { appendFinanceSnapshotRow, getPayrollRunRows, upsertPayrollRunRow } from '../../lib/admin/sheets/finance.mjs';
 import { appendStripeForecastMonthlyRow } from '../../lib/admin/sheets/stripe-cache.mjs';
 import { updateStudentSheetRow } from '../../lib/admin/sheets/students.mjs';
 
@@ -161,6 +163,25 @@ test.after(() => {
 });
 
 const HEADERS = ['mms_id', 'student_name', 'status', 'updated_at'];
+
+test('a cutoff waiver appends optional headers and updates only the existing statement, preserving its facts', async () => {
+  counter += 1;
+  process.env.GOOGLE_SPREADSHEET_ID = `payroll-waiver-sheet-${counter}`;
+  clearSheetReadCacheForTests();
+  const oldHeaders = PAYROLL_RUNS_HEADERS.slice(0, -3);
+  const original = Object.fromEntries(oldHeaders.map((header) => [header, '']));
+  Object.assign(original, { payroll_id: 'cutoff_calum', tutor_short_name: 'Calum', status: 'paid', final_amount: '60', paid_via: 'manual', paid_at: '2026-09-24', statement_delivery_status: 'sent' });
+  const neighbour = oldHeaders.map((header) => header === 'payroll_id' ? 'other_statement' : 'untouched');
+  const sheets = fakeSheets({ tabs: { [PAYROLL_RUNS_SHEET]: [oldHeaders, neighbour, oldHeaders.map((header) => original[header])] } });
+  globalThis.__firstChordSheetsClientPromise = Promise.resolve(sheets);
+  const waived = { ...original, cutover_confirmation_waived_at: '2026-09-27T12:00:00Z', cutover_confirmation_waived_by: 'Admin', cutover_confirmation_waiver_reason: 'Explicit instruction' };
+  await upsertPayrollRunRow(waived);
+  assert.deepEqual(sheets.data[PAYROLL_RUNS_SHEET][0], PAYROLL_RUNS_HEADERS);
+  assert.deepEqual(sheets.data[PAYROLL_RUNS_SHEET][1], neighbour);
+  assert.equal(sheets.calls.some((call) => call.kind === 'append'), false);
+  const saved = (await getPayrollRunRows({ force: true })).find((row) => row.payroll_id === original.payroll_id);
+  for (const [key, value] of Object.entries(waived)) assert.equal(saved[key], value, key);
+});
 
 // --- append-only monthly identity --------------------------------------
 

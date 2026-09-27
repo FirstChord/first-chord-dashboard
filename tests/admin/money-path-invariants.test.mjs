@@ -31,6 +31,20 @@ test('a separately paid cutoff remains out of Wise even if the tutor confirms la
   assert.equal(getPayrollWorkflowState(row).key, 'paid_awaiting');
 });
 
+test('a cutoff follow-up waiver never authorises payment, including on a future regular statement', () => {
+  const waiver = {
+    cutover_confirmation_waived_at: '2026-09-27T12:00:00Z',
+    cutover_confirmation_waived_by: 'Admin', cutover_confirmation_waiver_reason: 'Explicit paid-cutoff exception.',
+  };
+  for (const status of ['paid', 'reviewed', 'draft']) {
+    for (const periodEnd of ['2026-09-20', '2026-09-27']) {
+      const row = { ...waiver, status, paid_via: 'manual', period_start: periodEnd === '2026-09-20' ? '2026-09-18' : '2026-09-21', period_end: periodEnd, final_amount: '60', payment_route: 'normal' };
+      assert.equal(isPayrollRunReadyForPayment(row, { now: new Date('2026-10-05T12:00:00Z') }), false);
+      assert.deepEqual(selectPayableReviewedRuns([row], { now: new Date('2026-10-05T12:00:00Z') }).rows, []);
+    }
+  }
+});
+
 test('a historical paid-through boundary is not a payment or a Wise candidate', () => {
   const marker = { payroll_id: 'paid_through_hamish_2026-09-15', tutor: 'Hamish Roberts', tutor_short_name: 'Hamish', status: 'paid_through', period_end: '2026-09-15', final_amount: '' };
   assert.equal(isPayrollRunReadyForPayment(marker), false);

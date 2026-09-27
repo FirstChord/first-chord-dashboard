@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import { parseTutorPay } from '../../lib/admin/cost-helpers.mjs';
 import { getPayrollWorkflowState } from '../../lib/admin/payroll-workflow-helpers.mjs';
+import { buildPayrollQueue } from '../../lib/admin/payroll-queue-helpers.mjs';
 import {
   attendanceQueryCoversPeriod,
   buildPayrollAttendanceQuery,
@@ -226,6 +227,31 @@ test('a separately paid cutoff stays visible after response, without becoming pa
   assert.equal(confirmed.payrollId, paid.payroll_id);
   assert.equal(confirmed.owedAmount, 0);
   assert.equal(getPayrollWorkflowState(confirmed).key, 'paid');
+});
+
+test('waived cutoff projects into completed history without leaking into the next regular statement', () => {
+  const paid = {
+    payroll_id: 'payroll_calum_2026-09-18_2026-09-20', tutor_short_name: 'Calum',
+    tutor: 'Calum Steel', pay_date: '2026-09-21', period_start: '2026-09-18', period_end: '2026-09-20',
+    status: 'paid', paid_via: 'manual', paid_at: '2026-09-24', final_amount: '60',
+    cutover_confirmation_waived_at: '2026-09-27T12:00:00Z',
+    cutover_confirmation_waived_by: 'Admin', cutover_confirmation_waiver_reason: 'First regular statement will be confirmed.',
+  };
+  const cutoff = buildPayrollPreview({ payDate: '2026-09-21', savedRuns: [paid] }).rows.find((entry) => entry.tutorShortName === 'Calum');
+  assert.equal(cutoff.cutoverConfirmationWaivedAt, paid.cutover_confirmation_waived_at);
+  assert.equal(cutoff.owedAmount, 0);
+  assert.equal(cutoff.tutorResponse, '');
+  assert.equal(buildPayrollQueue([cutoff])[0].group, 'history');
+  const regular = buildPayrollPreview({ payDate: '2026-10-05', savedRuns: [paid] }).rows.find((entry) => entry.tutorShortName === 'Calum');
+  assert.equal(regular.status, 'draft');
+  assert.equal(regular.paymentRoute, 'confirmation');
+  assert.equal(regular.cutoverConfirmationWaivedAt, '');
+  assert.equal(regular.tutorResponse, '');
+  const roster = [{ tutorShortName: 'Calum', tutor: 'Calum Steel', teacherId: 'tch_calum' }];
+  const lifecycle = [{ teacherId: 'tch_calum', status: 'retired' }];
+  assert.deepEqual(selectPayrollRosterRows(roster, lifecycle, [paid]), []);
+  assert.equal(selectPayrollRosterRows(roster, lifecycle, [{ ...paid, tutor_response: 'disputed' }]).length, 1);
+  assert.equal(buildPayrollQueue([{ ...cutoff, tutorResponse: 'disputed' }])[0].group, 'handle');
 });
 
 test('a reviewed custom cutoff reopens on its own cycle instead of becoming an empty later preview', () => {
