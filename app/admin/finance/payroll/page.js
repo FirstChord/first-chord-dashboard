@@ -1,4 +1,4 @@
-import { currentPayrollMonday, requiresPayrollConfirmation } from '@/lib/admin/payroll-cycle-helpers.mjs';
+import { defaultPayrollWorkspaceCycle, requiresPayrollConfirmation } from '@/lib/admin/payroll-cycle-helpers.mjs';
 import { ADMIN_TUTORS } from '@/lib/admin/tutors-data.js';
 import { validatePayrollReview } from '@/lib/admin/payroll-review-helpers.mjs';
 import { payrollBatchFingerprint } from '@/lib/admin/payroll-batch-helpers.mjs';
@@ -365,7 +365,7 @@ function staleAttendanceLabel(attendanceAge) {
 
 export default async function AdminPayrollPage({ searchParams }) {
   const params = (await searchParams) || {};
-  const payDate = `${params.payDate || currentPayrollMonday()}`.slice(0, 10);
+  const payDate = `${params.payDate || defaultPayrollWorkspaceCycle()}`.slice(0, 10);
   const tutorParam = `${params.tutor || ''}`.trim();
   const startParam = `${params.start || ''}`.slice(0, 10);
   const endParam = `${params.end || ''}`.slice(0, 10);

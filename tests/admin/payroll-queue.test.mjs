@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPayrollQueue, payrollWorkspaceAttendanceQuery } from '../../lib/admin/payroll-queue-helpers.mjs';
-import { currentPayrollMonday, buildPayrollReminder, requiresPayrollConfirmation, regularPayrollPaymentTiming } from '../../lib/admin/payroll-cycle-helpers.mjs';
+import { defaultPayrollWorkspaceCycle, currentPayrollMonday, buildPayrollReminder, requiresPayrollConfirmation, regularPayrollPaymentTiming } from '../../lib/admin/payroll-cycle-helpers.mjs';
 import { getPayrollWorkflowState, isPayrollRunReadyForPayment } from '../../lib/admin/payroll-workflow-helpers.mjs';
 
 const current = { tutor: 'Tutor One', tutorShortName: 'One', periodStart: '2026-09-21', periodEnd: '2026-09-27', status: 'reviewed', paymentRoute: 'normal' };
@@ -51,4 +51,13 @@ test('Wednesday cutoff carries late confirmations forward, with UK daylight savi
   assert.equal(regularPayrollPaymentTiming({ ...late, tutorRespondedAt: '2026-10-28T08:59:59Z' }, { now: new Date('2026-10-28T10:00:00Z') }).eligible, true);
   assert.equal(regularPayrollPaymentTiming({ ...late, tutorRespondedAt: '2026-10-28T09:00:00Z' }, { now: new Date('2026-10-28T10:00:00Z') }).eligible, false);
   assert.equal(regularPayrollPaymentTiming({ ...late, tutorRespondedAt: '' }, { now }).reason, 'missing_confirmation_time');
+});
+
+test('normal workspace opens the first regular cycle rather than cutover, then retains the current week', () => {
+  assert.equal(defaultPayrollWorkspaceCycle(new Date('2026-09-27T12:00:00Z')), '2026-09-28');
+  assert.equal(defaultPayrollWorkspaceCycle(new Date('2026-09-28T08:00:00Z')), '2026-09-28');
+  assert.equal(defaultPayrollWorkspaceCycle(now), '2026-09-28');
+  assert.equal(defaultPayrollWorkspaceCycle(new Date('2026-10-05T08:00:00Z')), '2026-10-05');
+  assert.equal(defaultPayrollWorkspaceCycle(new Date('2026-10-25T23:30:00Z')), '2026-10-19');
+  assert.equal(currentPayrollMonday(new Date('2026-09-27T12:00:00Z')), '2026-09-21');
 });

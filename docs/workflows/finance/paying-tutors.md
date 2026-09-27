@@ -51,7 +51,9 @@ retains its separate human checks.
   confirmation timestamp is an exception, never assumed timely. Unconfirmed
   statements and queries remain outstanding, retaining their original dates;
   the next period is not silently merged into the statement.
-- The default view stays on the current Monday throughout the week. The oldest
+- The default view opens the first regular cycle (28 September) before launch,
+  then stays on the current Monday throughout the week. Cutover is opened only
+  through its explicit reconciliation link or historical date selection. The oldest
   reviewed unpaid statement is projected into the normal queue, even if it was
   reviewed under an earlier cycle. **To handle**, **Waiting for tutors** and
   **Ready to pay** lead; **Upcoming** and recent payment history are secondary.
