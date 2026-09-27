@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { formatPayrollDate, PAYROLL_CUTOVER_PERIOD_END, PAYROLL_NEW_SYSTEM_START } from '@/lib/admin/payroll-helpers.mjs';
+import { formatPayrollDate } from '@/lib/admin/payroll-helpers.mjs';
 import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 import { getPayrollWorkflowState } from '@/lib/admin/payroll-workflow-helpers.mjs';
 import { requiresPayrollConfirmation } from '@/lib/admin/payroll-cycle-helpers.mjs';
@@ -102,16 +102,6 @@ function SlotListBody({ slots = [], empty = 'None', withFix = false, withDecisio
   );
 }
 
-function SlotList({ title, slots = [], empty = 'None', note = '', withFix = false, withDecision = false }) {
-  return (
-    <div>
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</p>
-      {note ? <p className="mt-1 text-[0.7rem] leading-4 text-slate-400">{note}</p> : null}
-      <SlotListBody slots={slots} empty={empty} withFix={withFix} withDecision={withDecision} />
-    </div>
-  );
-}
-
 // Quiet, collapsed-by-default version for lists the dashboard is confident about
 // (payable from MMS, absent/cancelled) — the card should lead with what needs review.
 function CollapsibleSlotList({ title, slots = [], empty = 'None', note = '' }) {
@@ -139,6 +129,10 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
   const reviewPast = (row.reviewSlots || []).filter((slot) => slot.timing === 'past');
   const reviewUpcoming = (row.reviewSlots || []).filter((slot) => slot.timing === 'upcoming');
   const workflow = row.workflow || getPayrollWorkflowState(row);
+  const reviewBlocked = Boolean(reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || row.windowCapped || workflow.key === 'data_unavailable');
+  const periodCorrection = ['cutover_start', 'window_conflict', 'statement_overlap'].includes(workflow.key) || row.windowCapped;
+  const showAttendance = workflow.key === 'attendance' && row.cadenceDue;
+  const statementUrl = `/admin/finance/payroll/statement?pid=${encodeURIComponent(row.payrollId)}`;
   const workflowClass = {
     danger: 'border-rose-200 bg-rose-50 text-rose-800',
     warning: 'border-amber-200 bg-amber-50 text-amber-800',
@@ -148,11 +142,12 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
     complete: 'border-slate-200 bg-slate-50 text-slate-500',
   }[workflow.tone] || 'border-slate-200 bg-slate-50 text-slate-700';
   return (
-    <article className="rounded-[1.4rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+    <article id="payroll-tutor-card" data-tutor={row.tutorShortName} tabIndex={-1} aria-labelledby="payroll-tutor-heading" className="scroll-mt-6 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-700 rounded-[1.4rem] border border-slate-200 bg-white p-6 shadow-[0_18px_50px_rgba(15,23,42,0.06)]">
+      <a href="#payroll-queue" className="mb-4 inline-block text-sm text-slate-500 underline-offset-4 hover:underline">← Tutors</a>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-semibold text-slate-900">{row.tutor}</h3>
+            <h3 id="payroll-tutor-heading" className="text-lg font-semibold text-slate-900">{row.tutor}</h3>
             <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${workflowClass}`}>
               {workflow.label}
             </span>
@@ -169,154 +164,72 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
           {row.adjustmentAmount ? <p className="mt-1 text-xs text-slate-600">Includes {formatMoney(row.adjustmentAmount)} adjustment{row.notes ? ` · ${row.notes}` : ''}</p> : null}
         </div>
         <div className="text-right">
-          <p className="text-2xl font-semibold text-slate-900">{formatMoney(owed)}</p>
+          <p className="text-2xl font-semibold text-slate-900">{formatMoney(row.status === 'paid' ? row.finalAmount : owed)}</p>
           {row.status === 'paid' ? (
-            <p className="text-xs text-emerald-700">paid {formatMoney(row.finalAmount)}{row.paidAt ? ` · ${formatPayrollDate(row.paidAt)}` : ''}{row.paidVia === 'manual' ? ' · recorded separately' : ''}</p>
+            <p className="text-xs text-emerald-700">Paid{row.paidAt ? ` · ${formatPayrollDate(row.paidAt)}` : ''}{row.paidVia === 'manual' ? ' · recorded separately' : ''}</p>
           ) : (
-            <p className="text-xs text-slate-500">{row.lessonCount} payable · {minutesLabel(row.teachingMinutes)}</p>
+            <p className="text-xs text-slate-500">{row.status === 'draft' ? 'Estimate' : 'Reviewed amount'}</p>
           )}
-          {row.status === 'reviewed' || row.status === 'paid' ? (
-            <Link
-              href={`/admin/finance/payroll/statement?pid=${encodeURIComponent(row.payrollId)}`}
-              className={`mt-2 inline-flex rounded-xl px-3 py-2 text-sm font-semibold transition ${workflow.key === 'send' ? 'bg-slate-950 text-white hover:bg-slate-800' : 'text-blue-700 hover:bg-blue-50'}`}
-            >
-              {workflow.key === 'send' ? 'Review and send' : 'View statement'} →
-            </Link>
-          ) : null}
-          {row.status === 'reviewed' && row.tutorResponse !== 'disputed' && !row.attendanceChanged ? <Link href={`/admin/finance/payroll/statement?pid=${encodeURIComponent(row.payrollId)}#whatsapp-reminder`} className="mt-2 block text-sm text-blue-700">Private WhatsApp reminder →</Link> : null}
+
         </div>
       </div>
 
-      {row.isCutover ? (
-        <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
-          <p className="font-semibold">One-off payroll cutover</p>
-          <p className="mt-1">{row.cutoverPaidThrough
-            ? `Historical payment is recorded through ${formatPayrollDate(PAYROLL_CUTOVER_PERIOD_END)}; no new cutoff statement or payment is needed. New Monday-based periods start ${formatPayrollDate(PAYROLL_NEW_SYSTEM_START)}.`
-            : `This closes legacy pay through ${formatPayrollDate(PAYROLL_CUTOVER_PERIOD_END)}. New Monday-based periods start ${formatPayrollDate(PAYROLL_NEW_SYSTEM_START)}. Tutor confirmation is required before payment.`}</p>
-        </div>
+      {row.status === 'draft' && !row.isCutover && row.nextCadencePayDate ? (
+        <p className="mt-3 text-sm text-slate-500">Statement due {formatPayrollDate(row.nextCadencePayDate)} · {row.invoiceCadence === 'biweekly' ? 'Every two weeks' : row.invoiceCadence === 'weekly' ? 'Weekly' : row.invoiceCadence}</p>
       ) : null}
+      {row.isCutover ? <p className="mt-3 text-sm text-slate-500">One-off settlement through 20 September</p> : null}
 
-      <div className={`mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${workflowClass}`}>
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] opacity-70">Next</p>
-          <p className="mt-0.5 text-sm font-semibold">{workflow.nextAction}</p>
-        </div>
-        <span className="text-xs font-medium">
-          {row.status === 'draft' ? 'Estimate' : row.status === 'paid' ? 'Recorded payment' : 'Reviewed amount'}
-        </span>
-      </div>
-
-      {row.amountConflict ? <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">Saved statements disagree: {row.amountConflict.amounts.map((amount) => formatMoney(amount)).join(' versus ')}. Check the original statements and reconcile the duplicate records before payment.</p> : null}
-      {workflow.key === 'recipient_missing' ? <p className="mt-4 text-sm text-slate-600">Add this tutor’s verified saved recipient ID in the Tutor_Wise sheet, then refresh Payroll. They are excluded from the payment file.</p> : null}
-
-      {row.overlapsPaid ? (
-        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          {row.overlapsPaid.isBoundary
-            ? `⚠ This window reaches before the reported paid-through boundary (${formatPayrollDate(row.overlapsPaid.periodEnd)}). Move its start forward to avoid double-paying.`
-            : `⚠ This window overlaps an already-paid period (${formatPayrollDate(row.overlapsPaid.periodStart)} - ${formatPayrollDate(row.overlapsPaid.periodEnd)}). Risk of double-paying — move the window start forward.`}
-        </div>
-      ) : null}
-      {row.isCutover && row.manualPaidThrough ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          Historical paid-through boundary: {formatPayrollDate(row.manualPaidThrough)}. The earlier payment amount and date were not recorded here.
-        </div>
-      ) : null}
-      {row.overlapsOutstanding ? (
-        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          This window overlaps an earlier statement ({formatPayrollDate(row.overlapsOutstanding.periodStart)}–{formatPayrollDate(row.overlapsOutstanding.periodEnd)}). Finish that statement or move this window forward before reviewing.
-        </div>
-      ) : null}
-      {row.priorRunPending ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <div>
-            <p className="font-semibold">Earlier statement still open</p>
-            <p className="mt-1">Finish {formatPayrollDate(row.priorRunPending.periodStart)}–{formatPayrollDate(row.priorRunPending.periodEnd)} before reviewing this period.</p>
-          </div>
-          <Link href={`/admin/finance/payroll?payDate=${row.priorRunPending.cycleDate}&tutor=${encodeURIComponent(row.tutorShortName)}`} className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-900 hover:bg-amber-100">
-            Open earlier statement
-          </Link>
-        </div>
-      ) : null}
-      {row.windowEmpty && !row.cutoverPaidThrough ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-          Already paid through {formatPayrollDate(row.lastPaidThrough)} — nothing outstanding for this cycle date.
-        </div>
-      ) : null}
-      {row.windowCapped ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Window capped at 35 days back. If this invoice covers more, set a custom window start.
-        </div>
-      ) : null}
       {row.legacyNeedsReconciliation ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <p className="font-semibold">Check the cutover record before reviewing this statement.</p>
-          <p className="mt-1">New statements start on or after 21 September. Resolve any earlier coverage or missing paid-through record in the cutover view; earlier pay has not been written off.</p>
-          <Link className="mt-2 inline-block text-blue-700 underline" href={`/admin/finance/payroll?payDate=2026-09-21&tutor=${encodeURIComponent(row.tutorShortName)}`}>Reconcile cutover</Link>
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4">
+          <p className="text-sm text-amber-950">{row.lastPaidThrough ? `Last payment covers up to ${formatPayrollDate(row.lastPaidThrough)}.` : 'The last paid-through date is missing.'}</p>
+          <Link className="rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800" href={`/admin/finance/payroll?payDate=2026-09-21&tutor=${encodeURIComponent(row.tutorShortName)}`}>Check cutover payment →</Link>
         </div>
       ) : null}
-      {row.cutoverNeedsStart ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          <p className="font-semibold">Previous paid-through date is not recorded here.</p>
-          <p className="mt-1">Open the period controls and set <strong>Window start</strong> to the day after this tutor was last paid. Review is blocked so the dashboard cannot guess historical coverage.</p>
+      {row.cutoverNeedsStart ? <p className="mt-4 text-sm text-amber-900">Enter the day after the last paid-through date in the period controls below.</p> : null}
+      {row.priorRunPending ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">
+          <p>Finish the statement for {formatPayrollDate(row.priorRunPending.periodStart)}–{formatPayrollDate(row.priorRunPending.periodEnd)} first.</p>
+          <Link href={`/admin/finance/payroll?payDate=${row.priorRunPending.cycleDate}&tutor=${encodeURIComponent(row.tutorShortName)}`} className="rounded-xl bg-slate-950 px-4 py-3 font-semibold text-white">Open earlier statement →</Link>
         </div>
       ) : null}
-      {row.cutoverNothingOwed ? (
-        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-          Nothing is outstanding in this cutoff window, so no statement needs to be sent.
-        </div>
-      ) : null}
-      {!row.cadenceDue && !row.windowEmpty ? (
-        <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-          <p className="font-semibold">Not due this week · {row.invoiceCadence === 'biweekly' ? 'paid every two weeks' : row.invoiceCadence}</p>
-          <p className="mt-1">The next complete pay window is due on {formatPayrollDate(row.nextCadencePayDate)}. This draft cannot be reviewed or emailed early.</p>
-        </div>
-      ) : null}
-      {row.periodOpen && row.cadenceDue && !row.priorRunPending ? (
-        <div className="mt-4 rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-          <p className="font-semibold">This period is still open</p>
-          <p className="mt-1">It includes lessons through {formatPayrollDate(row.periodEnd)}. Review becomes available after that day has finished.</p>
-        </div>
-      ) : null}
-      {reviewPast.length ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {reviewPast.length} lesson status{reviewPast.length === 1 ? '' : 'es'} need review in MMS before trusting this figure. Record attendance only if genuinely unmarked.
-          {reviewUpcoming.length ? ` (${reviewUpcoming.length} more upcoming — those resolve themselves.)` : ''}
-        </div>
-      ) : null}
-      {row.attendanceChanged ? (
-        <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950">
-          <p className="font-semibold">MMS attendance changed after this amount was reviewed.</p>
-          <p className="mt-1">
-            Reviewed amount: {formatMoney(row.finalAmount)} · refreshed calculation: {formatMoney(calculatedFinal)}.
-            Check the lesson detail, then save the corrected amount before paying or resending the statement.
-          </p>
-        </div>
-      ) : null}
-      {row.tutorResponse === 'disputed' ? (
-        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
-          <strong>Tutor flagged this statement</strong>{row.tutorNote ? `: “${row.tutorNote}”` : '.'} Held out of the Wise batch until you resolve it.
-        </div>
-      ) : null}
-
-      {row.status === 'paid' && row.paidVia === 'manual' && !row.tutorResponse ? (
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          Payment recorded separately; tutor confirmation is still outstanding. Their original private link remains usable and will not add another payment to Wise.
+      {row.overlapsPaid ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">Already paid {row.overlapsPaid.isBoundary ? 'through ' : `${formatPayrollDate(row.overlapsPaid.periodStart)}–`}{formatPayrollDate(row.overlapsPaid.periodEnd)}. Change the period below to avoid paying twice.</p> : null}
+      {row.overlapsOutstanding ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">Overlaps the open statement for {formatPayrollDate(row.overlapsOutstanding.periodStart)}–{formatPayrollDate(row.overlapsOutstanding.periodEnd)}. Correct the period below.</p> : null}
+      {row.amountConflict ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">Conflicting statements: {row.amountConflict.amounts.map((amount) => formatMoney(amount)).join(' versus ')}. Reconcile the originals before payment.</p> : null}
+      {row.attendanceChanged ? <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">Attendance changed: reviewed {formatMoney(row.finalAmount)} → recalculated {formatMoney(calculatedFinal)}. Check the lessons before saving the correction.</p> : null}
+      {row.tutorResponse === 'disputed' ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900"><strong>Tutor query</strong>{row.tutorNote ? `: “${row.tutorNote}”` : ''}. Payment is held.</p> : null}
+      {row.windowCapped ? <p className="mt-4 text-sm text-amber-900">The preview cannot cover the full unpaid period. Check the start date below.</p> : null}
+      {workflow.key === 'data_unavailable' ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">Attendance unavailable. Refresh MMS before reviewing or paying.</p> : null}
+      {workflow.key === 'recipient_missing' ? <p className="mt-4 text-sm text-amber-900">Add the verified recipient ID in Tutor_Wise, then refresh. This tutor is excluded from the payment file.</p> : null}
+      {workflow.key === 'delivery_unknown' ? <p className="mt-4 text-sm text-amber-900">Check Gmail Sent before sharing again: the last delivery is unconfirmed.</p> : null}
+      {workflow.key === 'confirmation_time' ? <p className="mt-4 text-sm text-amber-900">The confirmation time is missing. Verify the response before payment.</p> : null}
+      {['awaiting', 'paid_awaiting', 'next_week', 'ready'].includes(workflow.key) ? <p className="mt-4 text-sm text-slate-600">{workflow.key === 'paid_awaiting' ? 'Payment recorded. Waiting for the tutor’s confirmation.' : workflow.key === 'ready' ? 'Confirmed. Check the ready batch above.' : workflow.nextAction}</p> : null}
+      {row.windowEmpty || row.cutoverNothingOwed || row.cutoverPaidThrough ? <p className="mt-4 text-sm text-slate-600">No new payment needed for this period.{row.manualPaidThrough ? ` Paid through ${formatPayrollDate(row.manualPaidThrough)}.` : ''}</p> : null}
+      {row.periodOpen && row.cadenceDue && !row.legacyNeedsReconciliation && !row.priorRunPending ? <p className="mt-3 text-sm text-slate-500">Review opens after {formatPayrollDate(row.periodEnd)}.</p> : null}
+      {row.status === 'reviewed' || row.status === 'paid' ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <Link href={statementUrl} className={workflow.key === 'send' ? 'rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800' : 'text-sm font-medium text-blue-700 hover:underline'}>{workflow.key === 'send' ? 'Review and send →' : row.status === 'paid' ? 'View receipt →' : 'View statement →'}</Link>
+          {workflow.key === 'awaiting' ? <Link href={`${statementUrl}#whatsapp-reminder`} className="text-sm text-blue-700 hover:underline">Private reminder →</Link> : null}
         </div>
       ) : null}
 
       <div className="mt-4 space-y-3">
         {/* Lead with statuses payroll cannot yet classify; only genuinely unmarked rows need an MMS write. */}
         {reviewPast.length ? (
-          <SlotList title="Needs attendance review" slots={reviewPast} withDecision />
+          <details open={showAttendance} className="rounded-xl border border-slate-200 px-4 py-3">
+            <summary className="cursor-pointer text-sm font-semibold text-slate-700">{reviewPast.length} lesson{reviewPast.length === 1 ? '' : 's'} to check</summary>
+            <p className="mt-3 text-xs text-slate-500">Choose the actual lesson outcome. Changes save to MMS.</p>
+            <SlotListBody slots={reviewPast} withDecision />
+          </details>
         ) : null}
 
         <details className="group rounded-2xl border border-slate-200 bg-white px-4 py-3">
           <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-slate-700">
-            Lesson detail
+            Lessons and calculation
             <span className="text-xs font-medium text-slate-400 group-open:hidden">Show</span>
             <span className="hidden text-xs font-medium text-slate-400 group-open:inline">Hide</span>
           </summary>
           <div className="mt-4 space-y-3">
+            <p className="text-sm text-slate-600">{row.lessonCount} payable lessons · {minutesLabel(row.teachingMinutes)}</p>
             {reviewUpcoming.length ? (
               <CollapsibleSlotList title="Upcoming — not yet taught" slots={reviewUpcoming} />
             ) : null}
@@ -329,8 +242,8 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
       </div>
 
       {row.status !== 'paid' ? (
-      <details open={row.status === 'draft' || row.attendanceChanged} className="mt-4">
-      <summary className="cursor-pointer text-sm text-slate-600">{row.status === 'draft' ? 'Review statement' : 'Correct statement'}</summary>
+      <details id="payroll-review-options" open={(!reviewBlocked && row.status === 'draft') || row.attendanceChanged || periodCorrection} className="mt-4">
+      <summary className="cursor-pointer text-sm text-slate-600">{reviewBlocked ? 'Statement and period options' : row.status === 'draft' ? 'Review statement' : 'Correct statement'}</summary>
       <PayrollReviewForm action={reviewPayrollAction} className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
         {[
           ['payroll_id', row.payrollId],
@@ -387,10 +300,10 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
           <PayrollSaveButtons
             status={row.status}
             attendanceChanged={row.attendanceChanged}
-            blocked={Boolean(reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || workflow.key === 'data_unavailable')}
+            blocked={reviewBlocked}
           />
         </div>
-        <details className="group mt-3 border-t border-slate-200 pt-3">
+        <details open={periodCorrection} className="group mt-3 border-t border-slate-200 pt-3">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium text-slate-500">
             <span>Adjustments, invoice tracking and period</span>
             <span

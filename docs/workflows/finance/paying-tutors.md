@@ -59,6 +59,16 @@ retains its separate human checks.
   corrections and period controls open on selection. Cadence remains in delivery
   settings. No payment or attendance rule is inferred from the visual grouping.
 
+Selecting a tutor scrolls to and focuses their card only after the selected
+content loads; ordinary saves and refreshes do not move focus. **← Tutors**
+returns to the queue. The card keeps the amount (estimate/reviewed/paid), period,
+next statement date and current action visible. Attendance checks open when
+attendance is the current task; otherwise their count remains visible behind a
+disclosure. Calculation and blocked statement options remain available on
+request. Duplicate-payment risks, amount conflicts, changed calculations and
+tutor queries remain visible without opening a disclosure. This is presentation
+only: server-side review and payment gates do not depend on expanded panels.
+
 The new system requires confirmation even if an older settings row still says
 `payment_route=normal`. Legacy pre-cutover normal payments retain their behavior.
 A saved statement correction rechecks MMS, rejects a stale form, and clears the
