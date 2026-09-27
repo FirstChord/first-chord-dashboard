@@ -13,6 +13,10 @@ export default function TutorSelector({ rows = [], selectedTutor = '', payDate =
   function focusCard(tutor) {
     const card = document.getElementById('payroll-tutor-card');
     if (!card || card.dataset.tutor !== tutor) return false;
+    const headerHeight = document.querySelector('header.sticky')?.getBoundingClientRect().height || 0;
+    card.style.scrollMarginTop = `${headerHeight + 24}px`;
+    const queue = document.getElementById('payroll-queue');
+    if (queue) queue.style.scrollMarginTop = `${headerHeight + 24}px`;
     card.focus({ preventScroll: true });
     card.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
     return true;
