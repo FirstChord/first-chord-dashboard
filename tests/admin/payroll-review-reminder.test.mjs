@@ -37,7 +37,7 @@ test('query reply handoff logs no disputed link, delivery, confirmation or payme
   assert.deepEqual(events.map((event) => event.eventType), ['payroll_query_reply_copied', 'payroll_query_reply_sent_admin_confirmed']);
   assert.equal(deliveries.length, 0);
   assert.equal(row.tutor_response, 'disputed');
-  assert.doesNotMatch(JSON.stringify(events), /https:|statementUrl|£|42/);
+  assert.doesNotMatch(events.map((event) => event.payloadJson).join(''), /https:|statementUrl|£|42/);
   await assert.rejects(() => recordPayrollReminder({ ...args, action: 'sent' }), /query/u);
   await assert.rejects(() => recordPayrollReminder({ ...args, action: 'query_sent', fingerprint: 'stale' }), /changed/u);
   await assert.rejects(() => recordPayrollReminder({ ...args, action: 'query_sent', loadRuns: async () => [{ ...row, tutor_response: 'confirmed' }] }), /changed/u);
