@@ -141,6 +141,13 @@ kind of school work someone is looking for. Prefer compact semantic link lists
 under clear headings to a wall of equal cards, and show a badge only when it
 communicates real changing state rather than a static taxonomy label.
 
+The desktop header's **Go to** field searches the same named navigation and
+Workflows destinations, with a few shortcuts before typing. It also keeps an
+explicit student-search result for every query. An unmatched query searches the
+student directory, preserving the existing student lookup; the directory's own
+search remains available. Command-K (or Control-K) focuses Go to. Suggestions
+only navigate to existing pages and never run workflow actions.
+
 Use [copy and tone](./copy-and-tone.md) and [UI conventions](./ui-conventions.md)
 for action wording, async feedback, density, and error states.
 

@@ -4,6 +4,7 @@ import { PawPrint } from 'lucide-react';
 import { AdminSignOutButton } from '@/components/admin/AdminAuthButton';
 import DashboardFeedbackButton from '@/components/admin/DashboardFeedbackButton';
 import AdminPrimaryNavigation from '@/components/admin/AdminPrimaryNavigation';
+import AdminGoToSearch from '@/components/admin/AdminGoToSearch';
 
 // The whole /admin tree reads live data (Sheets, MMS) per request; without this,
 // removing getServerSession from the layout lets Next.js try to prerender admin
@@ -38,20 +39,7 @@ export default function AdminLayout({ children }) {
         </div>
         <nav aria-label="Admin dashboard" className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 pb-4">
           <AdminPrimaryNavigation />
-          <form action="/admin/students" className="flex min-w-0 items-center gap-2">
-            <input
-              type="search"
-              name="q"
-              placeholder="Find student"
-              className="h-9 w-44 rounded-full border border-blue-200/70 bg-white/80 px-4 text-sm text-slate-700 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white md:w-56"
-            />
-            <button
-              type="submit"
-              className="h-9 rounded-full border border-blue-200/70 bg-white/80 px-4 text-sm font-medium text-slate-700 shadow-sm transition hover:border-blue-300 hover:bg-white hover:text-slate-900"
-            >
-              Search
-            </button>
-          </form>
+          <AdminGoToSearch />
         </nav>
       </header>
       {/* `relative` (z-auto) keeps content above the decorative cloud via DOM order
