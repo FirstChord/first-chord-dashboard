@@ -146,7 +146,9 @@ Workflows destinations, with a few shortcuts before typing. It also keeps an
 explicit student-search result for every query. An unmatched query searches the
 student directory, preserving the existing student lookup; the directory's own
 search remains available. Command-K (or Control-K) focuses Go to. Suggestions
-only navigate to existing pages and never run workflow actions.
+only navigate to existing pages and never run workflow actions. With a blank
+field and no selection, Enter opens the student directory. Arrow keys select a
+menu item; Enter then opens that destination.
 
 Use [copy and tone](./copy-and-tone.md) and [UI conventions](./ui-conventions.md)
 for action wording, async feedback, density, and error states.

@@ -11,7 +11,7 @@ export default function AdminGoToSearch() {
   const inputRef = useRef(null);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const suggestions = getGoToSuggestions(query);
 
   useEffect(() => {
@@ -45,19 +45,19 @@ export default function AdminGoToSearch() {
   useEffect(() => {
     setOpen(false);
     setQuery('');
-    setActiveIndex(0);
+    setActiveIndex(-1);
   }, [pathname]);
 
   function navigate(item) {
     setOpen(false);
     setQuery('');
-    setActiveIndex(0);
+    setActiveIndex(-1);
     inputRef.current?.blur();
     router.push(item.href);
   }
 
   function onSubmit(event) {
-    if (open && query.trim() && suggestions[activeIndex]) {
+    if (open && activeIndex >= 0 && suggestions[activeIndex]) {
       event.preventDefault();
       navigate(suggestions[activeIndex]);
     }
@@ -71,7 +71,7 @@ export default function AdminGoToSearch() {
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       setOpen(true);
-      setActiveIndex((index) => (index - 1 + suggestions.length) % suggestions.length);
+      setActiveIndex((index) => index < 0 ? suggestions.length - 1 : (index - 1 + suggestions.length) % suggestions.length);
     }
   }
 
@@ -84,10 +84,13 @@ export default function AdminGoToSearch() {
         value={query}
         onChange={(event) => {
           setQuery(event.target.value);
-          setActiveIndex(0);
+          setActiveIndex(event.target.value.trim() ? 0 : -1);
           setOpen(true);
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => {
+          setActiveIndex(query.trim() ? 0 : -1);
+          setOpen(true);
+        }}
         onKeyDown={onInputKeyDown}
         placeholder="Go to…"
         aria-label="Go to a workflow or search students"
@@ -95,7 +98,7 @@ export default function AdminGoToSearch() {
         aria-expanded={open}
         aria-controls="admin-go-to-results"
         aria-autocomplete="list"
-        aria-activedescendant={open ? `admin-go-to-option-${activeIndex}` : undefined}
+        aria-activedescendant={open && activeIndex >= 0 ? `admin-go-to-option-${activeIndex}` : undefined}
         autoComplete="off"
         className="h-11 w-44 rounded-full border border-blue-200/70 bg-white/80 px-4 text-sm text-slate-700 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:bg-white focus-visible:ring-2 focus-visible:ring-[#2F6B3D]/45 md:w-56"
       />
