@@ -219,7 +219,7 @@ The signed link needs no login and expires after 30 days. It shows a referenced
 **Payment statement** with the period, payable lesson breakdown, frozen total and
 issue date. The tutor can:
 
-- choose **Confirm — looks right**; or
+- choose **Confirm, looks right**; or
 - choose **Something's off** and leave a note.
 
 Confirmation records the response and timestamp; it never pays the tutor. A

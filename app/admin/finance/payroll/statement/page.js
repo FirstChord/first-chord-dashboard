@@ -50,7 +50,7 @@ export default async function TutorStatementAdminPage({ searchParams }) {
         </div>
       ) : result.notReady ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
-          This tutor’s pay isn’t reviewed yet — mark them <strong>reviewed</strong> on the payroll page to lock the figure, then generate the statement.
+          This tutor’s pay isn’t reviewed yet. Mark them <strong>reviewed</strong> on the payroll page to lock the figure, then generate the statement.
         </div>
       ) : (
         <StatementReady statement={result.statement} savedRow={result.savedRow} payrollId={payrollId} />
@@ -104,7 +104,7 @@ async function StatementReady({ statement, savedRow, payrollId }) {
             {shareLink}
           </p>
         ) : (
-          <p className="mt-3 text-xs text-amber-700">Share link unavailable (NEXTAUTH_SECRET not set) — copy the text instead.</p>
+          <p className="mt-3 text-xs text-amber-700">Share link unavailable (NEXTAUTH_SECRET not set). Copy the text instead.</p>
         )}
         <p className="mt-2 text-[0.7rem] leading-4 text-slate-400">
           The private link lets this tutor confirm or query their statement without a login. Copy it, share it in a private one-to-one conversation, then mark it sent. Use this only when email is unavailable or after checking an uncertain Gmail result.

@@ -233,11 +233,11 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
           <div className="mt-4 space-y-3">
             <p className="text-sm text-slate-600">{row.lessonCount} payable lessons · {minutesLabel(row.teachingMinutes)}</p>
             {reviewUpcoming.length ? (
-              <CollapsibleSlotList title="Upcoming — not yet taught" slots={reviewUpcoming} />
+              <CollapsibleSlotList title="Upcoming (not yet taught)" slots={reviewUpcoming} />
             ) : null}
             <CollapsibleSlotList title="Payable from MMS attendance" slots={row.payableSlots} empty="No payable lessons found for this period." />
             {row.excludedSlots?.length ? (
-              <CollapsibleSlotList title="Not counted — absent / cancelled" slots={row.excludedSlots} empty="None." />
+              <CollapsibleSlotList title="Not counted: absent / cancelled" slots={row.excludedSlots} empty="None." />
             ) : null}
           </div>
         </details>

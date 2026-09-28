@@ -10,7 +10,7 @@ function hoursLabel(minutes) {
 }
 
 function recordDate(value) {
-  if (!value) return '—';
+  if (!value) return '–';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return `${value}`;
   return parsed.toLocaleDateString('en-GB', {
@@ -64,7 +64,7 @@ export default function TutorStatementView({ statement }) {
       <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-2 rounded-xl bg-slate-50 px-4 py-3 text-xs sm:grid-cols-3 print:border print:border-slate-200 print:bg-white">
         <div>
           <dt className="text-slate-400">Reference</dt>
-          <dd className="mt-0.5 break-all font-semibold text-slate-700">{statement.reference || '—'}</dd>
+          <dd className="mt-0.5 break-all font-semibold text-slate-700">{statement.reference || '–'}</dd>
         </div>
         <div>
           <dt className="text-slate-400">Issued</dt>
@@ -96,7 +96,7 @@ export default function TutorStatementView({ statement }) {
                   {line.isCover ? <span className="ml-1 text-slate-400">(cover)</span> : null}
                 </td>
                 <td className="whitespace-nowrap px-4 py-2 text-slate-500">{line.minutes} min</td>
-                <td className="whitespace-nowrap px-4 py-2 text-right text-slate-900">{line.amount !== null ? formatMoney(line.amount) : '—'}</td>
+                <td className="whitespace-nowrap px-4 py-2 text-right text-slate-900">{line.amount !== null ? formatMoney(line.amount) : '–'}</td>
               </tr>
             )) : (
               <tr><td className="px-4 py-3 text-slate-400">No payable lessons found for this period.</td></tr>

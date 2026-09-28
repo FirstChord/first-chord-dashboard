@@ -24,7 +24,7 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setError(data.error || 'Something went wrong — please let First Chord know.');
+        setError(data.error || 'Something went wrong. Please let First Chord know.');
         return;
       }
       setResponse(value);
@@ -33,7 +33,7 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
       // after this action includes the confirmation status and date.
       router.refresh();
     } catch {
-      setError('Could not reach the server — please try again.');
+      setError('Could not reach the server. Please try again.');
     } finally {
       setPending('');
     }
@@ -42,7 +42,7 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
   if (response === 'confirmed') {
     return (
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-        {alreadyPaid ? 'Thanks — you’ve confirmed the statement for the payment already made. ✓' : 'Thanks — you’ve confirmed this statement. First Chord will process your payment. ✓'}
+        {alreadyPaid ? 'Thanks, you’ve confirmed the statement for the payment already made. ✓' : 'Thanks, you’ve confirmed this statement. First Chord will process your payment. ✓'}
         {!locked ? <button type="button" onClick={() => setShowDispute(true)} className="ml-2 text-emerald-800 underline">
           Actually, something’s off
         </button> : null}
@@ -55,9 +55,9 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
   if (response === 'disputed') {
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        {alreadyPaid ? 'Thanks for flagging this — First Chord will review the statement and payment already made.' : 'Thanks for flagging this — First Chord has been notified and will be in touch before any payment.'}
+        {alreadyPaid ? 'Thanks for flagging this. First Chord will review the statement and payment already made.' : 'Thanks for flagging this. First Chord has been notified and will be in touch before any payment.'}
         {!locked ? <button type="button" onClick={() => submit('confirmed')} disabled={pending === 'confirmed'} className="ml-2 text-amber-900 underline disabled:opacity-60">
-          {pending === 'confirmed' ? 'Confirming…' : 'It’s fine now — confirm'}
+          {pending === 'confirmed' ? 'Confirming…' : 'It’s fine now, confirm'}
         </button> : null}
         {error ? <p className="mt-2 text-rose-700" role="alert">{error}</p> : null}
       </div>
@@ -76,7 +76,7 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
           disabled={Boolean(pending)}
           className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
         >
-          {pending === 'confirmed' ? 'Saving…' : 'Confirm — looks right'}
+          {pending === 'confirmed' ? 'Saving…' : 'Confirm, looks right'}
         </button>
         <button
           type="button"
