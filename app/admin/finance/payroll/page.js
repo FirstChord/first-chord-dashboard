@@ -167,7 +167,7 @@ async function recordManualCutoverPaymentAction(formData) {
   if (formData.get('payment_verified') !== 'yes') throw new Error('Verify the external payment first.');
 
   const payrollId = `${formData.get('payroll_id') || ''}`.trim();
-  const runs = await getPayrollRunRows();
+  const runs = await getPayrollRunRows({ force: true });
   const row = runs.find((entry) => `${entry.payroll_id || ''}`.trim() === payrollId);
   if (!row) throw new Error('Statement not found.');
   const updated = buildManualCutoverPayment(row, {
@@ -188,7 +188,7 @@ async function recordManualCutoverConfirmationAction(formData) {
   if (formData.get('email_verified') !== 'yes') throw new Error('Verify the tutor email reply first.');
 
   const payrollId = `${formData.get('payroll_id') || ''}`.trim();
-  const runs = await getPayrollRunRows();
+  const runs = await getPayrollRunRows({ force: true });
   const row = runs.find((entry) => `${entry.payroll_id || ''}`.trim() === payrollId);
   if (!row) throw new Error('Statement not found.');
   const updated = buildManualCutoverEmailConfirmation(row, {
@@ -198,6 +198,24 @@ async function recordManualCutoverConfirmationAction(formData) {
   await upsertPayrollRunRow(updated);
   revalidatePath('/admin/finance/payroll');
   redirect(`/admin/finance/payroll/statement?pid=${encodeURIComponent(payrollId)}`);
+}
+
+async function recordManualCutoverPaymentFormAction(previous, formData) {
+  'use server';
+  try { return await recordManualCutoverPaymentAction(formData); }
+  catch (error) {
+    if (isRedirectError(error)) throw error;
+    return { error: error.message || 'Could not record this payment. Reopen the statement and try again.' };
+  }
+}
+
+async function recordManualCutoverConfirmationFormAction(previous, formData) {
+  'use server';
+  try { return await recordManualCutoverConfirmationAction(formData); }
+  catch (error) {
+    if (isRedirectError(error)) throw error;
+    return { error: error.message || 'Could not record this confirmation. Reopen the statement and try again.' };
+  }
 }
 
 function pickSheetValue(row, keys) {
@@ -582,7 +600,7 @@ async function PayrollWorkspace({ payDate, tutor, start, end }) {
       <section className="grid items-start gap-5 lg:grid-cols-[minmax(17rem,0.7fr)_minmax(0,1.3fr)]">
         <TutorSelector rows={selectorRows} selectedTutor={selectedTutor} payDate={payDate}  />
         {selectedRow ? (
-          <PayrollTutorCard key={selectedRow.payrollId} row={selectedRow} payDate={payDate} reviewPayrollAction={reviewPayrollAction} recordManualCutoverPaymentAction={recordManualCutoverPaymentAction} recordManualCutoverConfirmationAction={recordManualCutoverConfirmationAction} />
+          <PayrollTutorCard key={selectedRow.payrollId} row={selectedRow} payDate={payDate} reviewPayrollAction={reviewPayrollAction} recordManualCutoverPaymentAction={recordManualCutoverPaymentFormAction} recordManualCutoverConfirmationAction={recordManualCutoverConfirmationFormAction} />
         ) : (
           <div className="rounded-[1.6rem] border border-slate-200 bg-white/90 p-6 text-sm text-slate-500">
             No payroll rows found for this period.

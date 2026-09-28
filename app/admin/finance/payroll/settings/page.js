@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
 import { getActiveTutorOptions } from '@/lib/admin/tutors';
+import { SubmitButton } from '@/components/admin/ui/SubmitButton';
 import {
   loadTutorPayrollPreferences,
   saveTutorPayrollAdminSettings,
@@ -127,9 +128,7 @@ export default async function TutorPayrollSettingsPage({ searchParams }) {
               <p className="mt-2 text-xs text-slate-500">Current choice effective from {preference.cadenceEffectiveFrom}.</p>
             ) : null}
 
-            <button type="submit" className="mt-5 w-full rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
-              Save settings
-            </button>
+            <SubmitButton className="mt-5 w-full" pendingLabel="Saving settings…">Save settings</SubmitButton>
           </form>
         ))}
       </section>

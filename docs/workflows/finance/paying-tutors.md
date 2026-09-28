@@ -253,7 +253,7 @@ refuses to review/email it early.
      tutor response.
 3. Check any warnings. A missing `Tutor_Wise` recipient is omitted from the CSV;
    disputes are held out; duplicate reviewed rows with different totals are excluded until the conflict is resolved.
-4. Click **Download Wise CSV**. The CSV contains the eligible reviewed statements in the visible batch, including carried periods. Download checks fresh MMS attendance, current confirmation and recipient data; a changed figure refuses the file and asks for review. The browser session retains this exact CSV and a signed statement snapshot, which expires after seven days. Treat the retained CSV as sensitive payment/recipient data; it is cleared after recording or explicitly discarding an unused file. New confirmations do not join an already-downloaded batch.
+4. Click **Download Wise CSV**. The CSV contains the eligible reviewed statements in the visible batch, including carried periods. Download checks fresh MMS attendance, current confirmation and recipient data; a changed figure refuses the file and asks for review. The browser session retains this exact CSV and a signed statement snapshot, which expires after seven days. Treat the retained CSV as sensitive payment/recipient data; it is cleared after recording or explicitly discarding an unused file. New confirmations do not join an already-downloaded batch. If you open another cycle while a file is retained, the page links back to the downloaded batch instead of offering a second file.
 5. Upload the CSV to Wise, verify recipients and amounts, and approve the
    transfers in Wise.
 6. Only after Wise accepts the payment, return to the same browser session and

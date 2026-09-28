@@ -5,18 +5,30 @@ import { useRouter } from 'next/navigation';
 import { ActionButton } from '@/components/admin/ui/ActionButton';
 import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 import { formatPayrollDate } from '@/lib/admin/payroll-helpers.mjs';
+import Link from 'next/link';
 
 const STORAGE_KEY = 'fc-payroll-downloaded-batch-v1';
 export default function WisePayoutPanel({ includedCount = 0, includedTutors = [], totalLabel = '', missingNames = [], amountConflicts = [], disputed = [], mmsChanges = [], payDate, fingerprint, payrollIds = [] }) {
   const router = useRouter();
   const [batch, setBatch] = useState(null);
+  const [otherCyclePayDate, setOtherCyclePayDate] = useState('');
+  const [checkedPayDate, setCheckedPayDate] = useState('');
   const [pending, setPending] = useState('');
   const [error, setError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [success, setSuccess] = useState(false);
   useEffect(() => {
-    try { const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null'); if (saved?.token && saved?.tutors) setBatch(saved); } catch {}
-  }, []);
+    setBatch(null);
+    setOtherCyclePayDate('');
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
+      if (saved?.token && Array.isArray(saved.tutors)) {
+        setBatch(saved.payDate === payDate ? saved : null);
+        setOtherCyclePayDate(/^\d{4}-\d{2}-\d{2}$/u.test(saved.payDate) && saved.payDate !== payDate ? saved.payDate : '');
+      }
+    } catch {}
+    setCheckedPayDate(payDate);
+  }, [payDate]);
   async function post(body) {
     const response = await fetch('/api/admin/payroll/batch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const result = await response.json();
@@ -47,6 +59,8 @@ export default function WisePayoutPanel({ includedCount = 0, includedTutors = []
     } catch (cause) { setError(cause.message); } finally { setPending(''); }
   }
   const tutors = batch?.tutors || includedTutors;
+  if (checkedPayDate !== payDate) return null;
+  if (otherCyclePayDate) return <p className="text-sm text-amber-900">Finish the downloaded Wise batch from {formatPayrollDate(otherCyclePayDate)} before starting another. <Link className="font-semibold underline" href={`/admin/finance/payroll?payDate=${otherCyclePayDate}`}>Open that batch →</Link></p>;
   return <section className="space-y-4">
     <p className="text-sm text-slate-600">{batch ? `Downloaded batch · ${tutors.length} tutors · ${formatMoney(batch.totalAmount)}` : `${includedCount} tutor${includedCount === 1 ? '' : 's'} · ${totalLabel}`}</p>
     <ul className="divide-y divide-slate-100">{tutors.map((entry) => <li key={entry.payrollId || entry.tutor} className="flex items-center justify-between gap-4 py-3 text-sm">

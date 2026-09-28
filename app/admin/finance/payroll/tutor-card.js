@@ -7,6 +7,7 @@ import AdjustWindowForm from './adjust-window-form';
 import PayrollSaveButtons from './save-buttons';
 import PayrollReviewForm from './review-form';
 import AttendanceDecision from './attendance-decision';
+import { SubmitButton } from '@/components/admin/ui/SubmitButton';
 
 function minutesLabel(minutes) {
   if (!minutes) return '0h';
@@ -341,7 +342,7 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
       </details>
       ) : null}
       {row.isCutover && row.status === 'reviewed' ? (
-        <form action={recordManualCutoverPaymentAction} className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        <PayrollReviewForm action={recordManualCutoverPaymentAction} className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
           <input type="hidden" name="payroll_id" value={row.payrollId} />
           <input type="hidden" name="expected_amount" value={row.finalAmount} />
           <details>
@@ -354,9 +355,9 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
               <input required name="payment_verified" value="yes" type="checkbox" className="mt-1" />
               <span>I checked the tutor, statement amount, date and separate payment record.</span>
             </label>
-            <button type="submit" className="mt-3 rounded-xl bg-amber-900 px-4 py-2 font-semibold text-white hover:bg-amber-800">Record already paid</button>
+            <SubmitButton className="mt-3" pendingLabel="Recording payment…" variant="warning">Record already paid</SubmitButton>
           </details>
-        </form>
+        </PayrollReviewForm>
       ) : null}
       {hasCutoverConfirmationWaiver(row) && !row.tutorResponse ? (
         <p className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
@@ -364,7 +365,7 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
         </p>
       ) : null}
       {isPaidCutoverFollowUpOpen(row) ? (
-        <form action={recordManualCutoverConfirmationAction} className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
+        <PayrollReviewForm action={recordManualCutoverConfirmationAction} className="mt-3 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-950">
           <input type="hidden" name="payroll_id" value={row.payrollId} />
           <details>
             <summary className="cursor-pointer font-semibold">Tutor confirmed by email?</summary>
@@ -376,9 +377,9 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
               <input required name="email_verified" value="yes" type="checkbox" className="mt-1" />
               <span>I checked the tutor’s email reply against this statement.</span>
             </label>
-            <button type="submit" className="mt-3 rounded-xl bg-blue-900 px-4 py-2 font-semibold text-white hover:bg-blue-800">Record email confirmation</button>
+            <SubmitButton className="mt-3" pendingLabel="Recording confirmation…">Record email confirmation</SubmitButton>
           </details>
-        </form>
+        </PayrollReviewForm>
       ) : null}
     </article>
   );

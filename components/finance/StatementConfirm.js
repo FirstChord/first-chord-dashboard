@@ -47,6 +47,7 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
           Actually, something’s off
         </button> : null}
         {showDispute ? <DisputeBox note={note} setNote={setNote} onSubmit={() => submit('disputed')} pending={pending === 'disputed'} /> : null}
+        {error ? <p className="mt-2 text-rose-700" role="alert">{error}</p> : null}
       </div>
     );
   }
@@ -56,8 +57,9 @@ export default function StatementConfirm({ token, initialResponse = '', initialN
       <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
         {alreadyPaid ? 'Thanks for flagging this — First Chord will review the statement and payment already made.' : 'Thanks for flagging this — First Chord has been notified and will be in touch before any payment.'}
         {!locked ? <button type="button" onClick={() => submit('confirmed')} disabled={pending === 'confirmed'} className="ml-2 text-amber-900 underline disabled:opacity-60">
-          It’s fine now — confirm
+          {pending === 'confirmed' ? 'Confirming…' : 'It’s fine now — confirm'}
         </button> : null}
+        {error ? <p className="mt-2 text-rose-700" role="alert">{error}</p> : null}
       </div>
     );
   }

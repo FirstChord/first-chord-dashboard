@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { ActionButton } from '@/components/admin/ui/ActionButton';
 
 export default function SendStatementEmailButton({
   payrollId = '',
@@ -53,9 +54,7 @@ export default function SendStatementEmailButton({
 
   return (
     <div>
-      <button type="button" onClick={sendEmail} disabled={state.sending} className="rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-wait disabled:opacity-60">
-        {state.sending ? 'Sending…' : `Send email to ${recipient}`}
-      </button>
+      <ActionButton onClick={sendEmail} pending={state.sending} pendingLabel="Sending email…">Send email to {recipient}</ActionButton>
       <p className="mt-2 text-xs text-slate-500">This page is the final preview. One click sends the private link; it never pays the tutor.</p>
       {state.message ? <p className="mt-2 text-xs font-semibold text-emerald-800" role="status">{state.message}</p> : null}
       {state.error ? <p className="mt-2 text-xs font-semibold text-rose-800" role="alert">{state.error}</p> : null}
