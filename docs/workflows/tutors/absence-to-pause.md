@@ -23,7 +23,7 @@ This guided notice flow applies to newly captured cards marked
 | `Tutor_Absence_State` | Per-tutor/per-date cover or cancellation decision |
 | `Planning_Items` pause/notice cards | Grouped human-facing communication and payment work |
 | `Planning_Progress_Log` | Append-only workflow history |
-| `Event_Log` | Consequential payment-expectation audit |
+| `Event_Log` | Consequential payment-expectation and MMS cover-edit audit |
 | Finance pause forecast | Derived view of structured, non-parked pause cards |
 
 ## Normal Flow
@@ -37,7 +37,7 @@ capture tutor-away period
 cover
   -> choose and confirm tutor
   -> pass on lesson notes/context
-  -> confirm MMS/calendar was updated or no change was needed
+  -> apply reviewed substitute tutor to exact MMS lesson occurrences, or confirm manual update/no change needed
   -> send the parent message
   -> no payment-pause card
 
@@ -68,6 +68,19 @@ notice to be worth sending on its own.
 
 The dashboard never sends the parent message or changes Stripe automatically.
 Copy/send, payment execution, and final confirmation are explicit human actions.
+
+For a saved cover decision with a confirmed roster tutor, **Update MMS** reads
+every saved event ID directly from MMS and checks its date, start time, original
+tutor, current tutor, and complete student set. It updates only one-off events:
+the one-off PUT contract was verified on a dummy event, but a recurring series
+could have different mutation scope. Group bookings produce one event edit, not
+one edit per student. An event already assigned to the intended substitute is
+accepted on retry; a different substitute or changed lesson stops the run.
+Each write is read back, and attempts and confirmed changes are recorded in
+`Event_Log`. A partial failure leaves the calendar step incomplete and exposes
+the failed event for human review before retry. The manual calendar checkbox
+remains for recurring lessons, external cover, or cases handled in MMS directly.
+This action never changes the student's permanent tutor or sends a parent message.
 
 ### Temporary cover context
 

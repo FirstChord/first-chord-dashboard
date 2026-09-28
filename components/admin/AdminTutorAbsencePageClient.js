@@ -95,6 +95,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
   const [copiedId, setCopiedId] = useState('');
   const [paymentUpdateState, setPaymentUpdateState] = useState({ pendingId: '', error: '' });
   const [groupMessageState, setGroupMessageState] = useState({ pendingKey: '', error: '', markedKey: '' });
+  const [coverMmsState, setCoverMmsState] = useState({ pending: false, message: '', error: '' });
   const hasSavedAbsence = Boolean(workflow.state.createdAt || workflow.state.updatedAt || workflow.state.resolvedAt);
 
   const coverCandidates = workflow.coverCandidates || [];
@@ -103,6 +104,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
   // still be selectable — the bank informs the choice, it never restricts it.
   const candidateFallback = coverCandidates.find((candidate) => candidate.tutorKey === coverTutorShortName);
   const selectedCoverTutor = workflow.coverOptions.find((tutor) => tutor.shortName === coverTutorShortName)
+    || workflow.tutors.find((tutor) => tutor.shortName === coverTutorShortName)
     || (candidateFallback ? { shortName: candidateFallback.tutorKey, fullName: candidateFallback.tutorName } : null);
   const workflowChecklist = messageState.__workflow || {};
   const cancellationMessageGroups = useMemo(
@@ -260,6 +262,32 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
       setSaveState({ pending: false, action: '', error: '', resolved: payload.state?.status === 'resolved', savedAt: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) });
     } catch (error) {
       setSaveState({ pending: false, action: '', error: error.message || 'Save failed', savedAt: '' });
+    }
+  }
+
+  async function applyCoverInMms() {
+    setCoverMmsState({ pending: true, message: '', error: '' });
+    try {
+      const response = await fetch('/api/admin/tutor-absence/mms-cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ absenceId: workflow.absenceId, expectedUpdatedAt: workflow.state.updatedAt }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        const completed = (result.results || []).filter((item) => item.status !== 'failed').length;
+        throw new Error(result.error || (result.results?.find((item) => item.status === 'failed')?.error
+          ? `${completed} of ${result.total} MMS lessons checked or updated. ${result.results.find((item) => item.status === 'failed').error} Refresh and retry after checking MMS.`
+          : 'MMS cover update failed.'));
+      }
+      setMessageState((current) => ({
+        ...current,
+        __workflow: { ...current.__workflow, calendarUpdated: true },
+      }));
+      setCoverMmsState({ pending: false, message: `${result.total} MMS lesson${result.total === 1 ? '' : 's'} checked; ${result.results.filter((item) => item.status === 'updated').length} updated to ${selectedCoverTutor?.fullName || 'the cover tutor'}.`, error: '' });
+      router.refresh();
+    } catch (error) {
+      setCoverMmsState({ pending: false, message: '', error: error.message || 'MMS cover update failed.' });
     }
   }
 
@@ -481,6 +509,25 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
                   MMS/calendar updated or not needed
                 </label>
               </div>
+              {selectedCoverTutor?.teacherId ? (
+                <div className="mt-4 rounded-xl border border-emerald-200 bg-white px-3 py-3">
+                  <p className="text-sm font-semibold text-emerald-950">Set substitute tutor in MMS</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    After confirming {selectedCoverTutor.fullName} and saving progress, update the one-off lessons for {formatTutorAbsenceDate(workflow.selectedDate)}. Recurring lessons still need a manual MMS update.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={applyCoverInMms}
+                    disabled={coverMmsState.pending || saveState.pending || !hasSavedAbsence || workflow.state.decision !== 'cover' || workflow.state.coverTutorShortName !== coverTutorShortName || !workflowChecklist.coverTutorConfirmed || !workflow.state.messageState?.__workflow?.coverTutorConfirmed || !workflow.state.updatedAt}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-700 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {coverMmsState.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {coverMmsState.pending ? 'Checking MMS…' : `Update MMS to ${selectedCoverTutor.fullName}`}
+                  </button>
+                  {coverMmsState.message ? <p role="status" className="mt-2 text-xs font-medium text-emerald-800">{coverMmsState.message}</p> : null}
+                  {coverMmsState.error ? <p role="alert" className="mt-2 text-xs font-medium text-red-700">{coverMmsState.error}</p> : null}
+                </div>
+              ) : null}
               <p className="mt-3 text-xs leading-5 text-emerald-900">
                 Cover lessons should not trigger payment pauses. Only use the cancel path if a specific lesson is not going ahead.
               </p>
