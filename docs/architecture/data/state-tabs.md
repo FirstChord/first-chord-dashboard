@@ -88,6 +88,14 @@ queue with `npm run reports`, which reads the tab directly and never writes.
 Its parser depends on the note layout (`Report type:`, `Dashboard page:`,
 `What was noticed:`) written by `buildDashboardFeedbackPlanningItem`.
 
+Fixed-ID recurring Planning seeds are created by dashboard reads. Sheets does
+not enforce uniqueness on `planning_id`: concurrent reads used to append several
+identical reminders. The seeder now serializes within one server process and
+rechecks fresh Sheets state before writing. Dashboard reads collapse duplicate
+recurring IDs to the latest updated row, preserving human edits and showing one
+card. This is display repair, not a cross-instance Sheets transaction; remove
+verified redundant physical rows separately after inspecting their fields.
+
 ## Future store dispositions
 
 Where each lane is expected to live long-term (rationale in
