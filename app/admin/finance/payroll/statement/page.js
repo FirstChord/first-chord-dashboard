@@ -1,4 +1,5 @@
 import PayrollReminder from '@/components/finance/PayrollReminder';
+import PayrollQueryReply from '@/components/finance/PayrollQueryReply';
 import { payrollStatementFingerprint } from '@/lib/admin/payroll-batch-helpers.mjs';
 import { getPayrollRunRows } from '@/lib/admin/sheets';
 import Link from 'next/link';
@@ -70,7 +71,7 @@ async function StatementReady({ statement, savedRow, payrollId }) {
       <TutorStatementView statement={statement} />
       <StatementRecordActions reference={statement.reference} isReceipt={statement.documentType === 'receipt'} />
 
-      {statement.documentType === 'statement' ? (
+      {statement.documentType === 'statement' && savedRow.tutorResponse !== 'disputed' && !statement.attendanceChanged && !statement.hasUnrecorded ? (
         <section className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Email to tutor</p>
           <div className="mt-3">
@@ -88,8 +89,11 @@ async function StatementReady({ statement, savedRow, payrollId }) {
       {statement.documentType === 'statement' && shareLink && raw && savedRow.tutorResponse !== 'disputed' && !statement.attendanceChanged && !statement.hasUnrecorded ? (
         <PayrollReminder payrollId={payrollId} fingerprint={payrollStatementFingerprint(raw)} tutor={statement.tutor} periodStart={statement.periodStart} periodEnd={statement.periodEnd} statementUrl={shareLink} alreadySent={Boolean(savedRow.statementSentAt)} />
       ) : null}
+      {savedRow.tutorResponse === 'disputed' && raw ? (
+        <PayrollQueryReply payrollId={payrollId} fingerprint={payrollStatementFingerprint(raw)} tutor={statement.tutor} periodStart={statement.periodStart} periodEnd={statement.periodEnd} />
+      ) : null}
       {savedRow.tutorResponse === 'disputed' ? <p className="text-sm text-amber-800">Resolve the query and save any correction in Payroll before sharing a revised statement.</p> : null}
-      <details className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
+      {savedRow.tutorResponse !== 'disputed' ? <details className="rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm">
         <summary className="cursor-pointer text-sm text-slate-600">Other sharing options</summary>
         <div className="mt-3 flex flex-wrap gap-2">
           <CopyStatementButton text={text} label="Copy statement text" />
@@ -105,7 +109,7 @@ async function StatementReady({ statement, savedRow, payrollId }) {
         <p className="mt-2 text-[0.7rem] leading-4 text-slate-400">
           The private link lets this tutor confirm or query their statement without a login. Copy it, share it in a private one-to-one conversation, then mark it sent. Use this only when email is unavailable or after checking an uncertain Gmail result.
         </p>
-      </details>
+      </details> : null}
     </>
   );
 }

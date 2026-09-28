@@ -26,3 +26,24 @@ test('copy audits intent only; an explicit private-send confirmation may record 
   await assert.rejects(() => recordPayrollReminder({ ...args, action: 'sent', loadRuns: async () => [{ ...row, tutor_response: 'disputed' }] }));
   assert.equal(deliveries.length, 1);
 });
+
+test('query reply handoff logs no disputed link, delivery, confirmation or payment', async () => {
+  const row = { payroll_id: 'queried', status: 'reviewed', tutor_response: 'disputed', period_start: '2026-09-21', period_end: '2026-09-27', final_amount: '42' };
+  const events = []; const deliveries = [];
+  const args = { payrollId: row.payroll_id, fingerprint: payrollStatementFingerprint(row), actor: 'admin@example.test',
+    loadRuns: async () => [row], markSent: async (input) => deliveries.push(input), appendEvent: async (event) => events.push(event) };
+  await recordPayrollReminder({ ...args, action: 'query_copied' });
+  await recordPayrollReminder({ ...args, action: 'query_sent' });
+  assert.deepEqual(events.map((event) => event.eventType), ['payroll_query_reply_copied', 'payroll_query_reply_sent_admin_confirmed']);
+  assert.equal(deliveries.length, 0);
+  assert.equal(row.tutor_response, 'disputed');
+  assert.doesNotMatch(JSON.stringify(events), /https:|statementUrl|£|42/);
+  await assert.rejects(() => recordPayrollReminder({ ...args, action: 'sent' }), /query/u);
+  await assert.rejects(() => recordPayrollReminder({ ...args, action: 'query_sent', fingerprint: 'stale' }), /changed/u);
+  await assert.rejects(() => recordPayrollReminder({ ...args, action: 'query_sent', loadRuns: async () => [{ ...row, tutor_response: 'confirmed' }] }), /changed/u);
+  await assert.rejects(() => recordPayrollReminder({ ...args, action: 'query_sent', loadRuns: async () => [{ ...row, status: 'paid', paid_via: 'wise' }] }), /changed/u);
+  const paidCutoff = { ...row, status: 'paid', paid_via: 'manual', period_end: '2026-09-20' };
+  await recordPayrollReminder({ ...args, action: 'query_sent', fingerprint: payrollStatementFingerprint(paidCutoff), loadRuns: async () => [paidCutoff] });
+  assert.equal(deliveries.length, 0);
+  await assert.rejects(() => recordPayrollReminder({ ...args, action: 'query_sent', loadRuns: async () => [{ ...row, status: 'paid', paid_via: 'manual' }] }), /changed/u);
+});

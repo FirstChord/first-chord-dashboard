@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildPayrollQueue, payrollWorkspaceAttendanceQuery } from '../../lib/admin/payroll-queue-helpers.mjs';
-import { defaultPayrollWorkspaceCycle, currentPayrollMonday, buildPayrollReminder, requiresPayrollConfirmation, regularPayrollPaymentTiming } from '../../lib/admin/payroll-cycle-helpers.mjs';
+import { defaultPayrollWorkspaceCycle, currentPayrollMonday, buildPayrollQueryReply, buildPayrollReminder, requiresPayrollConfirmation, regularPayrollPaymentTiming } from '../../lib/admin/payroll-cycle-helpers.mjs';
 import { getPayrollWorkflowState, isPayrollRunReadyForPayment } from '../../lib/admin/payroll-workflow-helpers.mjs';
 
 const current = { tutor: 'Tutor One', tutorShortName: 'One', periodStart: '2026-09-21', periodEnd: '2026-09-27', status: 'reviewed', paymentRoute: 'normal' };
@@ -38,6 +38,20 @@ test('private reminder names the period and carry-forward rule without money or 
   assert.match(text, /carry over/);
   assert.match(text, /https:\/\/example.test\/private/);
   assert.doesNotMatch(text, /£/);
+});
+
+test('query reply acknowledges the disputed period without re-sharing a bearer link or suggesting confirmation', () => {
+  const text = buildPayrollQueryReply({ tutor: 'Alex Example', periodStart: '2026-09-21', periodEnd: '2026-09-27' });
+  assert.match(text, /Hi Alex/u);
+  assert.match(text, /21 Sept.*27 Sept/u);
+  assert.match(text, /won’t treat the statement as confirmed/u);
+  assert.doesNotMatch(text, /https:|£|confirm it|student/u);
+});
+
+test('cutover reminder does not apply the new weekly Wednesday deadline', () => {
+  const text = buildPayrollReminder({ tutor: 'Alex Example', periodStart: '2026-09-18', periodEnd: '2026-09-20', statementUrl: 'https://example.test/private' });
+  assert.match(text, /one-off cutover statement/u);
+  assert.doesNotMatch(text, /Wednesday|following week/u);
 });
 
 test('Wednesday cutoff carries late confirmations forward, with UK daylight savings handled', () => {

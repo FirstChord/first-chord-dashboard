@@ -79,19 +79,34 @@ remain beside the form.
 
 ## Private WhatsApp reminders
 
-Open **Private WhatsApp reminder** from a reviewed statement. Check the named
-tutor, dates and message; choose **This is a revised statement** only after
+Use **Remind in WhatsApp** or **Share in WhatsApp** from the selected tutor's
+payroll card to open the reviewed statement's private handoff. Check the named
+tutor, dates and prefilled message; choose **This is a revised statement** only after
 saving a correction. An unresolved query or known MMS drift must be resolved
 before sharing a revised statement. The preview contains the private link, no
 amount or student names. The same signed link renders the current saved version.
 
 **Copy reminder** records `payroll_reminder_copied` in `Event_Log`, not delivery.
-**Open WhatsApp** opens a chooser; manually select the tutor’s private one-to-one
-chat and send it. Never use a group. Only **I sent this privately** records
+**Open WhatsApp with message** opens a chooser with the text already filled in;
+manually select the tutor’s private one-to-one chat and send it. Never use a
+group. Only **I sent this privately** records
 `payroll_reminder_sent_admin_confirmed` and, if needed, the statement’s first
 manual delivery. Existing email delivery remains intact. Logs contain the
 payroll ID and channel, not the private bearer link or message text. These
 controls never send, confirm a statement, or mark it paid.
+
+Email remains the main route for sending reviewed statements, and staff can
+still handle a tutor's query in their usual email conversation. WhatsApp is an
+additional private handoff when a quick follow-up helps.
+
+When a tutor raises a query, **Reply to query in WhatsApp** opens an editable
+acknowledgement instead of re-sharing the disputed statement. The prefilled
+reply has no private link or amount; the operator may tailor it, chooses the
+private tutor chat, and presses Send in WhatsApp. Copying and explicitly
+confirming a sent reply append separate `payroll_query_reply_*` events, but do
+not close the query or alter delivery, confirmation or payment. Resolve the
+discrepancy in Payroll, save any correction, then use the revised-statement
+handoff above to share the checked link.
 
 ## Monday cycle: prepare and agree the figures
 

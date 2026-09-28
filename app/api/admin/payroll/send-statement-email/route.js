@@ -9,6 +9,7 @@ const MESSAGES = {
   contact_email_missing: 'Add a payroll contact email for this tutor first.',
   contact_email_unverified: 'Verify this tutor’s payroll contact email first.',
   not_reviewed: 'Review and freeze this statement before sending it.',
+  query_open: 'Resolve the tutor’s query and save any correction before sending the statement again.',
   gmail_not_configured: 'The First Chord Gmail sender is not configured.',
   statement_secret_missing: 'The private statement link cannot be created on this service.',
   delivery_unknown: 'Gmail did not return a definite result. Check the Sent folder; the dashboard will not retry automatically.',

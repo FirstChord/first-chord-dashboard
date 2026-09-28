@@ -13,6 +13,7 @@ test('statement email requires a reviewed run and verified contact', () => {
 
 test('sent, in-flight, and uncertain deliveries refuse another provider call', () => {
   assert.equal(decideStatementEmailDelivery({ run: { status: 'reviewed', statement_sent_at: 'now' } }).reason, 'already_sent');
+  assert.equal(decideStatementEmailDelivery({ run: { status: 'reviewed', tutor_response: 'disputed' } }).reason, 'query_open');
   assert.equal(decideStatementEmailDelivery({ run: { status: 'reviewed', statement_delivery_status: 'sending' } }).reason, 'manual_follow_up');
   assert.equal(decideStatementEmailDelivery({ run: { status: 'reviewed', statement_delivery_status: 'unknown' } }).reason, 'manual_follow_up');
 });

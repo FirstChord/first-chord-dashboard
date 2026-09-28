@@ -208,7 +208,8 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
       {row.status === 'reviewed' || row.status === 'paid' ? (
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Link href={statementUrl} className={workflow.key === 'send' ? 'rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800' : 'text-sm font-medium text-blue-700 hover:underline'}>{workflow.key === 'send' ? 'Review and send →' : row.status === 'paid' ? 'View receipt →' : 'View statement →'}</Link>
-          {workflow.key === 'awaiting' ? <Link href={`${statementUrl}#whatsapp-reminder`} className="text-sm text-blue-700 hover:underline">Private reminder →</Link> : null}
+          {['awaiting', 'send'].includes(workflow.key) ? <Link href={`${statementUrl}#whatsapp-reminder`} className="text-sm font-medium text-blue-700 hover:underline">{workflow.key === 'send' ? 'Share in WhatsApp →' : 'Remind in WhatsApp →'}</Link> : null}
+          {row.tutorResponse === 'disputed' ? <Link href={`${statementUrl}#whatsapp-query`} className="text-sm font-medium text-amber-700 hover:underline">Reply to query in WhatsApp →</Link> : null}
         </div>
       ) : null}
 

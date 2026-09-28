@@ -291,8 +291,9 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
   and unresolved-statement guards, and a complete-cadence due guard. Live rollout
   remains gated by populating verified contact/cadence data and proving the manual pilot;
   scheduled delivery remains unbuilt. A calmer payroll queue, mandatory
-  confirmation, private WhatsApp reminder handoff and checked Wise batch are built
-  with production rollout and the Wednesday 09:00 UK cutoff approved by Finn
+  confirmation, a direct prefilled WhatsApp reminder handoff, a link-free reply
+  to open tutor queries and a checked Wise batch are built; sending remains a
+  human action. Production rollout and the Wednesday 09:00 UK cutoff were approved by Finn
   on 26 September 2026. Shared cadence starts 21 September: first weekly
   statement 28 September, first fortnightly 5 October; legacy coverage gaps
   remain explicit review blockers. See `docs/plans/active/tutor-payroll.md`.

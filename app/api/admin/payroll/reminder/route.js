@@ -1,4 +1,4 @@
-/** @fileoverview Records human-copied or explicitly sent private tutor reminders; never sends WhatsApp messages. */
+/** @fileoverview Records human-copied or explicitly sent private tutor payroll reminders and query replies; never sends WhatsApp messages. */
 import { randomUUID } from 'node:crypto';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/admin/auth';
