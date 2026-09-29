@@ -96,6 +96,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
   const [paymentUpdateState, setPaymentUpdateState] = useState({ pendingId: '', error: '' });
   const [groupMessageState, setGroupMessageState] = useState({ pendingKey: '', error: '', markedKey: '' });
   const [coverMmsState, setCoverMmsState] = useState({ pending: false, message: '', error: '' });
+  const [handoverState, setHandoverState] = useState({ pending: false, downloading: false, data: null, error: '' });
   const hasSavedAbsence = Boolean(workflow.state.createdAt || workflow.state.updatedAt || workflow.state.resolvedAt);
 
   const coverCandidates = workflow.coverCandidates || [];
@@ -143,6 +144,9 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
       },
     }));
     setSaveState({ pending: false, action: '', error: '', savedAt: '' });
+    if (Object.hasOwn(patch, 'coverTutorConfirmed') && !patch.coverTutorConfirmed) {
+      setHandoverState({ pending: false, downloading: false, data: null, error: '' });
+    }
   }
 
   function setAllMessaged() {
@@ -234,6 +238,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
   }
 
   async function saveAbsence(status = 'in_progress') {
+    setHandoverState({ pending: false, downloading: false, data: null, error: '' });
     setSaveState({ pending: true, action: status, error: '', savedAt: '' });
     try {
       const response = await fetch('/api/admin/tutor-absence', {
@@ -284,10 +289,47 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
         ...current,
         __workflow: { ...current.__workflow, calendarUpdated: true },
       }));
+      setHandoverState({ pending: false, downloading: false, data: null, error: '' });
       setCoverMmsState({ pending: false, message: `${result.total} MMS lesson${result.total === 1 ? '' : 's'} checked; ${result.results.filter((item) => item.status === 'updated').length} updated to ${selectedCoverTutor?.fullName || 'the cover tutor'}.`, error: '' });
       router.refresh();
     } catch (error) {
       setCoverMmsState({ pending: false, message: '', error: error.message || 'MMS cover update failed.' });
+    }
+  }
+
+  async function createHandover() {
+    setHandoverState({ pending: true, downloading: false, data: null, error: '' });
+    try {
+      const response = await fetch('/api/admin/tutor-absence/cover-handover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ absenceId: workflow.absenceId, expectedUpdatedAt: workflow.state.updatedAt }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'The handover could not be created.');
+      setHandoverState({ pending: false, downloading: false, data: result, error: '' });
+    } catch (error) {
+      setHandoverState({ pending: false, downloading: false, data: null, error: error.message || 'The handover could not be created.' });
+    }
+  }
+
+  async function downloadHandover() {
+    if (!handoverState.data || handoverState.data.sourceUpdatedAt !== workflow.state.updatedAt) return;
+    setHandoverState((current) => ({ ...current, downloading: true, error: '' }));
+    try {
+      const { createCoverHandoverPdf } = await import('@/lib/admin/cover-handover-pdf.mjs');
+      const bytes = await createCoverHandoverPdf(handoverState.data);
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `cover-handover-${handoverState.data.coverDate}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      setHandoverState((current) => ({ ...current, downloading: false }));
+    } catch {
+      setHandoverState((current) => ({ ...current, downloading: false, error: 'The PDF could not be downloaded. Review the text and try again.' }));
     }
   }
 
@@ -384,6 +426,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
                 setDecision('cancel_day');
                 setCoverTutorShortName('');
                 setSaveState({ pending: false, action: '', error: '', savedAt: '' });
+                setHandoverState({ pending: false, downloading: false, data: null, error: '' });
               }}
               className={`rounded-full border px-4 py-2 text-sm font-semibold ${decision === 'cancel_day' ? 'border-red-200 bg-red-50 text-red-900' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
             >
@@ -394,6 +437,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
               onClick={() => {
                 setDecision('cover');
                 setSaveState({ pending: false, action: '', error: '', savedAt: '' });
+                setHandoverState({ pending: false, downloading: false, data: null, error: '' });
               }}
               className={`rounded-full border px-4 py-2 text-sm font-semibold ${decision === 'cover' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}`}
             >
@@ -418,6 +462,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
                             onClick={() => {
                               setCoverTutorShortName(chosen ? '' : candidate.tutorKey);
                               setSaveState({ pending: false, action: '', error: '', savedAt: '' });
+                              setHandoverState({ pending: false, downloading: false, data: null, error: '' });
                             }}
                             className="flex items-center gap-2 text-sm font-semibold text-slate-900"
                           >
@@ -469,6 +514,7 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
                 onChange={(event) => {
                   setCoverTutorShortName(event.target.value);
                   setSaveState({ pending: false, action: '', error: '', savedAt: '' });
+                  setHandoverState({ pending: false, downloading: false, data: null, error: '' });
                 }}
                 className="mt-2 w-full max-w-md rounded-xl border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-700"
               >
@@ -508,6 +554,61 @@ export default function AdminTutorAbsencePageClient({ workflow }) {
                   />
                   MMS/calendar updated or not needed
                 </label>
+              </div>
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-white px-3 py-3">
+                <p className="text-sm font-semibold text-emerald-950">Teaching handover for the cover tutor</p>
+                <p className="mt-1 text-xs text-slate-600">
+                  Pull together recent lesson notes for this date. Check the wording, then download a private PDF to send yourself. This does not mark the tutor as briefed.
+                </p>
+                <button
+                  type="button"
+                  onClick={createHandover}
+                  disabled={handoverState.pending || saveState.pending || !selectedCoverTutor?.teacherId || !hasSavedAbsence || workflow.state.decision !== 'cover' || workflow.state.coverTutorShortName !== coverTutorShortName || !workflowChecklist.coverTutorConfirmed || !workflow.state.messageState?.__workflow?.coverTutorConfirmed || !workflow.state.updatedAt}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-700 bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {handoverState.pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  {handoverState.pending ? 'Gathering notes…' : 'Create cover handover'}
+                </button>
+                {selectedCoverTutor && !selectedCoverTutor.teacherId ? <p className="mt-2 text-xs text-amber-800">A tutor linked to MMS is needed to check the lesson roster before creating this handover.</p> : null}
+                {handoverState.error ? <p role="alert" className="mt-2 text-xs font-medium text-red-700">{handoverState.error}</p> : null}
+                {handoverState.data?.sourceUpdatedAt === workflow.state.updatedAt ? (
+                  <div className="mt-4 space-y-3 border-t border-emerald-100 pt-4">
+                    <p className="text-xs text-slate-600">Recent-note extract. Review each student’s teaching context before sharing it with {handoverState.data.coverTutorName}.</p>
+                    {handoverState.data.students.map((student, index) => (
+                      <div key={`${student.lessonTime}-${student.studentName}`} className="rounded-xl border border-slate-200 p-3">
+                        <label htmlFor={`cover-handover-${index}`} className="text-sm font-semibold text-slate-900">
+                          {student.lessonTime} · {student.studentName}{student.instrument ? ` · ${student.instrument}` : ''}
+                        </label>
+                        <textarea
+                          id={`cover-handover-${index}`}
+                          value={student.summary}
+                          maxLength={700}
+                          rows={3}
+                          onChange={(event) => setHandoverState((current) => ({
+                            ...current,
+                            data: {
+                              ...current.data,
+                              students: current.data.students.map((item, itemIndex) => (itemIndex === index ? { ...item, summary: event.target.value } : item)),
+                            },
+                          }))}
+                          className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-100"
+                        />
+                        <p className="mt-1 text-xs text-slate-500">
+                          {student.evidence.length ? `Notes: ${student.evidence.map((item) => `${item.date} (${item.source})`).join(', ')}` : 'No notes found in the previous six weeks'}
+                        </p>
+                      </div>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={downloadHandover}
+                      disabled={handoverState.downloading}
+                      className="rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+                    >
+                      {handoverState.downloading ? 'Preparing PDF…' : 'Download PDF'}
+                    </button>
+                    <p className="text-xs text-slate-600">After you send it, tick “Notes/context passed on” and save progress.</p>
+                  </div>
+                ) : null}
               </div>
               {selectedCoverTutor?.teacherId ? (
                 <div className="mt-4 rounded-xl border border-emerald-200 bg-white px-3 py-3">
