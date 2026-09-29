@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { PDFDocument } from 'pdf-lib';
 import {
   buildCoverHandoverContext,
-  fallbackCoverHandoverSummary,
+  buildCoverHandoverSummary,
   validateCoverHandoverEvent,
 } from '../../lib/admin/cover-handover-helpers.mjs';
 import { createCoverHandoverPdf } from '../../lib/admin/cover-handover-pdf.mjs';
@@ -36,7 +36,8 @@ test('cover handover keeps each student scoped and excludes future, old and unde
   assert.equal(students[0].notes[0].goal, 'Hands together at 70%');
   assert.match(students[0].notes[1].focus, /\[link removed\].*\[phone removed\]/u);
   assert.equal(students[1].notes.length, 0);
-  assert.match(fallbackCoverHandoverSummary(students[1]), /No teaching notes found/u);
+  assert.match(buildCoverHandoverSummary(students[0]), /Earlier \(2026-09-16\)/u);
+  assert.match(buildCoverHandoverSummary(students[1]), /No teaching notes found/u);
 });
 
 test('cover handover stops when an MMS event changed or has a different student', () => {
