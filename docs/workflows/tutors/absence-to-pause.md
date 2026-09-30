@@ -69,6 +69,19 @@ notice to be worth sending on its own.
 The dashboard never sends the parent message or changes Stripe automatically.
 Copy/send, payment execution, and final confirmation are explicit human actions.
 
+For a saved, confirmed cover choice, **Create cover handover** is an explicit
+admin-only read. It checks the saved event times, tutor, and complete student
+set against live MMS before reading each student's recent MMS lesson notes and
+the completed Practice Chat note log. It uses at most four notes per student
+from the preceding six weeks, preferring the structured Practice Chat note when
+both sources have a note on the same date. The result is a short, editable
+teaching-note extract with source dates. The admin reviews it, downloads a
+private PDF, and sends it to the named cover tutor manually. No note text is
+sent to an AI provider, and no draft or PDF is stored by the dashboard. Creating
+or downloading it never marks **Notes/context passed on**; the admin ticks that
+only after the actual handover. If MMS cannot be read or the lesson has moved,
+the extract stops rather than using a potentially wrong student roster.
+
 For a saved cover decision with a confirmed roster tutor, **Update MMS** reads
 every saved event ID directly from MMS and checks its date, start time, original
 tutor, current tutor, and complete student set. It updates only one-off events:
