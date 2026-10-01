@@ -72,7 +72,8 @@ export default function IncomingMessageQueueItem({
   return (
     <div
       data-queue-row={entry.incomingId}
-      className="relative overflow-hidden rounded-2xl"
+      tabIndex={-1}
+      className="relative scroll-mt-32 overflow-hidden rounded-2xl"
       style={{ touchAction: 'pan-y pinch-zoom' }}
       onPointerDown={startSwipe}
       onPointerMove={moveSwipe}
