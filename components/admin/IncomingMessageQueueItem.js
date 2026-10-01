@@ -9,7 +9,7 @@ import { labelIncomingCategory } from '@/lib/admin/incoming-message-helpers.mjs'
 export default function IncomingMessageQueueItem({
   cluster, selected = false, onSelect, onHandled, selectionMode = false,
   checkedIds = {}, onToggle, disabled = false, pending = false, canHandle = false,
-  formatStamp,
+  formatStamp, resolutionSuggestion,
 }) {
   const { lead: entry, entries } = cluster;
   const newest = entries[entries.length - 1] || entry;
@@ -134,6 +134,7 @@ export default function IncomingMessageQueueItem({
               <span className="mt-1 block truncate text-xs leading-5 text-slate-500">{preview}</span>
               <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-slate-500">
                 <span className="rounded-full bg-slate-100 px-2 py-0.5">{labelIncomingCategory(entry.suspectedCategory)}</span>
+                {(resolutionSuggestion?.feedback || resolutionSuggestion?.label) === 'looks_answered' ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700" title="A reviewable assessment, not proof that school work is complete">Looks answered</span> : null}
                 {entries.length > 1 ? <span>{entries.length} messages</span> : null}
                 {replyReceipt ? <span className="inline-flex min-w-0 items-center gap-1 text-slate-500" title="A WhatsApp reply was captured. Review it before marking handled.">
                   <Reply aria-hidden="true" className="h-3 w-3 shrink-0" />

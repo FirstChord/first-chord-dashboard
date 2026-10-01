@@ -1,20 +1,29 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-01
+last_verified: 2026-10-01
 ---
 # Approved AI Tool Contracts
 
-Last updated: 2026-08-29
+Last updated: 2026-10-01
 
 This is the allowlist and design boundary for AI assistance inside the
-dashboard. The optional issue briefing and the bounded incoming-reply pilot are
-the only implemented model runtimes. Each makes one server-side, tool-free call over
-a narrow deterministic projection, and the reply pilot runs only when an admin
-presses **Reply** on that exact message. Neither grants an agent access to an
-integration or action. Other capabilities remain
+dashboard. The implemented model runtimes are the optional issue briefing, bounded
+incoming-reply pilot, and manual Jev inbox-resolution pilot. Each makes a
+server-side, tool-free call over a narrow deterministic projection. Reply
+drafting requires **Reply** on one card; resolution checking requires **Check
+replies** on one card. None grants an agent access to an integration or action. Other capabilities remain
 unavailable to a model or user until their privacy review, tests, UI boundary,
 provider/retention decision, and logging exist.
+
+The `incoming_resolution.propose` contract is implemented behind
+`ADMIN_AI_INBOX_RESOLUTION_ENABLED` and `TYPESAFE_API_KEY`, off by default.
+Implementation was requested on 2026-10-01; the live synthetic
+evaluation on that date matched all ten expected labels with no false
+`looks_answered` result. Real-inbox accuracy remains unverified. Its complete data,
+retention, freshness, human-feedback and rollback boundary is documented in
+[Jev inbox resolution](jev-inbox-resolution.md). This approval does not enable
+automatic classification, hiding, workflow mutations, or other Jev features.
 
 ## Core Pattern
 

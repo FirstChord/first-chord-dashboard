@@ -1,6 +1,8 @@
 import AdminIncomingMessagesPageClient from '@/components/admin/AdminIncomingMessagesPageClient';
 import { getBridgeStatus, getIncomingMessageInboxPage } from '@/lib/admin/incoming-messages';
 import { parseBridgeCoverageGaps, selectUnrecoveredBridgeCoverageGaps } from '@/lib/admin/bridge-coverage-helpers.mjs';
+import { getIncomingResolutionProposals } from '@/lib/admin/incoming-resolution-proposals';
+import { isIncomingResolutionConfigured } from '@/lib/admin/incoming-resolution-service.mjs';
 import { getIncomingReplyProposals } from '@/lib/admin/incoming-reply-proposals';
 import { isIncomingReplyDraftingConfigured } from '@/lib/admin/incoming-reply-ai-provider.mjs';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
@@ -19,6 +21,7 @@ export default async function AdminIncomingMessagesPage() {
   let lastAutoCaptureAt = '';
   let coverageGaps = [];
   let replyProposals = {};
+  let resolutionProposals = {};
   let error = '';
   const replyDraftingAvailable = isIncomingReplyDraftingConfigured();
   try {
@@ -33,7 +36,7 @@ export default async function AdminIncomingMessagesPage() {
       "'Pause History'",
       WAITING_LIST_STATE_SHEET,
     ]);
-    const [inboxPage, loadedStudents, loadedBridgeStatus, loadedProposals] = await Promise.all([
+    const [inboxPage, loadedStudents, loadedBridgeStatus, loadedProposals, loadedResolutions] = await Promise.all([
       getIncomingMessageInboxPage({ statusScope: 'active', limit: 0 }),
       getOperationalAdminStudents(),
       getBridgeStatus().catch(() => null),
@@ -41,6 +44,7 @@ export default async function AdminIncomingMessagesPage() {
       // rollback path for new drafts; it must not strand suggestions that
       // still need a human use/edit/discard decision.
       getIncomingReplyProposals().catch(() => ({ openByIncomingId: {} })),
+      getIncomingResolutionProposals().catch(() => ({ byIncomingId: {} })),
     ]);
     inbox = inboxPage.inbox;
     lastAutoCaptureAt = inboxPage.lastAutoCaptureAt || '';
@@ -49,6 +53,7 @@ export default async function AdminIncomingMessagesPage() {
     // Derived from the status row already loaded above — no extra read.
     coverageGaps = selectUnrecoveredBridgeCoverageGaps(parseBridgeCoverageGaps(loadedBridgeStatus?.rawJson || ''));
     replyProposals = loadedProposals.openByIncomingId || {};
+    resolutionProposals = loadedResolutions.byIncomingId || {};
   } catch (caught) {
     error = caught.message || 'Could not load incoming messages';
   }
@@ -72,6 +77,8 @@ export default async function AdminIncomingMessagesPage() {
       error={error}
       initialReplyProposals={replyProposals}
       replyDraftingAvailable={replyDraftingAvailable}
+      initialResolutionProposals={resolutionProposals}
+      resolutionAvailable={isIncomingResolutionConfigured()}
     />
   );
 }
