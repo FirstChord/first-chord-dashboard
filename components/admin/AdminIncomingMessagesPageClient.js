@@ -1137,12 +1137,22 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const [undoAction, setUndoAction] = useState(null);
   const [undoPending, setUndoPending] = useState(false);
   const queueScrollRef = useRef(null);
+  const inboxPageRef = useRef(null);
+  const inboxNavigationRef = useRef(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [queueSelection, setQueueSelection] = useState({});
   const [queuePendingIds, setQueuePendingIds] = useState([]);
   const [queueError, setQueueError] = useState('');
   const queueBusyRef = useRef(false);
   const inboxMutationVersionRef = useRef(0);
+
+  // Read the latest queue/filter state without rebinding the global listener.
+  useEffect(() => { inboxNavigationRef.current = handleInboxArrowKeyDown; });
+  useEffect(() => {
+    const navigate = event => inboxNavigationRef.current?.(event);
+    window.addEventListener('keydown', navigate);
+    return () => window.removeEventListener('keydown', navigate);
+  }, []);
 
   useEffect(() => {
     setPendingHandoff(readStoredHandoff());
@@ -1692,6 +1702,49 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     handleQueueReview(entries, entries.map((entry) => queueSelection[entry.incomingId]));
   }
 
+  function handleInboxArrowKeyDown(event) {
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)
+      || event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey
+      || pendingId || undoPending || queueBusyRef.current) return;
+    const target = event.target;
+    if (!(target instanceof Element) || !inboxPageRef.current
+      || (!inboxPageRef.current.contains(target) && target !== document.body)
+      || target.closest('form, textarea, select, [contenteditable]:not([contenteditable="false"]), input:not([type="checkbox"]), [role="textbox"], [role="dialog"], [role="menu"], [role="listbox"], [role="combobox"]')) return;
+
+    if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      if (!visibleClusters.length) return;
+      const focusedId = target.closest('[data-queue-row]')?.dataset.queueRow;
+      const currentId = focusedId || selectedCluster?.lead.incomingId;
+      const currentIndex = Math.max(0, visibleClusters.findIndex(cluster => cluster.lead.incomingId === currentId));
+      const nextIndex = Math.max(0, Math.min(visibleClusters.length - 1, currentIndex + (event.key === 'ArrowDown' ? 1 : -1)));
+      const nextId = visibleClusters[nextIndex].lead.incomingId;
+      event.preventDefault();
+      setSelectedIncomingId(nextId);
+      const row = [...(queueScrollRef.current?.querySelectorAll('[data-queue-row]') || [])]
+        .find(element => element.dataset.queueRow === nextId);
+      if (row?.getClientRects().length) {
+        const control = row.querySelector(selectionMode ? 'input[type="checkbox"]:not(:disabled)' : '[data-incoming-id]:not(:disabled)');
+        (control || row).focus({ preventScroll: true });
+        row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      }
+      return;
+    }
+
+    // Left/right operates on the focused filter strip; elsewhere it uses the
+    // reply filters in Open, or the view strip when reply filters are absent.
+    const filters = target.closest('[data-inbox-filters]') || inboxPageRef.current.querySelector(
+      inboxView === 'open' ? '[data-inbox-filters="reply"]' : '[data-inbox-filters="view"]',
+    );
+    const buttons = [...(filters?.querySelectorAll('button:not(:disabled)') || [])];
+    if (buttons.length < 2) return;
+    const focused = buttons.indexOf(target.closest('button'));
+    const currentIndex = focused >= 0 ? focused : Math.max(0, buttons.findIndex(button => button.getAttribute('aria-pressed') === 'true'));
+    const nextIndex = (currentIndex + (event.key === 'ArrowRight' ? 1 : buttons.length - 1)) % buttons.length;
+    event.preventDefault();
+    buttons[nextIndex].click();
+    buttons[nextIndex].focus({ preventScroll: true });
+  }
+
   function handleQueueKeyDown(event) {
     if (event.target.closest('textarea, select, [contenteditable="true"], input:not([type="checkbox"]):not([type="radio"])')
       || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
@@ -1899,7 +1952,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   }
 
   return (
-    <div className="space-y-8">
+    <div ref={inboxPageRef} className="space-y-8">
       <section className="flex items-start justify-between gap-3">
         <div>
           <h2 className="fc-display text-3xl text-slate-900">Message Inbox</h2>
@@ -2048,7 +2101,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         </div>
 
         <div className="flex justify-end">
-          <div className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm" role="group" aria-label="Inbox view">
+          <div data-inbox-filters="view" className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm" role="group" aria-label="Inbox view">
             {[
               ['open', 'Open', openCount, 'Messages that need attention now'],
               ['later', 'Later', laterCount, 'Messages parked until a chosen date'],
@@ -2109,7 +2162,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                   </div>
                 </div>
                 {inboxView === 'open' ? (
-                  <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Reply filter">
+                  <div data-inbox-filters="reply" className="flex flex-wrap items-center gap-1" role="group" aria-label="Reply filter">
                     {[['all', 'All'], ['replied', `Replied ${repliedCount}`], ...(resolutionAvailable || Object.keys(resolutionProposals).length ? [['answered', `Looks answered ${answeredCount}`]] : [])].map(([value, label]) => (
                       <button
                         key={String(value)}

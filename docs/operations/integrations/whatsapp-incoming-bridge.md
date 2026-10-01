@@ -177,6 +177,15 @@ an earlier selection. Changing views cancels selection. **E** handles the
 focused row or selected messages and **Z** undoes while the queue has keyboard
 focus; shortcuts never apply while typing.
 
+**Up/Down** moves through the visible message bursts, updates the detail card,
+and keeps the focused row in view; it stops at the first/last row. In Select
+mode it moves checkbox focus without selecting or handling anything. **Left/Right**
+switches the focused filter strip (Open/Later/Done or All/Replied/Looks answered)
+and wraps at its ends. Elsewhere in the inbox it uses the reply filters in Open,
+or the view strip in Later/Done. Arrow navigation leaves text fields, native
+selects, forms, menus/dialogs, modified keys, and saving states alone. It does
+not run Jev or persist a message outcome.
+
 Review, Later and Undo share a 100-message batch limit. Review guards compare
 status, review timestamp, snooze and Planning link before any batch write; a
 changed item rejects the whole selection for refresh/review. Failed actions
