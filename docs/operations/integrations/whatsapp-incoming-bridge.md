@@ -478,3 +478,12 @@ manual-capture path, and keeping MMS/Sheets—not WhatsApp automation—as truth
 
 There is no end-to-end socket/watchdog contract test. Changes to live event,
 heartbeat, refresh, or reconnect handling need a manual bridge smoke check.
+
+### Optional manual Jev assessment
+
+The dashboard can assess captured school replies through the opt-in
+[Jev inbox-resolution pilot](../../architecture/ai/jev-inbox-resolution.md).
+The bridge does not call Jev, backfill transcripts or change reply association.
+**Replied** remains a factual capture cue; **Looks answered** is a separate,
+reviewable suggestion. Even confirmed feedback never archives a message or
+completes linked Planning work. New requests/replies invalidate old suggestions.

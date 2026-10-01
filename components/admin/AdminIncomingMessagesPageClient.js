@@ -5,6 +5,8 @@ import PlanningSaveError from './planning/PlanningSaveError';
 import GroupMapPanel from './IncomingGroupMapPanel';
 import TutorMessageBadge from './TutorMessageBadge';
 import IncomingMessageQueueItem from './IncomingMessageQueueItem';
+import IncomingResolutionAssessment from './IncomingResolutionAssessment';
+import { currentResolutionSuggestion } from '@/lib/admin/incoming-resolution-helpers.mjs';
 import { collectSchoolReplies, getClusterReplyReceipt, schoolReplierLabel } from '@/lib/admin/incoming-reply-evidence-helpers.mjs';
 import {
   INCOMING_REVIEW_BATCH_LIMIT, buildIncomingQueueExpectation,
@@ -757,7 +759,7 @@ function MessageQueueItem(props) {
 // `entry` is the burst's lead message — the one that carries the signal, and
 // the one Reply and Reply + Plan work from. `entries` is the whole burst,
 // oldest first; outcome actions apply to all of it so nothing is left behind.
-function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false }) {
+function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false, resolutionProposal, resolutionAvailable, onAssessResolution, onResolutionFeedback }) {
   const isPending = entries.some((message) => pendingId === message.incomingId);
   // pendingId only says this card is busy; the pressed button alone shows it.
   const { press, pendingFor } = usePressedAction(isPending);
@@ -883,6 +885,15 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
       <ConversationContext messages={conversationContext} loading={contextLoading} />
 
       <SchoolReplyEvidence entries={entries} />
+      <IncomingResolutionAssessment
+        key={resolutionProposal?.proposalId || 'new'}
+        proposal={resolutionProposal}
+        available={resolutionAvailable}
+        eligible={isOpen && !entry.isSnoozed && collectSchoolReplies(entries).length > 0}
+        pending={isPending}
+        onAssess={() => onAssessResolution(entry.incomingId)}
+        onFeedback={onResolutionFeedback}
+      />
 
       {replyProposal ? (
         <SuggestedReplyBlock
@@ -1086,11 +1097,12 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
   );
 }
 
-export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, coverageGaps = [], lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false }) {
+export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, coverageGaps = [], lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false, initialResolutionProposals = {}, resolutionAvailable = false }) {
   const [inbox, setInbox] = useState(initialInbox);
   const [groupMap, setGroupMap] = useState(initialGroupMap);
   const [groupTutorOptions, setGroupTutorOptions] = useState(tutorOptions);
   const [replyProposals, setReplyProposals] = useState(initialReplyProposals);
+  const [resolutionProposals, setResolutionProposals] = useState(initialResolutionProposals);
   const [decidedReplies, setDecidedReplies] = useState({});
   const [messageText, setMessageText] = useState('');
   const [senderName, setSenderName] = useState('');
@@ -1102,7 +1114,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const [submitError, setSubmitError] = useState(error);
   const [duplicatePlanningId, setDuplicatePlanningId] = useState('');
   const [inboxView, setInboxView] = useState('open');
-  const [replyFilter, setReplyFilter] = useState(false);
+  const [replyFilter, setReplyFilter] = useState('all');
   const [showCapture, setShowCapture] = useState(false);
   const [showGroupMap, setShowGroupMap] = useState(false);
   const [groupsLoaded, setGroupsLoaded] = useState(initialGroupMap.length > 0);
@@ -1226,6 +1238,15 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         }
         if (Object.hasOwn(data, 'lastAutoCaptureAt')) setLatestAutoCaptureAt(data.lastAutoCaptureAt || '');
         setConversationContexts({});
+        // A refresh invalidates old suggestions before a separate read. This never calls Jev.
+        setResolutionProposals({});
+        if (scope === 'active') {
+          const assessmentsResponse = await fetch('/api/admin/incoming-messages/resolution-proposals');
+          const assessments = await assessmentsResponse.json().catch(() => ({}));
+          if (assessmentsResponse.ok && assessments.success && mutationVersion === inboxMutationVersionRef.current) {
+            setResolutionProposals(assessments.byIncomingId || {});
+          }
+        }
       }
       if (replyDraftingAvailable) {
         const proposalsResponse = await fetch('/api/admin/incoming-messages/reply-proposals');
@@ -1238,6 +1259,23 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       setIsRefreshing(false);
     }
   }, [inboxView, replyDraftingAvailable]);
+
+  async function handleResolution(mode, values) {
+    if (queueBusyRef.current || pendingId) return;
+    const selectedId = values.incomingId || selectedCluster?.lead?.incomingId || selectedIncomingId;
+    setPendingId(selectedId);
+    setSubmitError('');
+    try {
+      const response = await fetch('/api/admin/incoming-messages/resolution-proposals', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, ...values }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'Reply checking failed');
+      setResolutionProposals(current => ({ ...current, [data.incomingId]: data.proposal }));
+    } catch (caught) { setSubmitError(caught.message || 'Reply checking failed'); }
+    finally { setPendingId(''); }
+  }
 
   async function loadGroupMap() {
     if (groupsLoaded || groupsLoading) return;
@@ -1263,7 +1301,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     setQueueSelection({});
     setQueueError('');
     setInboxView(value);
-    setReplyFilter(false);
+    setReplyFilter('all');
     setMobileDetailOpen(false);
     if (value !== 'done' || doneLoaded || doneLoading) return;
     setDoneLoading(true);
@@ -1379,9 +1417,18 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const repliedCount = useMemo(() => allVisibleClusters.filter((cluster) => getClusterReplyReceipt(cluster.entries)).length, [allVisibleClusters]);
   // Filter whole bursts, never individual children: Select/Undo still apply to
   // every message in the visible request, including an unstamped lead.
-  const visibleClusters = useMemo(() => inboxView === 'open' && replyFilter
-    ? allVisibleClusters.filter((cluster) => getClusterReplyReceipt(cluster.entries))
-    : allVisibleClusters, [allVisibleClusters, inboxView, replyFilter]);
+  const currentResolutions = useMemo(() => Object.fromEntries(allVisibleClusters.map(cluster => [
+    cluster.lead.incomingId,
+    currentResolutionSuggestion(resolutionProposals[cluster.lead.incomingId], cluster.entries, new Date(), inbox),
+  ])), [allVisibleClusters, resolutionProposals, inbox]);
+  const answeredCount = allVisibleClusters.filter(cluster => {
+    const proposal = currentResolutions[cluster.lead.incomingId];
+    return (proposal?.feedback || proposal?.label) === 'looks_answered';
+  }).length;
+  const visibleClusters = useMemo(() => inboxView !== 'open' || replyFilter === 'all' ? allVisibleClusters
+    : allVisibleClusters.filter(cluster => replyFilter === 'replied' ? getClusterReplyReceipt(cluster.entries)
+      : (currentResolutions[cluster.lead.incomingId]?.feedback || currentResolutions[cluster.lead.incomingId]?.label) === 'looks_answered'),
+  [allVisibleClusters, inboxView, replyFilter, currentResolutions]);
   const selectedCluster = useMemo(() => (
     visibleClusters.find((cluster) => cluster.lead.incomingId === selectedIncomingId)
     || visibleClusters[0]
@@ -2062,8 +2109,8 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                   </div>
                 </div>
                 {inboxView === 'open' ? (
-                  <div className="flex items-center gap-1" role="group" aria-label="Reply filter">
-                    {[[false, 'All'], [true, `Replied ${repliedCount}`]].map(([value, label]) => (
+                  <div className="flex flex-wrap items-center gap-1" role="group" aria-label="Reply filter">
+                    {[['all', 'All'], ['replied', `Replied ${repliedCount}`], ...(resolutionAvailable || Object.keys(resolutionProposals).length ? [['answered', `Looks answered ${answeredCount}`]] : [])].map(([value, label]) => (
                       <button
                         key={String(value)}
                         type="button"
@@ -2117,6 +2164,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                   <MessageQueueItem
                     key={cluster.clusterId}
                     cluster={cluster}
+                    resolutionSuggestion={currentResolutions[cluster.lead.incomingId]}
                     selected={selectedCluster?.lead?.incomingId === cluster.lead.incomingId}
                     onSelect={() => selectMessage(cluster.lead.incomingId)}
                     onHandled={() => handleQueueReview(cluster.entries)}
@@ -2131,8 +2179,8 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
               </div>
               {!visibleClusters.length ? (
                 <div className={`rounded-xl border px-3 py-4 text-sm ${inboxView === 'open' && bridgeHealth.state === 'warn' ? 'border-amber-200 bg-amber-50/70 text-amber-900' : 'border-emerald-100 bg-emerald-50/70 text-emerald-800'}`}>
-                  {inboxView === 'open' && replyFilter
-                    ? 'No captured replies on open messages yet.'
+                  {inboxView === 'open' && replyFilter !== 'all'
+                    ? replyFilter === 'answered' ? 'No open requests currently look answered.' : 'No captured replies on open messages yet.'
                     : inboxView === 'later'
                     ? 'Nothing is waiting for later.'
                     : inboxView === 'done'
@@ -2173,6 +2221,10 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                 replyProposal={replyProposals[selectedCluster.lead.incomingId]}
                 decidedReply={decidedReplies[selectedCluster.lead.incomingId]}
                 replyDraftingAvailable={replyDraftingAvailable}
+                resolutionProposal={currentResolutions[selectedCluster.lead.incomingId]}
+                resolutionAvailable={resolutionAvailable}
+                onAssessResolution={incomingId => handleResolution('assess', { incomingId })}
+                onResolutionFeedback={(proposalId, label) => handleResolution('feedback', { proposalId, label })}
                 onDraftReply={handleDraftReply}
                 onDecideReply={handleDecideReply}
                 onBeginHandoff={beginHandoff}
