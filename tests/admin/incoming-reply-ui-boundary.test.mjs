@@ -76,6 +76,10 @@ test('handled and Later outcomes offer optimistic-concurrency Undo', async () =>
   assert.match(routeSource, /restoreIncomingMessageReviews/u);
   assert.match(serviceSource, /row\.reviewedAt !== snapshot\.expectedReviewedAt/u);
   assert.match(serviceSource, /error\.status = 409/u);
+  assert.match(serviceSource, /normaliseIncomingUndoSnapshots\(snapshots\)/u);
+  assert.doesNotMatch(serviceSource, /slice\(0, 12\)/u);
+  assert.match(serviceSource, /getIncomingMessageInboxRows\(\{ force: true \}\)/u);
+  assert.match(serviceSource, /force: expectations !== undefined/u);
 });
 
 test('an unhealthy bridge prevents a misleading all-caught-up empty state', async () => {

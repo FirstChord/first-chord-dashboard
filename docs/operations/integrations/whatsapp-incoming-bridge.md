@@ -143,8 +143,26 @@ The Open, Later and Done filters keep those meanings distinct. **Done** records
 handled-without-a-plan; **No action needed** remains a separate outcome under
 More. Neither performs a provider action or sends a reply.
 
-**Handled** and **Later** offer a 12-second Undo. Undo carries the prior workflow
-fields, reloads the current Sheet row, and applies only if its review timestamp
+The queue offers a 44px **Handled** checkmark without opening the detail card.
+On touchscreens, a deliberate left swipe performs the same action; vertical
+scrolling, short swipes and cancelled gestures do nothing. **Select** reveals
+checkboxes and a compact batch toolbar. A row selects its currently visible
+burst; selection keeps exact message IDs, so a later arrival is not swept into
+an earlier selection. Changing views cancels selection. **E** handles the
+focused row or selected messages and **Z** undoes while the queue has keyboard
+focus; shortcuts never apply while typing.
+
+Review, Later and Undo share a 100-message batch limit. Review guards compare
+status, review timestamp, snooze and Planning link before any batch write; a
+changed item rejects the whole selection for refresh/review. Failed actions
+leave the queue and selection visible with an error beside the controls. A
+refresh begun before an inbox mutation cannot overwrite its compact response.
+
+**Handled** and **Later** offer a 20-second Undo, including the whole selected
+batch rather than truncating it to twelve messages. Undo pauses while saving.
+Unlinked Done items also offer **Bring back to Open** after the toast expires.
+Undo carries the prior workflow fields, bypasses the read cache for the current
+Sheet rows, and applies only if each review timestamp
 still matches; another person's later decision wins. Planning-linked outcomes
 cannot be undone from the inbox.
 

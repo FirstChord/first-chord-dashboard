@@ -4,10 +4,15 @@ import { planningSaveClientError } from '@/lib/admin/planning-duplicate-helpers.
 import PlanningSaveError from './planning/PlanningSaveError';
 import GroupMapPanel from './IncomingGroupMapPanel';
 import TutorMessageBadge from './TutorMessageBadge';
+import IncomingMessageQueueItem from './IncomingMessageQueueItem';
+import {
+  INCOMING_REVIEW_BATCH_LIMIT, buildIncomingQueueExpectation,
+  toggleIncomingQueueSelection, retainIncomingQueueSelection,
+} from '@/lib/admin/incoming-queue-helpers.mjs';
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Check, ChevronRight, Clock3, Ellipsis, Loader2, RefreshCw, Reply, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Check, Clock3, Ellipsis, Loader2, RefreshCw, Reply, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/admin/ui/ActionButton';
 import { usePressedAction } from '@/components/admin/ui/usePressedAction';
 import { describeBridgeCoverageGap } from '@/lib/admin/bridge-coverage-helpers.mjs';
@@ -169,13 +174,13 @@ function HandoffTray({ handoff, onOpenWhatsapp, onConfirmSent, onDismiss, isPend
 function UndoToast({ action, onUndo, isPending }) {
   if (!action) return null;
   return (
-    <div aria-live="polite" className="fixed bottom-20 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-full bg-slate-900 px-4 py-2.5 text-sm text-white shadow-xl sm:bottom-6">
-      <span>{action.label}</span>
+    <div aria-live="polite" className="fixed bottom-20 left-1/2 z-50 flex w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm text-white shadow-xl sm:bottom-6">
+      <span className="min-w-0">{action.label}</span>
       <button
         type="button"
         disabled={isPending}
         onClick={onUndo}
-        className="font-semibold text-emerald-300 disabled:opacity-60"
+        className="min-h-11 shrink-0 px-2 font-semibold text-emerald-300 disabled:opacity-60"
       >
         {isPending ? 'Undoing…' : 'Undo'}
       </button>
@@ -728,45 +733,8 @@ function LaterChoices({ entries, onSnooze, isPending, onClose }) {
   );
 }
 
-function MessageQueueItem({ cluster, selected = false, onSelect }) {
-  const { lead: entry, entries } = cluster;
-  const newest = entries[entries.length - 1] || entry;
-  const label = entry.groupType === 'tutor'
-    ? entry.matchedTutorName || entry.senderName || 'Tutor message'
-    : entry.matchedStudentName || entry.senderName || 'Check student';
-  const preview = entries.map((message) => message.messageText).filter(Boolean).join(' ');
-  const needsCheck = entries.some((message) => (
-    message.status === 'needs_review'
-    || message.classificationActionability === 'uncertain'
-    || message.classificationConfidence === 'low'
-  )) || (entry.groupType !== 'tutor' && (!entry.matchedMmsId || entry.matchConfidence !== 'high'));
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      aria-current={selected ? 'true' : undefined}
-      className={`group w-full rounded-2xl border px-3 py-3 text-left transition ${selected
-        ? 'border-[#2F6B3D]/35 bg-green-50/80 shadow-sm'
-        : 'border-transparent bg-white/70 hover:border-slate-200 hover:bg-white'}`}
-    >
-      <span className="flex items-start gap-3">
-        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${needsCheck ? 'bg-amber-400' : 'bg-emerald-400'}`} aria-hidden="true" />
-        <span className="min-w-0 flex-1">
-          <span className="flex items-start justify-between gap-2">
-            <span className="truncate text-sm font-semibold text-slate-900">{label}</span>
-            <span className="shrink-0 text-[10px] text-slate-400">{formatMessageStamp(newest.messageAt || newest.capturedAt)}</span>
-          </span>
-          <span className="mt-1 block truncate text-xs leading-5 text-slate-500">{preview}</span>
-          <span className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
-            <span className="rounded-full bg-slate-100 px-2 py-0.5">{labelIncomingCategory(entry.suspectedCategory)}</span>
-            {entries.length > 1 ? <span>{entries.length} messages</span> : null}
-          </span>
-        </span>
-        <ChevronRight aria-hidden="true" className={`mt-4 h-4 w-4 shrink-0 ${selected ? 'text-[#2F6B3D]' : 'text-slate-300 group-hover:text-slate-500'}`} />
-      </span>
-    </button>
-  );
+function MessageQueueItem(props) {
+  return <IncomingMessageQueueItem {...props} formatStamp={formatMessageStamp} />;
 }
 
 // `entry` is the burst's lead message — the one that carries the signal, and
@@ -993,6 +961,18 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
               : <Check aria-hidden="true" className="h-4 w-4" />}
           </button>
         ) : null}
+        {!isOpen && !entries.some((message) => message.createdPlanningId) ? (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={press('reopen', () => onReview(entries, 'inbox'))}
+            aria-label="Bring back to Open"
+            title="Bring back to Open"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 disabled:opacity-60"
+          >
+            {pendingFor('reopen') ? <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" /> : <RotateCcw aria-hidden="true" className="h-4 w-4" />}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => {
@@ -1132,16 +1112,36 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const [undoAction, setUndoAction] = useState(null);
   const [undoPending, setUndoPending] = useState(false);
   const queueScrollRef = useRef(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [queueSelection, setQueueSelection] = useState({});
+  const [queuePendingIds, setQueuePendingIds] = useState([]);
+  const [queueError, setQueueError] = useState('');
+  const queueBusyRef = useRef(false);
+  const inboxMutationVersionRef = useRef(0);
 
   useEffect(() => {
     setPendingHandoff(readStoredHandoff());
   }, []);
 
   useEffect(() => {
-    if (!undoAction) return undefined;
-    const timeoutId = window.setTimeout(() => setUndoAction(null), 12_000);
+    // The installed phone app hides the admin header; ordinary mobile browsers
+    // retain it. Keep selection controls below whichever header is actually shown.
+    const header = document.querySelector('header.standalone-hide');
+    if (!header) return undefined;
+    const updateOffset = () => {
+      queueScrollRef.current?.style.setProperty('--incoming-queue-top', `${header.getBoundingClientRect().height}px`);
+    };
+    updateOffset();
+    const observer = new ResizeObserver(updateOffset);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!undoAction || undoPending) return undefined;
+    const timeoutId = window.setTimeout(() => setUndoAction(null), 20_000);
     return () => window.clearTimeout(timeoutId);
-  }, [undoAction]);
+  }, [undoAction, undoPending]);
 
   function rememberHandoff(handoff) {
     const next = { ...handoff, createdAt: handoff.createdAt || new Date().toISOString() };
@@ -1192,12 +1192,14 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   // Fresh data whenever the (installed) app is opened or the tab regains
   // focus, plus the manual refresh button
   const refreshInbox = useCallback(async () => {
+    if (queueBusyRef.current) return;
+    const mutationVersion = inboxMutationVersionRef.current;
     setIsRefreshing(true);
     try {
       const scope = inboxView === 'done' ? 'done' : 'active';
       const response = await fetch(`/api/admin/incoming-messages?scope=${scope}`);
       const data = await response.json().catch(() => ({}));
-      if (response.ok && data.success) {
+      if (response.ok && data.success && mutationVersion === inboxMutationVersionRef.current) {
         setInbox((current) => {
           const keep = current.filter((entry) => (scope === 'done'
             ? !['converted', 'ignored'].includes(entry.status)
@@ -1243,6 +1245,10 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   }
 
   async function changeInboxView(value) {
+    if (queueBusyRef.current) return;
+    setSelectionMode(false);
+    setQueueSelection({});
+    setQueueError('');
     setInboxView(value);
     setMobileDetailOpen(false);
     if (value !== 'done' || doneLoaded || doneLoading) return;
@@ -1361,6 +1367,18 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     || visibleClusters[0]
     || null
   ), [selectedIncomingId, visibleClusters]);
+  const selectableEntries = useMemo(() => (
+    inboxView === 'open'
+      ? visibleClusters.flatMap((cluster) => cluster.entries.every((entry) => !entry.createdPlanningId) ? cluster.entries : [])
+      : []
+  ), [inboxView, visibleClusters]);
+  const queueSelectionCount = Object.keys(queueSelection).length;
+  const queueBusy = queuePendingIds.length > 0;
+
+  useEffect(() => {
+    setQueueSelection((current) => retainIncomingQueueSelection(current, selectableEntries));
+  }, [selectableEntries]);
+
   const selectedPosition = selectedCluster
     ? visibleClusters.findIndex((cluster) => cluster.lead.incomingId === selectedCluster.lead.incomingId) + 1
     : 0;
@@ -1434,6 +1452,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   }
 
   async function postPayload(payload, { compact = false } = {}) {
+    inboxMutationVersionRef.current += 1;
     const response = await fetch('/api/admin/incoming-messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1489,10 +1508,11 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       incomingIds: entries.map((message) => message.incomingId),
       status: nextStatus,
       classificationActionability: nextStatus === 'ignored' ? 'no_action' : '',
+      expectations: entries.map(buildIncomingQueueExpectation),
     }, { compact: true });
   }
 
-  function armUndo(entries, data, label) {
+  function armUndo(entries, data, label, returnToQueue = false) {
     const updates = new Map((data.updatedMessages || []).map((row) => [row.incomingId, row]));
     const snapshots = entries.map((entry) => ({
       ...buildIncomingUndoSnapshot(entry),
@@ -1502,6 +1522,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       const entryIds = new Set(entries.map((entry) => entry.incomingId));
       setUndoAction({
         label,
+        returnToQueue,
         snapshots,
         incomingId: entries[0]?.incomingId || '',
         handoff: pendingHandoff?.incomingIds?.some((incomingId) => entryIds.has(incomingId))
@@ -1512,22 +1533,115 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   }
 
   async function handleReview(entries, nextStatus, undoLabel = '') {
+    if (queueBusyRef.current) return false;
     setSubmitError('');
     setDuplicatePlanningId('');
     setPendingId(entries[0].incomingId);
     try {
       const data = await reviewBurst(entries, nextStatus);
-      armUndo(entries, data, undoLabel || (nextStatus === 'ignored' ? 'Marked no action needed' : 'Marked handled'));
+      if (nextStatus === 'inbox') setUndoAction(null);
+      else armUndo(entries, data, undoLabel || (nextStatus === 'ignored' ? 'Marked no action needed' : 'Marked handled'));
       if (pendingHandoff?.incomingIds?.some((incomingId) => entries.some((entry) => entry.incomingId === incomingId))) {
         clearHandoff();
       }
-      advanceAfter(entries[0].incomingId);
+      if (nextStatus === 'inbox') {
+        setInboxView('open');
+        selectMessage(entries[0].incomingId);
+      } else advanceAfter(entries[0].incomingId);
       return true;
     } catch (caught) {
       setSubmitError(caught.message || 'Review update failed');
       return false;
     } finally {
       setPendingId('');
+    }
+  }
+
+  function cancelQueueSelection() {
+    if (queueBusyRef.current) return;
+    setSelectionMode(false);
+    setQueueSelection({});
+    setQueueError('');
+  }
+
+  function toggleQueueSelection(entries) {
+    if (pendingId || undoPending || queueBusyRef.current) return;
+    setQueueError('');
+    setQueueSelection((current) => toggleIncomingQueueSelection(current, entries));
+  }
+
+  async function handleQueueReview(entries, expectations = entries.map(buildIncomingQueueExpectation)) {
+    if (!entries.length || pendingId || undoPending || queueBusyRef.current) return;
+    if (entries.length > INCOMING_REVIEW_BATCH_LIMIT) {
+      setQueueError(`Select up to ${INCOMING_REVIEW_BATCH_LIMIT} messages at a time.`);
+      return;
+    }
+    const ids = entries.map((entry) => entry.incomingId);
+    const removed = new Set(ids);
+    const hadQueueFocus = queueScrollRef.current?.contains(document.activeElement);
+    const focusedId = document.activeElement?.closest('[data-queue-row]')?.dataset.queueRow;
+    const anchorIndex = visibleClusters.findIndex((cluster) => focusedId
+      ? cluster.lead.incomingId === focusedId
+      : cluster.entries.some((entry) => removed.has(entry.incomingId)));
+    const remainingClusters = visibleClusters.filter((cluster) => (
+      !cluster.entries.every((entry) => removed.has(entry.incomingId))
+    ));
+    const nextCluster = remainingClusters.find((cluster) => visibleClusters.indexOf(cluster) > anchorIndex)
+      || remainingClusters[remainingClusters.length - 1];
+    queueBusyRef.current = true;
+    setQueuePendingIds(ids);
+    setPendingId(ids[0]);
+    setQueueError('');
+    try {
+      const data = await postPayload({
+        mode: 'review_batch', incomingIds: ids, status: 'converted', expectations,
+      }, { compact: true });
+      armUndo(entries, data, `${ids.length} message${ids.length === 1 ? '' : 's'} handled`, true);
+      if (pendingHandoff?.incomingIds?.some((id) => removed.has(id))) clearHandoff();
+      if (selectedCluster?.entries.some((entry) => removed.has(entry.incomingId))) {
+        setSelectedIncomingId(nextCluster?.lead.incomingId || '');
+      }
+      setMobileDetailOpen(false);
+      setQueueSelection({});
+      setSelectionMode(false);
+      if (hadQueueFocus) {
+        window.requestAnimationFrame(() => {
+          const buttons = queueScrollRef.current?.querySelectorAll('[data-incoming-id]');
+          const nextButton = Array.from(buttons || []).find((button) => button.dataset.incomingId === nextCluster?.lead.incomingId);
+          (nextButton || queueScrollRef.current?.querySelector('[data-queue-select]'))?.focus({ preventScroll: true });
+        });
+      }
+    } catch (caught) {
+      setQueueError(caught.message || 'Messages could not be marked handled. Try again.');
+    } finally {
+      queueBusyRef.current = false;
+      setQueuePendingIds([]);
+      setPendingId('');
+    }
+  }
+
+  function handleSelectedQueueReview() {
+    const entries = selectableEntries.filter((entry) => Object.hasOwn(queueSelection, entry.incomingId));
+    handleQueueReview(entries, entries.map((entry) => queueSelection[entry.incomingId]));
+  }
+
+  function handleQueueKeyDown(event) {
+    if (event.target.closest('textarea, select, [contenteditable="true"], input:not([type="checkbox"]):not([type="radio"])')
+      || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      cancelQueueSelection();
+    } else if (event.key.toLowerCase() === 'z' && undoAction && !pendingId && !undoPending) {
+      event.preventDefault();
+      handleUndo();
+    } else if (event.key.toLowerCase() === 'e' && inboxView === 'open' && !pendingId && !undoPending) {
+      event.preventDefault();
+      if (selectionMode) handleSelectedQueueReview();
+      else {
+        const focusedId = event.target.closest('[data-queue-row]')?.dataset.queueRow;
+        const cluster = visibleClusters.find((item) => item.lead.incomingId === focusedId) || selectedCluster;
+        if (cluster && cluster.entries.every((entry) => !entry.createdPlanningId)) handleQueueReview(cluster.entries);
+      }
     }
   }
 
@@ -1554,14 +1668,14 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   }
 
   async function handleUndo() {
-    if (!undoAction?.snapshots?.length) return;
+    if (!undoAction?.snapshots?.length || pendingId || queueBusyRef.current || undoPending) return;
     setUndoPending(true);
     setSubmitError('');
     try {
       await postPayload({ mode: 'restore_batch', snapshots: undoAction.snapshots }, { compact: true });
       setInboxView('open');
       setSelectedIncomingId(undoAction.incomingId);
-      setMobileDetailOpen(true);
+      setMobileDetailOpen(!undoAction.returnToQueue);
       if (undoAction.handoff) rememberHandoff({ ...undoAction.handoff, openedAt: '' });
       setUndoAction(null);
     } catch (caught) {
@@ -1876,6 +1990,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
               <button
                 key={value}
                 type="button"
+                disabled={queueBusy}
                 onClick={() => changeInboxView(value)}
                 aria-pressed={inboxView === value}
                 title={title}
@@ -1888,7 +2003,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         </div>
 
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(17rem,0.72fr)_minmax(0,1.28fr)]">
-          <aside className={`${mobileDetailOpen ? 'hidden lg:block' : 'block'} min-w-0 lg:sticky lg:top-40`} aria-label="Message queue">
+          <aside className={`${mobileDetailOpen ? 'hidden lg:block' : 'block'} min-w-0 lg:sticky lg:top-40`} aria-label="Message queue" onKeyDown={handleQueueKeyDown}>
             <div
               ref={queueScrollRef}
               onScroll={(event) => {
@@ -1898,13 +2013,62 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
               }}
               className="rounded-2xl border border-white/70 bg-white/55 p-2 shadow-[0_12px_36px_rgba(15,23,42,0.04)] backdrop-blur-sm lg:max-h-[calc(100vh-11rem)] lg:overflow-y-auto"
             >
-              <div className="flex items-center justify-between px-2 pb-2 pt-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  {inboxView === 'done' ? 'Completed' : inboxView === 'later' ? 'For later' : 'To handle'}
-                </p>
-                <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">
-                  {selectedPosition ? `${selectedPosition} of ${visibleClusters.length}` : visibleClusters.length}
-                </span>
+              <div className="sticky top-[var(--incoming-queue-top,0px)] z-10 rounded-xl bg-white/95 px-2 pb-2 pt-1 backdrop-blur-sm lg:top-0">
+                <div className="flex min-h-11 items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    {selectionMode ? `${queueSelectionCount} selected` : inboxView === 'done' ? 'Completed' : inboxView === 'later' ? 'For later' : 'To handle'}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {!selectionMode ? (
+                      <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-slate-500">
+                        {selectedPosition ? `${selectedPosition} of ${visibleClusters.length}` : visibleClusters.length}
+                      </span>
+                    ) : null}
+                    {inboxView === 'open' ? (
+                      <button
+                        type="button"
+                        data-queue-select
+                        disabled={Boolean(pendingId) || undoPending}
+                        aria-pressed={selectionMode}
+                        onClick={() => {
+                          if (selectionMode) cancelQueueSelection();
+                          else { setSelectionMode(true); setQueueError(''); }
+                        }}
+                        className="min-h-11 rounded-full px-3 text-xs font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+                      >
+                        {selectionMode ? 'Cancel' : 'Select'}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+                {selectionMode ? (
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      disabled={Boolean(pendingId) || undoPending || !selectableEntries.length}
+                      onClick={() => toggleQueueSelection(selectableEntries)}
+                      className="min-h-11 rounded-full px-3 text-xs font-semibold text-slate-500 disabled:opacity-50"
+                    >
+                      {selectableEntries.length && queueSelectionCount === selectableEntries.length ? 'Clear selection' : 'Select all'}
+                    </button>
+                    <ActionButton
+                      variant="secondary"
+                      pending={queueBusy}
+                      pendingLabel="Saving…"
+                      disabled={!queueSelectionCount || queueSelectionCount > INCOMING_REVIEW_BATCH_LIMIT || Boolean(pendingId) || undoPending}
+                      onClick={handleSelectedQueueReview}
+                      className="text-xs"
+                    >
+                      Mark handled
+                    </ActionButton>
+                  </div>
+                ) : null}
+                {queueSelectionCount > INCOMING_REVIEW_BATCH_LIMIT ? (
+                  <p className="py-2 text-xs text-slate-600">Select up to {INCOMING_REVIEW_BATCH_LIMIT} messages at a time.</p>
+                ) : null}
+                {queueError ? (
+                  <p role="alert" className="py-2 text-xs text-red-700">{queueError}</p>
+                ) : null}
               </div>
               {inboxView === 'done' && completedTotal > visibleInbox.length ? (
                 <p className="px-2 pb-2 text-xs text-slate-500">Showing the {visibleInbox.length} most recent of {completedTotal}.</p>
@@ -1916,6 +2080,13 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                     cluster={cluster}
                     selected={selectedCluster?.lead?.incomingId === cluster.lead.incomingId}
                     onSelect={() => selectMessage(cluster.lead.incomingId)}
+                    onHandled={() => handleQueueReview(cluster.entries)}
+                    canHandle={inboxView === 'open' && cluster.entries.every((entry) => !entry.createdPlanningId)}
+                    selectionMode={selectionMode}
+                    checkedIds={queueSelection}
+                    onToggle={() => toggleQueueSelection(cluster.entries)}
+                    disabled={Boolean(pendingId) || undoPending}
+                    pending={cluster.entries.some((entry) => queuePendingIds.includes(entry.incomingId))}
                   />
                 ))}
               </div>
@@ -1951,7 +2122,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                 entry={selectedCluster.lead}
                 entries={selectedCluster.entries}
                 studentOptions={studentOptions}
-                pendingId={pendingId}
+                pendingId={queueBusy ? selectedCluster.lead.incomingId : pendingId}
                 onReview={handleReview}
                 onSnooze={handleSnooze}
                 onDelete={handleDelete}
@@ -1975,7 +2146,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
           </section>
         </div>
       </section>
-      <UndoToast action={undoAction} onUndo={handleUndo} isPending={undoPending} />
+      <UndoToast action={undoAction} onUndo={handleUndo} isPending={undoPending || Boolean(pendingId)} />
     </div>
   );
 }

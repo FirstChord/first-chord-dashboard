@@ -139,6 +139,7 @@ export async function POST(request) {
       }
       const rows = await updateIncomingMessageReviews({
         incomingIds: Array.isArray(body?.incomingIds) ? body.incomingIds : [],
+        expectations: body?.expectations,
         status: body?.status || '',
         reviewNote: body?.reviewNote || '',
         resolutionType: body?.resolutionType || '',
