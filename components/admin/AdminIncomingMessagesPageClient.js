@@ -5,6 +5,7 @@ import PlanningSaveError from './planning/PlanningSaveError';
 import GroupMapPanel from './IncomingGroupMapPanel';
 import TutorMessageBadge from './TutorMessageBadge';
 import IncomingMessageQueueItem from './IncomingMessageQueueItem';
+import { collectSchoolReplies, getClusterReplyReceipt, schoolReplierLabel } from '@/lib/admin/incoming-reply-evidence-helpers.mjs';
 import {
   INCOMING_REVIEW_BATCH_LIMIT, buildIncomingQueueExpectation,
   toggleIncomingQueueSelection, retainIncomingQueueSelection,
@@ -667,17 +668,33 @@ function localDateInputMinimum() {
   return `${year}-${month}-${day}`;
 }
 
-function describeReplyEvidence(entry) {
-  const who = entry.schoolRepliedBy && entry.schoolRepliedBy !== 'me'
-    ? entry.schoolRepliedBy
-    : 'School';
-  const messageMs = new Date(entry.messageAt || entry.capturedAt || '').getTime();
-  const replyMs = new Date(entry.schoolRepliedAt || '').getTime();
-  const differenceMinutes = Math.round((replyMs - messageMs) / 60000);
-  if (Number.isFinite(differenceMinutes) && differenceMinutes > 0 && differenceMinutes < 60) {
-    return `${who} replied ${differenceMinutes}m later`;
-  }
-  return `${who} replied later`;
+function SchoolReplyEvidence({ entries }) {
+  const replies = collectSchoolReplies(entries);
+  const receipt = getClusterReplyReceipt(entries);
+  const latest = replies[replies.length - 1];
+  const legacy = entries.filter((entry) => entry.schoolRepliedAt)
+    .sort((a, b) => new Date(b.schoolRepliedAt) - new Date(a.schoolRepliedAt))[0];
+  if (!latest && !legacy) return null;
+  const who = schoolReplierLabel(receipt?.repliedBy || latest?.repliedBy || legacy?.schoolRepliedBy);
+  return (
+    <details className="mt-3 rounded-xl border border-slate-100 bg-slate-50/70 px-3 text-xs text-slate-600">
+      <summary className="min-h-11 cursor-pointer py-3 font-medium">
+        <Reply aria-hidden="true" className="mr-1.5 inline h-3.5 w-3.5" />
+        {receipt ? `${who} replied` : 'Earlier school reply'}
+      </summary>
+      <div className="mt-2 space-y-3 pb-3">
+        {replies.map((reply) => (
+          <div key={reply.externalMessageId}>
+            <p className="font-semibold">{schoolReplierLabel(reply.repliedBy)} · {formatDateTime(reply.repliedAt)}</p>
+            <p className="mt-1 whitespace-pre-line text-sm leading-5 text-slate-700">{reply.text}{reply.truncated ? '…' : ''}</p>
+            <p className="mt-1 text-[10px] text-slate-500">{reply.association === 'quoted' ? 'Linked by a WhatsApp quote' : 'Later in this chat; check it answers this request'}</p>
+          </div>
+        ))}
+        {!replies.length ? <p>Reply text was not captured for this older receipt.</p> : null}
+        <p className="text-slate-500">{receipt ? 'A reply can still leave work outstanding.' : 'A newer message arrived after this reply.'}</p>
+      </div>
+    </details>
+  );
 }
 
 function LaterChoices({ entries, onSnooze, isPending, onClose }) {
@@ -865,12 +882,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
 
       <ConversationContext messages={conversationContext} loading={contextLoading} />
 
-      {entry.schoolRepliedAt ? (
-        <p className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500" title={`School activity seen ${formatDateTime(entry.schoolRepliedAt)}. This shows engagement, not confirmed resolution.`}>
-          <Reply aria-hidden="true" className="h-3.5 w-3.5" />
-          {describeReplyEvidence(entry)}
-        </p>
-      ) : null}
+      <SchoolReplyEvidence entries={entries} />
 
       {replyProposal ? (
         <SuggestedReplyBlock
@@ -1090,6 +1102,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const [submitError, setSubmitError] = useState(error);
   const [duplicatePlanningId, setDuplicatePlanningId] = useState('');
   const [inboxView, setInboxView] = useState('open');
+  const [replyFilter, setReplyFilter] = useState(false);
   const [showCapture, setShowCapture] = useState(false);
   const [showGroupMap, setShowGroupMap] = useState(false);
   const [groupsLoaded, setGroupsLoaded] = useState(initialGroupMap.length > 0);
@@ -1250,6 +1263,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     setQueueSelection({});
     setQueueError('');
     setInboxView(value);
+    setReplyFilter(false);
     setMobileDetailOpen(false);
     if (value !== 'done' || doneLoaded || doneLoading) return;
     setDoneLoading(true);
@@ -1361,7 +1375,13 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   // One card per burst: consecutive messages from one sender in one chat are a
   // single thing to deal with. Clustering after filtering keeps each view's
   // stack limited to the messages that view is showing.
-  const visibleClusters = useMemo(() => clusterIncomingMessages(visibleInbox), [visibleInbox]);
+  const allVisibleClusters = useMemo(() => clusterIncomingMessages(visibleInbox), [visibleInbox]);
+  const repliedCount = useMemo(() => allVisibleClusters.filter((cluster) => getClusterReplyReceipt(cluster.entries)).length, [allVisibleClusters]);
+  // Filter whole bursts, never individual children: Select/Undo still apply to
+  // every message in the visible request, including an unstamped lead.
+  const visibleClusters = useMemo(() => inboxView === 'open' && replyFilter
+    ? allVisibleClusters.filter((cluster) => getClusterReplyReceipt(cluster.entries))
+    : allVisibleClusters, [allVisibleClusters, inboxView, replyFilter]);
   const selectedCluster = useMemo(() => (
     visibleClusters.find((cluster) => cluster.lead.incomingId === selectedIncomingId)
     || visibleClusters[0]
@@ -2041,6 +2061,25 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                     ) : null}
                   </div>
                 </div>
+                {inboxView === 'open' ? (
+                  <div className="flex items-center gap-1" role="group" aria-label="Reply filter">
+                    {[[false, 'All'], [true, `Replied ${repliedCount}`]].map(([value, label]) => (
+                      <button
+                        key={String(value)}
+                        type="button"
+                        disabled={Boolean(pendingId) || undoPending}
+                        aria-pressed={replyFilter === value}
+                        onClick={() => {
+                          if (queueBusyRef.current) return;
+                          cancelQueueSelection();
+                          setReplyFilter(value);
+                          setMobileDetailOpen(false);
+                        }}
+                        className={`min-h-11 rounded-full px-3 text-xs font-semibold ${replyFilter === value ? 'text-slate-900 underline decoration-emerald-600 decoration-2 underline-offset-4' : 'text-slate-500 hover:bg-slate-100'} disabled:opacity-50`}
+                      >{label}</button>
+                    ))}
+                  </div>
+                ) : null}
                 {selectionMode ? (
                   <div className="flex items-center justify-between gap-2">
                     <button
@@ -2090,9 +2129,11 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                   />
                 ))}
               </div>
-              {!visibleInbox.length ? (
+              {!visibleClusters.length ? (
                 <div className={`rounded-xl border px-3 py-4 text-sm ${inboxView === 'open' && bridgeHealth.state === 'warn' ? 'border-amber-200 bg-amber-50/70 text-amber-900' : 'border-emerald-100 bg-emerald-50/70 text-emerald-800'}`}>
-                  {inboxView === 'later'
+                  {inboxView === 'open' && replyFilter
+                    ? 'No captured replies on open messages yet.'
+                    : inboxView === 'later'
                     ? 'Nothing is waiting for later.'
                     : inboxView === 'done'
                       ? doneLoading ? 'Loading completed messages…' : 'No completed messages yet.'

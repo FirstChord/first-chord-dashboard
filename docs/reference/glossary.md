@@ -265,8 +265,10 @@ The privacy-reviewed set of independent synthetic message cases (`tests/admin/fi
 
 The bridge posts live text/caption notifications from dashboard-confirmed FC
 lesson groups (`source: whatsapp_group_auto`). Starring is not a capture path.
-School-side messages stamp open items as reply evidence instead of creating
-rows; no-signal parent messages land pre-archived.
+School-side messages attach bounded reply evidence to one open request instead
+of creating rows; quoted message IDs provide a specific association. The Replied
+filter helps review those requests without assuming they are resolved. No-signal
+parent messages land pre-archived.
 
 ## Route guard census (testing)
 
