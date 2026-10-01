@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Check, ChevronRight, Loader2 } from 'lucide-react';
+import { Check, ChevronRight, Loader2, Reply } from 'lucide-react';
+import { getClusterReplyReceipt, schoolReplierLabel } from '@/lib/admin/incoming-reply-evidence-helpers.mjs';
 import { resolveIncomingQueueSwipe } from '@/lib/admin/incoming-queue-helpers.mjs';
 import { labelIncomingCategory } from '@/lib/admin/incoming-message-helpers.mjs';
 
@@ -16,6 +17,7 @@ export default function IncomingMessageQueueItem({
     ? entry.matchedTutorName || entry.senderName || 'Tutor message'
     : entry.matchedStudentName || entry.senderName || 'Check student';
   const preview = entries.map((message) => message.messageText).filter(Boolean).join(' ');
+  const replyReceipt = getClusterReplyReceipt(entries);
   const needsCheck = entries.some((message) => (
     message.status === 'needs_review'
     || message.classificationActionability === 'uncertain'
@@ -130,9 +132,13 @@ export default function IncomingMessageQueueItem({
                 <span className="shrink-0 text-[10px] text-slate-400">{formatStamp(newest.messageAt || newest.capturedAt)}</span>
               </span>
               <span className="mt-1 block truncate text-xs leading-5 text-slate-500">{preview}</span>
-              <span className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-slate-500">
+              <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-slate-500">
                 <span className="rounded-full bg-slate-100 px-2 py-0.5">{labelIncomingCategory(entry.suspectedCategory)}</span>
                 {entries.length > 1 ? <span>{entries.length} messages</span> : null}
+                {replyReceipt ? <span className="inline-flex min-w-0 items-center gap-1 text-slate-500" title="A WhatsApp reply was captured. Review it before marking handled.">
+                  <Reply aria-hidden="true" className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{schoolReplierLabel(replyReceipt.repliedBy)} replied</span>
+                </span> : null}
               </span>
             </span>
           </span>

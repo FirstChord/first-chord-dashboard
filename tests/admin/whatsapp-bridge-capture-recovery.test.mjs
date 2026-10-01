@@ -22,9 +22,9 @@ Module._load = function loadBridgeDependency(request, parent, isMain) {
   if (request === 'qrcode-terminal') return { generate() {} };
   return originalLoad.call(this, request, parent, isMain);
 };
-let WhatsAppIncomingBridge;
+let WhatsAppIncomingBridge, extractMessageContent;
 try {
-  ({ WhatsAppIncomingBridge } = require('../../tools/whatsapp-incoming-bridge/bridge.js'));
+  ({ WhatsAppIncomingBridge, extractMessageContent } = require('../../tools/whatsapp-incoming-bridge/bridge.js'));
 } finally {
   Module._load = originalLoad;
 }
@@ -58,6 +58,26 @@ const liveMessage = {
   pushName: 'Parent',
   message: { conversation: 'Student is away for two weeks' },
 };
+
+test('quoted replies retain only their association ID through cache and payload, including wrapped messages', async () => {
+  const bridge = bridgeHarness();
+  bridge.captureName = 'Finn';
+  bridge.getChatName = async () => 'Test lesson';
+  const content = { extendedTextMessage: { text: 'I will check.', contextInfo: {
+    stanzaId: 'parent-request', participant: 'private-person', quotedMessage: { conversation: 'Private embedded transcript' },
+  } } };
+  for (const message of [content, { ephemeralMessage: { message: content } }, { viewOnceMessageV2: { message: content } }]) {
+    const extracted = extractMessageContent({ message });
+    assert.equal(extracted.text, 'I will check.');
+    assert.equal(extracted.repliedToExternalMessageId, 'parent-request');
+    const cached = bridge.cacheMessage({ ...liveMessage, message });
+    assert.equal(cached.repliedToExternalMessageId, 'parent-request');
+    const payload = await bridge.buildPayload(cached);
+    assert.equal(payload.replied_to_external_message_id, 'parent-request');
+    assert.doesNotMatch(JSON.stringify({ extracted, cached, payload }), /private-person|Private embedded transcript|quotedMessage/);
+  }
+  assert.equal(extractMessageContent(liveMessage).repliedToExternalMessageId, '');
+});
 
 test('an unknown live group message is retained while targeted discovery runs', async () => {
   const bridge = bridgeHarness();

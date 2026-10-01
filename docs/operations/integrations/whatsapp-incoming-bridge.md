@@ -56,9 +56,27 @@ is a no-op.
 Own-account and configured admin-staff replies do not create inbox rows.
 In student groups, recognised tutor replies also remain school-side evidence.
 In confirmed tutor groups, the tutor's messages are inbound work and create
-normal inbox rows; being listed in Tutor_Phones must not suppress them. A later school message stamps weak engagement
-evidence on the nearest preceding open row only; it does not prove that row was
-answered and does not mark the work handled.
+normal inbox rows; being listed in Tutor_Phones must not suppress them.
+School replies remain engagement evidence and never mark work handled. A
+WhatsApp quote links a reply to the matching captured request (or a stored reply
+on that request) in the same chat. Unknown quotes do not fall back to a different
+request. Without a quote, use the nearest preceding captured inbound message
+within seven days, only if it is still open. A closed/auto-archived message is a
+boundary; repeated replies must not walk backwards through older open requests.
+Invalid timestamps cannot create an association.
+
+The optional `school_reply_evidence_json` column retains at most four replies
+per request, each with at most 1,200 characters, the stable message ID,
+timestamp, display name, admin/tutor role and quoted/nearest association. Longer
+text is explicitly marked truncated. No embedded quoted transcript, extra phone
+number or raw WhatsApp object is retained. Existing timestamp-only receipts
+remain readable. A duplicate reply is a no-op, including after the request is
+closed; an out-of-order reply never moves the latest receipt backwards. The
+capture path reloads inbox rows before attaching a reply, then patches only the
+receipt columns so it cannot undo a concurrent human review or Planning link. There is no history
+backfill, AI classification or external model call in this reply-evidence lane.
+Deploy the bridge's `bridge.js` update on the Mac as well as the dashboard:
+older bridges still supply reply text, but cannot supply quoted-message IDs.
 
 Parent messages are deterministically classified and matched as proposals.
 Topic, intent and actionability are separate: a word such as “summer”,
@@ -134,7 +152,14 @@ intent to send, not delivery evidence.
 
 Classifier labels, evidence, correction, no-action and test-row deletion stay
 behind the single More disclosure. A later school message is shown as a compact
-reply receipt; its non-resolution caveat remains in Details.
+reply receipt. Open defaults to **All**; the compact **Replied** filter shows
+whole bursts with a school reply after their newest inbound message. A receipt
+on a non-lead child is included, while a fresh message after an older reply loses
+the cue. The expanded receipt shows the bounded reply text and whether it was
+linked by a quote or merely later in the chat. Replied is a review aid, not a
+resolved status; **Select**, checkmarks, swipe and full **Undo** work as before.
+Changing the reply filter cancels selection; filtering never drops unstamped
+children from a burst or silently archives work.
 
 **Later** stores `snoozed_until` on the open message rather than pretending it is
 finished. It leaves the status and classification untouched, removes the row

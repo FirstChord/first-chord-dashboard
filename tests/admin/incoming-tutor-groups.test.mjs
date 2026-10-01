@@ -157,6 +157,47 @@ test('a tutor reply in a legacy student group keeps its existing school-side beh
   assert.equal(state.inbox.length, 0);
 });
 
+test('actual admin replies stay on one request, deduplicate replays, and leave promises open', async () => {
+  const { capture, state } = harness();
+  await capture({ ...payload, external_message_id: 'older', message_at: '2026-09-10T11:00:00Z' });
+  const request = await capture(payload);
+  const school = { ...payload, sender_phone: '07700900222', sender_name: 'Tom',
+    external_message_id: 'reply-1', message_at: '2026-09-10T12:01:00Z', message_text: 'I will check and get back to you.' };
+  await capture(school);
+  const writes = state.writes;
+  await capture(school);
+  assert.equal(state.writes, writes);
+  await capture({ ...school, external_message_id: 'reply-2', message_at: '2026-09-10T12:02:00Z' });
+  const updated = state.inbox.find(row => row.incomingId === request.incomingId);
+  assert.equal(updated.status, request.status);
+  assert.equal(updated.schoolReplyEvidence.length, 2);
+  assert.equal(updated.schoolReplyEvidence[0].text, school.message_text);
+  assert.equal(updated.schoolReplyEvidence[0].role, 'admin');
+  assert.equal(state.inbox.find(row => row.externalMessageId === 'older').schoolRepliedAt, undefined);
+  updated.status = 'converted';
+  const finalWrites = state.writes;
+  await capture(school);
+  assert.equal(state.writes, finalWrites);
+  assert.equal(state.inbox.length, 2);
+});
+
+test('quoted staff replies use the explicit request ID and unknown quotes cause no writes', async () => {
+  const { capture, state } = harness();
+  await capture(payload);
+  await capture({ ...payload, external_message_id: 'newer', message_at: '2026-09-10T12:01:00Z' });
+  const reply = { ...payload, from_me: true, sender_name: 'me', sender_phone: '', captured_by: 'Finn',
+    external_message_id: 'quoted', replied_to_external_message_id: payload.external_message_id,
+    message_at: '2026-09-10T12:02:00Z', message_text: 'Cover is arranged.' };
+  await capture(reply);
+  const target = state.inbox.find(row => row.externalMessageId === payload.external_message_id);
+  assert.equal(target.schoolRepliedBy, 'Finn');
+  assert.equal(target.schoolReplyEvidence[0].association, 'quoted');
+  const writes = state.writes;
+  await capture({ ...reply, external_message_id: 'unknown', replied_to_external_message_id: 'not-captured' });
+  assert.equal(state.writes, writes);
+  assert.equal(state.inbox.find(row => row.externalMessageId === 'newer').schoolRepliedAt, undefined);
+});
+
 for (const status of ['review', 'ignored', 'unmatched']) {
   test(status + ' tutor groups are not captured', async () => {
     const { capture, state } = harness([{ ...group, status }]);

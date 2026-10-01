@@ -76,7 +76,13 @@ function messageCacheKey(key = {}) {
 }
 
 function extractMessageContent(message = {}) {
-  const content = message.message || message;
+  let content = message.message || message;
+  for (let depth = 0; depth < 4; depth += 1) {
+    const wrapped = content?.ephemeralMessage || content?.viewOnceMessage
+      || content?.viewOnceMessageV2 || content?.documentWithCaptionMessage;
+    if (!wrapped?.message) break;
+    content = wrapped.message;
+  }
   const text = content?.conversation
     || content?.extendedTextMessage?.text
     || content?.imageMessage?.caption
@@ -88,6 +94,9 @@ function extractMessageContent(message = {}) {
 
   return {
     text: clean(text),
+    // Keep only the association ID, never the embedded quoted transcript.
+    repliedToExternalMessageId: clean((content?.extendedTextMessage
+      || content?.imageMessage || content?.videoMessage || content?.documentMessage)?.contextInfo?.stanzaId),
     type: content?.conversation ? 'text'
       : content?.extendedTextMessage ? 'extended_text'
         : content?.imageMessage ? 'image'
@@ -297,7 +306,7 @@ class WhatsAppIncomingBridge {
   cacheMessage(message, { pendingAutoCapture = false } = {}) {
     if (!message?.key?.id || !message?.key?.remoteJid) return null;
 
-    const { text, type } = extractMessageContent(message);
+    const { text, type, repliedToExternalMessageId } = extractMessageContent(message);
     const senderJid = message.key.fromMe ? 'me' : message.key.participant || message.key.remoteJid;
     // In LID-addressed groups the participant JID is anonymised; Baileys carries
     // the real number alongside it in participantPn (groups) / senderPn (DMs).
@@ -316,6 +325,7 @@ class WhatsAppIncomingBridge {
       senderPhone: phoneFromJid(senderPhoneJid),
       messageText: text || '[Media or unsupported message]',
       messageType: type,
+      repliedToExternalMessageId,
       messageAt: new Date(timestamp * 1000).toISOString(),
       fromMe: Boolean(message.key.fromMe),
       pendingAutoCapture: Boolean(pendingAutoCapture || existing.pendingAutoCapture),
@@ -345,6 +355,7 @@ class WhatsAppIncomingBridge {
     return {
       source: 'whatsapp_starred',
       external_message_id: data.messageId || '',
+      replied_to_external_message_id: data.repliedToExternalMessageId || '',
       chat_id: data.chatId || '',
       chat_name: chatName || '',
       sender_name: data.senderName || data.senderJid || '',
