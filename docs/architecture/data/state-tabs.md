@@ -1,11 +1,11 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-02
+last_verified: 2026-10-02
 ---
 # State Tabs Schema
 
-Last updated: 2026-09-02
+Last updated: 2026-10-02
 
 This note is the canonical map for dashboard-owned state lanes. It documents the Google Sheets tabs that store workflow state, cache snapshots, append-only logs, or derived context. It is intentionally about dashboard state, not the main `Students` operational sheet.
 
@@ -437,3 +437,25 @@ and marks agreement `approved` or correction `rejected`; it does **not** set
 `applied_at`, review inbox rows, log a sent communication or complete a plan.
 Both proposal decision paths enforce lane isolation. See
 [the pilot contract](../ai/jev-inbox-resolution.md).
+
+### Inbox classification proposals
+
+`incoming_classification` uses the same Proposals columns with a separate lane.
+`proposal_body` is a validated JSON triple (`category`, `intent`, `actionability`)
+using existing inbox enums. `evidence_json` contains hashes, version, guard and
+typed model probabilities/metadata, never another message/contact copy. The
+24-hour source freshness rule matches resolution. **Apply details** records
+`approved`, final human-selected JSON in `applied_body`, actor/time and `applied_at`;
+the original proposed JSON is retained even when corrected. The original
+generation hash is retained when rebasing the reviewed proposal onto the saved
+details. **Discard** records `rejected` with no inbox change. New checks append;
+the newest fresh proposal wins, and reads never write expiry/supersession.
+
+The human-approved inbox writer force-reads current burst membership and checks
+its queue hash before one RAW batch patch of classification/reviewer cells only.
+It never rewrites status, reply capture, Planning, source or student fields. The
+write is still subject to Sheets' existing last-write-wins race between read and
+write; it is not a transaction. If detail writing succeeds but proposal review
+storage fails, the API returns the actual changed rows and a warning. Rollback
+of new model calls is `ADMIN_AI_INBOX_CLASSIFICATION_ENABLED=false`; stored
+fresh decisions remain reviewable. See [the contract](../ai/jev-inbox-resolution.md).

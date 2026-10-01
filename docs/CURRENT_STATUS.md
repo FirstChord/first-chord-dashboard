@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-17
+last_verified: 2026-10-02
 ---
 # Admin current status
 
@@ -30,6 +30,14 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Jev checks message details and captured replies — 2026-10-02:** manual
+  **Check message** suggests topic, intent and actionability, and adds reply
+  resolution in the same call when captured evidence supports it. Humans edit
+  before **Apply details**; the narrow cell writer preserves open status, reply
+  receipts and Planning links. Both features have separate kill switches;
+  stale/uncertain evidence abstains. Synthetic live checks matched 14/14
+  classification triples and 10/10 reply labels, with no false no-action or
+  answered results. Contract: `docs/architecture/ai/jev-inbox-resolution.md`.
 - **Buttons: only the pressed one speaks — 2026-09-26:** from an admin report.
   The button blueprint (`a499fda`) existed, but many buttons shared one busy
   flag, so a whole card or page said "Saving…" at once, and card errors showed
@@ -130,21 +138,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   true. Verified by breaking each renderer on purpose and watching it fail.
   **Also found:** `test:admin` globbed only `tests/admin/`, so 16 root-level
   tests had never run on CI; the glob now covers both (1,668 → 1,684).
-- **Practice Chat lost its pilot-era scaffolding — DEPLOYED 2026-09-15:** three
-  live error messages in `previewPracticeNoteMmsTestWrite` still named the pilot
-  account, so a tutor whose real student had no attendance record was told the
-  lesson could not be found for "Test Studenty" — a real student's failure
-  reported under a test account's name. They now name the student in front of
-  the tutor, and `tests/admin/pilot-artefact-census.test.mjs` refuses the
-  placeholder anywhere in `lib/admin` or `app` (a scan, because the strings live
-  in functions that need MMS, Gmail and Sheets to call). The attendance panel
-  also lost its "Lesson admin pilot" heading and its three-item "next steps"
-  list, which narrated the controls directly beneath it. **Correction to an
-  earlier review:** the "Take Attendance → MyMusicStaff" fallback is **not**
-  dead — it is the whole flow for a bookmark launch with no dashboard context,
-  and its reminder stays. Its comment, which called it the "Test Studenty pilot"
-  fallback, was the thing that was wrong.
-
 ## Current operating contracts
 
 | Area | Current boundary |

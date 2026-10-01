@@ -3,6 +3,8 @@ import { getBridgeStatus, getIncomingMessageInboxPage } from '@/lib/admin/incomi
 import { parseBridgeCoverageGaps, selectUnrecoveredBridgeCoverageGaps } from '@/lib/admin/bridge-coverage-helpers.mjs';
 import { getIncomingResolutionProposals } from '@/lib/admin/incoming-resolution-proposals';
 import { isIncomingResolutionConfigured } from '@/lib/admin/incoming-resolution-service.mjs';
+import { getIncomingClassificationProposals } from '@/lib/admin/incoming-classification-proposals';
+import { isIncomingClassificationConfigured } from '@/lib/admin/incoming-classification-service.mjs';
 import { getIncomingReplyProposals } from '@/lib/admin/incoming-reply-proposals';
 import { isIncomingReplyDraftingConfigured } from '@/lib/admin/incoming-reply-ai-provider.mjs';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
@@ -22,6 +24,7 @@ export default async function AdminIncomingMessagesPage() {
   let coverageGaps = [];
   let replyProposals = {};
   let resolutionProposals = {};
+  let classificationProposals = {};
   let error = '';
   const replyDraftingAvailable = isIncomingReplyDraftingConfigured();
   try {
@@ -36,7 +39,7 @@ export default async function AdminIncomingMessagesPage() {
       "'Pause History'",
       WAITING_LIST_STATE_SHEET,
     ]);
-    const [inboxPage, loadedStudents, loadedBridgeStatus, loadedProposals, loadedResolutions] = await Promise.all([
+    const [inboxPage, loadedStudents, loadedBridgeStatus, loadedProposals, loadedResolutions, loadedClassifications] = await Promise.all([
       getIncomingMessageInboxPage({ statusScope: 'active', limit: 0 }),
       getOperationalAdminStudents(),
       getBridgeStatus().catch(() => null),
@@ -45,6 +48,7 @@ export default async function AdminIncomingMessagesPage() {
       // still need a human use/edit/discard decision.
       getIncomingReplyProposals().catch(() => ({ openByIncomingId: {} })),
       getIncomingResolutionProposals().catch(() => ({ byIncomingId: {} })),
+      getIncomingClassificationProposals().catch(() => ({ byIncomingId: {} })),
     ]);
     inbox = inboxPage.inbox;
     lastAutoCaptureAt = inboxPage.lastAutoCaptureAt || '';
@@ -54,6 +58,7 @@ export default async function AdminIncomingMessagesPage() {
     coverageGaps = selectUnrecoveredBridgeCoverageGaps(parseBridgeCoverageGaps(loadedBridgeStatus?.rawJson || ''));
     replyProposals = loadedProposals.openByIncomingId || {};
     resolutionProposals = loadedResolutions.byIncomingId || {};
+    classificationProposals = loadedClassifications.byIncomingId || {};
   } catch (caught) {
     error = caught.message || 'Could not load incoming messages';
   }
@@ -79,6 +84,8 @@ export default async function AdminIncomingMessagesPage() {
       replyDraftingAvailable={replyDraftingAvailable}
       initialResolutionProposals={resolutionProposals}
       resolutionAvailable={isIncomingResolutionConfigured()}
+      initialClassificationProposals={classificationProposals}
+      classificationAvailable={isIncomingClassificationConfigured()}
     />
   );
 }

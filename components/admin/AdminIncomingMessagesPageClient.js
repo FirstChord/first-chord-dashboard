@@ -6,6 +6,8 @@ import GroupMapPanel from './IncomingGroupMapPanel';
 import TutorMessageBadge from './TutorMessageBadge';
 import IncomingMessageQueueItem from './IncomingMessageQueueItem';
 import IncomingResolutionAssessment from './IncomingResolutionAssessment';
+import IncomingClassificationAssessment from './IncomingClassificationAssessment';
+import { currentClassificationSuggestion } from '@/lib/admin/incoming-classification-helpers.mjs';
 import { currentResolutionSuggestion } from '@/lib/admin/incoming-resolution-helpers.mjs';
 import { collectSchoolReplies, getClusterReplyReceipt, schoolReplierLabel } from '@/lib/admin/incoming-reply-evidence-helpers.mjs';
 import {
@@ -759,7 +761,7 @@ function MessageQueueItem(props) {
 // `entry` is the burst's lead message — the one that carries the signal, and
 // the one Reply and Reply + Plan work from. `entries` is the whole burst,
 // oldest first; outcome actions apply to all of it so nothing is left behind.
-function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false, resolutionProposal, resolutionAvailable, onAssessResolution, onResolutionFeedback }) {
+function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false, resolutionProposal, resolutionAvailable, onAssessResolution, onResolutionFeedback, classificationProposal, classificationAvailable, onCheckMessage, onClassificationReview, assessmentFeedback }) {
   const isPending = entries.some((message) => pendingId === message.incomingId);
   // pendingId only says this card is busy; the pressed button alone shows it.
   const { press, pendingFor } = usePressedAction(isPending);
@@ -885,15 +887,26 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
       <ConversationContext messages={conversationContext} loading={contextLoading} />
 
       <SchoolReplyEvidence entries={entries} />
+      <IncomingClassificationAssessment
+        key={classificationProposal?.proposalId || 'new-classification'}
+        proposal={classificationProposal}
+        available={classificationAvailable}
+        eligible={isOpen && !entry.isSnoozed}
+        pending={isPending}
+        onAssess={() => onCheckMessage(entry.incomingId)}
+        onReview={onClassificationReview}
+      />
       <IncomingResolutionAssessment
         key={resolutionProposal?.proposalId || 'new'}
         proposal={resolutionProposal}
         available={resolutionAvailable}
+        showCheck={!classificationAvailable}
         eligible={isOpen && !entry.isSnoozed && collectSchoolReplies(entries).length > 0}
         pending={isPending}
         onAssess={() => onAssessResolution(entry.incomingId)}
         onFeedback={onResolutionFeedback}
       />
+      {assessmentFeedback ? <p role="alert" className={`mb-3 rounded-xl px-3 py-2 text-xs ${assessmentFeedback.warning ? 'bg-amber-50 text-amber-800' : 'bg-red-50 text-red-700'}`}>{assessmentFeedback.message}</p> : null}
 
       {replyProposal ? (
         <SuggestedReplyBlock
@@ -1097,12 +1110,14 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
   );
 }
 
-export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, coverageGaps = [], lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false, initialResolutionProposals = {}, resolutionAvailable = false }) {
+export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, coverageGaps = [], lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false, initialResolutionProposals = {}, resolutionAvailable = false, initialClassificationProposals = {}, classificationAvailable = false }) {
   const [inbox, setInbox] = useState(initialInbox);
   const [groupMap, setGroupMap] = useState(initialGroupMap);
   const [groupTutorOptions, setGroupTutorOptions] = useState(tutorOptions);
   const [replyProposals, setReplyProposals] = useState(initialReplyProposals);
   const [resolutionProposals, setResolutionProposals] = useState(initialResolutionProposals);
+  const [classificationProposals, setClassificationProposals] = useState(initialClassificationProposals);
+  const [assessmentFeedback, setAssessmentFeedback] = useState(null);
   const [decidedReplies, setDecidedReplies] = useState({});
   const [messageText, setMessageText] = useState('');
   const [senderName, setSenderName] = useState('');
@@ -1250,11 +1265,17 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         setConversationContexts({});
         // A refresh invalidates old suggestions before a separate read. This never calls Jev.
         setResolutionProposals({});
+        setClassificationProposals({});
         if (scope === 'active') {
           const assessmentsResponse = await fetch('/api/admin/incoming-messages/resolution-proposals');
           const assessments = await assessmentsResponse.json().catch(() => ({}));
           if (assessmentsResponse.ok && assessments.success && mutationVersion === inboxMutationVersionRef.current) {
             setResolutionProposals(assessments.byIncomingId || {});
+          }
+          const classificationResponse = await fetch('/api/admin/incoming-messages/classification-proposals');
+          const classifications = await classificationResponse.json().catch(() => ({}));
+          if (classificationResponse.ok && classifications.success && mutationVersion === inboxMutationVersionRef.current) {
+            setClassificationProposals(classifications.byIncomingId || {});
           }
         }
       }
@@ -1274,7 +1295,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     if (queueBusyRef.current || pendingId) return;
     const selectedId = values.incomingId || selectedCluster?.lead?.incomingId || selectedIncomingId;
     setPendingId(selectedId);
-    setSubmitError('');
+    setAssessmentFeedback(null);
     try {
       const response = await fetch('/api/admin/incoming-messages/resolution-proposals', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1283,7 +1304,27 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.success) throw new Error(data.error || 'Reply checking failed');
       setResolutionProposals(current => ({ ...current, [data.incomingId]: data.proposal }));
-    } catch (caught) { setSubmitError(caught.message || 'Reply checking failed'); }
+    } catch (caught) { setAssessmentFeedback({ incomingId: selectedId, message: caught.message || 'Reply checking failed' }); }
+    finally { setPendingId(''); }
+  }
+
+  async function handleClassification(mode, values) {
+    if (queueBusyRef.current || pendingId) return;
+    const selectedId = values.incomingId || selectedCluster?.lead?.incomingId || selectedIncomingId;
+    setPendingId(selectedId);
+    setAssessmentFeedback(null);
+    inboxMutationVersionRef.current += 1;
+    try {
+      const response = await fetch('/api/admin/incoming-messages/classification-proposals', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode, ...values }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.success) throw new Error(data.error || 'Message checking failed');
+      if (Array.isArray(data.updatedMessages)) setInbox(current => mergeIncomingInboxMutation(current, data));
+      setClassificationProposals(current => ({ ...current, [data.incomingId]: data.proposal }));
+      if (data.resolutionProposal) setResolutionProposals(current => ({ ...current, [data.incomingId]: data.resolutionProposal }));
+      if (data.warning) setAssessmentFeedback({ incomingId: selectedId, message: data.warning, warning: true });
+    } catch (caught) { setAssessmentFeedback({ incomingId: selectedId, message: caught.message || 'Message checking failed' }); }
     finally { setPendingId(''); }
   }
 
@@ -2276,6 +2317,11 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                 replyDraftingAvailable={replyDraftingAvailable}
                 resolutionProposal={currentResolutions[selectedCluster.lead.incomingId]}
                 resolutionAvailable={resolutionAvailable}
+                assessmentFeedback={assessmentFeedback?.incomingId === selectedCluster.lead.incomingId ? assessmentFeedback : null}
+                classificationAvailable={classificationAvailable}
+                classificationProposal={currentClassificationSuggestion(classificationProposals[selectedCluster.lead.incomingId], selectedCluster.entries)}
+                onCheckMessage={incomingId => handleClassification('assess', { incomingId })}
+                onClassificationReview={(mode, proposalId, classification) => handleClassification(mode, { proposalId, ...(classification ? { classification } : {}) })}
                 onAssessResolution={incomingId => handleResolution('assess', { incomingId })}
                 onResolutionFeedback={(proposalId, label) => handleResolution('feedback', { proposalId, label })}
                 onDraftReply={handleDraftReply}

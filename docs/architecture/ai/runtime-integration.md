@@ -1,11 +1,11 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-10-01
+last_verified: 2026-10-02
 ---
 # AI Runtime Integration
 
-Last verified against code: 2026-10-01. Production behaviour still depends on
+Last verified against code: 2026-10-02. Production behaviour still depends on
 the feature flag and dedicated key described below.
 
 This is the canonical engineering reference for the dashboard's model runtime.
@@ -23,14 +23,17 @@ validator are documented in `docs/architecture/ai/tool-contracts.md` under
 `incoming_reply_draft.propose`; everything below about key scope, provider data
 handling, cost controls and rollback applies to it unchanged.
 
-A third integration is the manual Jev inbox-resolution pilot, approved for
+A third integration is the manual Jev inbox classification/resolution pilot, approved for
 implementation on 2026-10-01. It uses `lib/admin/jev-provider.mjs` as a reusable
 typed transport; each future feature must still define its own projection,
 permissions, flag, evaluation and output contract. The inbox-specific contract
 is in [Jev inbox resolution](jev-inbox-resolution.md). It is off by default and
-has no background producer. A **Check replies** press sends one redacted request
-burst and its actual captured school replies. Output is a reviewable enum,
-never an instruction to hide, archive, send, or change Planning/provider state.
+has no background producer. **Check message** proposes topic, intent and
+actionability and, when actual reply evidence supports it, assesses resolution
+in one redacted typed request. **Apply details** requires human review and patches
+only the inbox classification/reviewer cells. Handling, Planning and provider
+actions retain their separate human boundaries. **Check replies** remains available
+when the classification flag is off. Output never instructs hiding, archive or send.
 
 The durable rule is:
 

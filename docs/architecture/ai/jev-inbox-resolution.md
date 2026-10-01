@@ -1,9 +1,9 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-10-01
+last_verified: 2026-10-02
 ---
-# Jev inbox resolution pilot
+# Jev inbox message checks
 
 The pilot helps a reviewer assess whether WhatsApp replies appear to answer an
 open inbox request. It never clears, hides by default, sends a message, changes
@@ -22,6 +22,7 @@ client props or a `NEXT_PUBLIC_` variable. On the dashboard Railway service set:
 TYPESAFE_API_KEY=<secret entered privately>
 TYPESAFE_MODEL=jev-1.13.0
 ADMIN_AI_INBOX_RESOLUTION_ENABLED=true
+ADMIN_AI_INBOX_CLASSIFICATION_ENABLED=true
 ```
 
 The model setting is optional; the version above is the pinned default. Do not
@@ -38,9 +39,62 @@ only the initial synthetic check, not real-inbox accuracy. The key was supplied
 through Railway environment injection and never printed or stored locally.
 
 The pilot button appears only with both flag and key. **Check replies** assesses
-one card; **Check again** reassesses it. No page load, focus refresh, ingest,
+one card when classification is disabled. With classification enabled, **Check
+message** proposes topic, intent and actionability and assesses captured replies
+in the same bounded Jev request. No page load, focus refresh, ingest,
 cron or batch selection triggers a model call. Removing the flag or key disables
 new assessments while existing fresh suggestions and feedback remain accessible.
+
+## Human-reviewed message details
+
+Finn approved classification and reply assessment together on 2026-10-01.
+`incoming_classification.propose` accepts one server-owned incoming ID, after an
+admin session check, and covers the whole open five-minute burst. Its projection
+contains up to four redacted original texts, each shorter than 600 characters,
+plus student/tutor group type. Classification does not read school replies to
+decide whether the original request needs work. It proposes exactly the existing
+category, intent and actionability enums; it never proposes dates, student
+matches, workflow completion, replies or provider actions. If captured reply
+receipts exist and the resolution flag is on, the same request adds the independent
+resolution question, using the guards below. Legacy receipts with no captured
+text produce `unclear`; no receipt produces no resolution suggestion.
+
+Each classification dimension independently requires confidence >= 0.8 and
+chosen probability >= 0.85. An uncertain dimension falls back to `general`,
+`unclear` or `uncertain` without discarding the other confident details. Missing,
+placeholder, overlong or oversized original text makes all details conservative
+without a classification call. Provider failures leave the original inbox intact.
+
+**Apply details** saves the human-selected topic, intent and actionability for
+every message in that burst. The adapter forces a fresh full-burst read and source
+hash check, then patches only classification and reviewer cells with RAW values.
+It preserves status, snooze, Planning links, reply receipts, message text and
+student matches. Even `no_action` stays open until a separate human handling
+action. **Discard** changes only the proposal. Original deterministic hypotheses,
+Jev's proposed enums and the human-applied enums remain distinct. Review failures
+stay beside the card. A proposal-review save failure after a successful detail
+write returns the actual updated messages and an explicit warning; it does not
+invite repeating a supposedly failed write. Sheets still has no compare-and-swap
+transaction; the existing last-write-wins limitation remains.
+
+Classification suggestions also use forced reads before/after evaluation,
+24-hour freshness, lane isolation and client burst hashes. Applying details
+invalidates an older reply assessment because its reviewed-source hash changes;
+**Check message again** refreshes it explicitly. Turning either flag off prevents
+new calls for that feature while existing fresh human decisions remain possible.
+The classification endpoint limits checks to ten per admin per minute per process.
+
+Run `node scripts/eval-jev-inbox-check.mjs --live` with Railway environment
+injection for synthetic-only classification and combined reply checks. On
+2026-10-02, `jev-1.13.0` matched 14/14 classification triples and 10/10 combined
+resolution labels, with zero false `no_action` or `looks_answered` results and no
+unavailable responses in the final run. An earlier run's invalid response was
+rejected by the existing strict adapter; no validation gate was relaxed. This is
+a small synthetic release check, not measured real-family accuracy. Offline mode
+validates all 24 bounded requests without contacting Jev. Unit tests execute the
+service, HTTP guard, stale/concurrent source paths, partial failures and narrow
+Sheets cell builder. Local laptop/phone UI QA uses only synthetic data and
+intercepts every API mutation.
 
 ## Feature contract
 

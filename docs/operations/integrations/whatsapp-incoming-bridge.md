@@ -490,8 +490,11 @@ heartbeat, refresh, or reconnect handling need a manual bridge smoke check.
 
 ### Optional manual Jev assessment
 
-The dashboard can assess captured school replies through the opt-in
-[Jev inbox-resolution pilot](../../architecture/ai/jev-inbox-resolution.md).
+The dashboard's opt-in **Check message** proposes topic/intent/actionability and
+assesses captured school replies in one bounded call through
+[Jev inbox message checks](../../architecture/ai/jev-inbox-resolution.md).
+**Apply details** changes only classification/reviewer cells and leaves the
+message open. The separate reply feedback and handling boundaries are preserved.
 The bridge does not call Jev, backfill transcripts or change reply association.
 **Replied** remains a factual capture cue; **Looks answered** is a separate,
 reviewable suggestion. Even confirmed feedback never archives a message or
