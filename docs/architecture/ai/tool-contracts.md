@@ -18,8 +18,9 @@ provider/retention decision, and logging exist.
 
 The `incoming_resolution.propose` contract is implemented behind
 `ADMIN_AI_INBOX_RESOLUTION_ENABLED` and `TYPESAFE_API_KEY`, off by default.
-Implementation was requested on 2026-10-01; actual provider accuracy remains
-unverified until a key enables synthetic live evaluation. Its complete data,
+Implementation was requested on 2026-10-01; the live synthetic
+evaluation on that date matched all ten expected labels with no false
+`looks_answered` result. Real-inbox accuracy remains unverified. Its complete data,
 retention, freshness, human-feedback and rollback boundary is documented in
 [Jev inbox resolution](jev-inbox-resolution.md). This approval does not enable
 automatic classification, hiding, workflow mutations, or other Jev features.

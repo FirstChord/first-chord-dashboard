@@ -32,7 +32,10 @@ expected/actual labels, correct count and false `looks_answered` count. It exits
 unsuccessfully for any false answered case or less than 80% exact matches across
 ten cases. Passing this small set is an initial check, not evidence of real-world
 accuracy or a reason to auto-hide requests. Offline mode checks bounds and makes
-zero model calls. No actual Jev accuracy has been measured during implementation.
+zero model calls. On 2026-10-01 the live synthetic evaluation with `jev-1.13.0` matched all
+ten expected labels with zero false `looks_answered` results. This establishes
+only the initial synthetic check, not real-inbox accuracy. The key was supplied
+through Railway environment injection and never printed or stored locally.
 
 The pilot button appears only with both flag and key. **Check replies** assesses
 one card; **Check again** reassesses it. No page load, focus refresh, ingest,
