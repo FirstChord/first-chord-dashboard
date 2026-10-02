@@ -111,6 +111,16 @@ message after an outcome, so a review run does not lose its place. **Earlier in
 this chat** is a collapsed, four-message context read made only when a card is
 selected; it reads the cached inbox tab and does not join Planning, students,
 the group map, or `Communication_Log`.
+Category pills use subject colours: payment is purple (Stripe), one-off and
+extended absence, summer break and scheduling are blue (MMS lessons/attendance),
+absence/pause, leaving and concerns are amber (participation/concerns), and
+general or unknown categories are grey. The queue's collapsed **Category colours**
+key explains this convention. Colour never means urgency, completion or no
+action. The old yellow/green review dots are removed; open messages instead show
+**Check student** for an uncertain student match or **Check details** for review
+status/uncertain or low-confidence classification. Completed messages do not
+retain those open-review prompts. This is presentation only: capture filtering,
+Jev checks, attention groups and workflow state are unchanged.
 The detail card leads with student/sender, time and the original message. Tutor-group cards lead with the linked tutor and a compact **Tutor** badge.
 Consecutive messages from the same sender, chat and matched student sent within
 five minutes are one card: the burst is shown oldest-first under a single

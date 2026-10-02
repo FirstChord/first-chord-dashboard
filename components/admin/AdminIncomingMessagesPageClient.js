@@ -5,6 +5,7 @@ import PlanningSaveError from './planning/PlanningSaveError';
 import GroupMapPanel from './IncomingGroupMapPanel';
 import TutorMessageBadge from './TutorMessageBadge';
 import IncomingMessageQueueItem from './IncomingMessageQueueItem';
+import { IncomingCategoryKey } from './IncomingCategoryBadge';
 import IncomingResolutionAssessment from './IncomingResolutionAssessment';
 import IncomingClassificationAssessment from './IncomingClassificationAssessment';
 import { currentClassificationSuggestion } from '@/lib/admin/incoming-classification-helpers.mjs';
@@ -850,8 +851,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
             {entry.chatName ? ` · ${entry.chatName}` : ''}
           </p>
           {studentNeedsCheck && isOpen ? (
-            <p className="mt-1 flex items-center gap-1.5 text-[11px] font-semibold text-amber-700">
-              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            <p className="mt-1 text-[11px] font-semibold text-slate-600">
               Check student
             </p>
           ) : null}
@@ -2268,6 +2268,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                     ))}
                   </div>
                 ) : null}
+                <IncomingCategoryKey />
                 {autoCheckAvailable && autoCheckStatus && inboxView === 'open'
                   && (autoCheckStatus !== 'checking' || !Object.keys(classificationProposals).length) ? (
                   <p role="status" className="px-2 py-1 text-xs text-slate-500">{autoCheckStatus === 'checking'

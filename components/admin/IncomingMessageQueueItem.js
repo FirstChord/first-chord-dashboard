@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { Check, ChevronRight, Loader2, Reply } from 'lucide-react';
 import { getClusterReplyReceipt, schoolReplierLabel } from '@/lib/admin/incoming-reply-evidence-helpers.mjs';
 import { resolveIncomingQueueSwipe } from '@/lib/admin/incoming-queue-helpers.mjs';
-import { labelIncomingCategory } from '@/lib/admin/incoming-message-helpers.mjs';
+import IncomingCategoryBadge from './IncomingCategoryBadge';
 
 export default function IncomingMessageQueueItem({
   cluster, selected = false, onSelect, onHandled, selectionMode = false,
@@ -18,11 +18,13 @@ export default function IncomingMessageQueueItem({
     : entry.matchedStudentName || entry.senderName || 'Check student';
   const preview = entries.map((message) => message.messageText).filter(Boolean).join(' ');
   const replyReceipt = getClusterReplyReceipt(entries);
-  const needsCheck = entries.some((message) => (
+  const studentNeedsCheck = entry.groupType !== 'tutor' && (!entry.matchedMmsId || entry.matchConfidence !== 'high');
+  const detailsNeedCheck = entries.some((message) => (
     message.status === 'needs_review'
     || message.classificationActionability === 'uncertain'
     || message.classificationConfidence === 'low'
-  )) || (entry.groupType !== 'tutor' && (!entry.matchedMmsId || entry.matchConfidence !== 'high'));
+  ));
+  const isOpen = entries.some((message) => ['inbox', 'needs_review'].includes(message.status));
   const selectedCount = entries.filter((message) => Object.hasOwn(checkedIds, message.incomingId)).length;
   const checked = selectedCount === entries.length;
   const gesture = useRef(null);
@@ -126,7 +128,6 @@ export default function IncomingMessageQueueItem({
           className={`min-w-0 flex-1 py-3 text-left disabled:opacity-60 ${selectionMode ? 'pr-1' : 'pl-3 pr-1'}`}
         >
           <span className="flex items-start gap-3">
-            <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${needsCheck ? 'bg-amber-400' : 'bg-emerald-400'}`} aria-hidden="true" />
             <span className="min-w-0 flex-1">
               <span className="flex items-start justify-between gap-2">
                 <span className="truncate text-sm font-semibold text-slate-900">{label}</span>
@@ -134,7 +135,10 @@ export default function IncomingMessageQueueItem({
               </span>
               <span className="mt-1 block truncate text-xs leading-5 text-slate-500">{preview}</span>
               <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-slate-500">
-                <span className="rounded-full bg-slate-100 px-2 py-0.5">{labelIncomingCategory(entry.suspectedCategory)}</span>
+                <IncomingCategoryBadge category={entry.suspectedCategory} />
+                {isOpen && (studentNeedsCheck || detailsNeedCheck) ? (
+                  <span className="text-slate-600">{studentNeedsCheck ? 'Check student' : 'Check details'}</span>
+                ) : null}
                 {(resolutionSuggestion?.feedback || resolutionSuggestion?.label) === 'looks_answered' ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700" title="A reviewable assessment, not proof that school work is complete">Looks answered</span> : null}
                 {entries.length > 1 ? <span>{entries.length} messages</span> : null}
                 {replyReceipt ? <span className="inline-flex min-w-0 items-center gap-1 text-slate-500" title="A WhatsApp reply was captured. Review it before marking handled.">
