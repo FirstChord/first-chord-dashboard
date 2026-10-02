@@ -8,6 +8,7 @@ import {
   getExpenseRows,
   getExpenseLogRows,
   getFinanceSnapshotRows,
+  getPayrollRunRows,
   getWaitingListStateRows,
   getStripeAmountsCacheRows,
   getStripeCollectedMonthlyRows,
@@ -16,6 +17,8 @@ import {
 import { enrichScheduleContextsWithSharedSlots } from '@/lib/admin/schedule-context-helpers.mjs';
 import { parseTutorPay } from '@/lib/admin/cost-helpers.mjs';
 import { buildFinanceOverview } from '@/lib/admin/finance-helpers.mjs';
+import { buildCompletedMonthFinance, buildFinanceScorecard } from '@/lib/admin/finance-review-helpers.mjs';
+import { previousMonthKey } from '@/lib/admin/stripe-amounts-helpers.mjs';
 import { PRICE_ASSUMPTIONS_VERSION } from '@/lib/admin/finance-assumptions.mjs';
 import { buildFinanceCoverage } from '@/lib/admin/finance-coverage.mjs';
 import { buildFinanceTrend } from '@/lib/admin/finance-trend.mjs';
@@ -37,7 +40,7 @@ export async function GET(request) {
   const trendPeriod = url.searchParams.get('period') === 'monthly' ? 'monthly' : 'weekly';
 
   try {
-    const [students, scheduleRows, tutorPayRows, expenseRows, expenseLogRows, snapshotRows, waitingStateRows, stripeCacheRows, forecastRows, collectedRows] = await Promise.all([
+    const [students, scheduleRows, tutorPayRows, expenseRows, expenseLogRows, snapshotRows, waitingStateRows, stripeCacheRows, forecastRows, collectedRows, payrollRows] = await Promise.all([
       getOperationalAdminStudents(),
       getScheduleContextRows(),
       getTutorPayRows(),
@@ -48,6 +51,7 @@ export async function GET(request) {
       getStripeAmountsCacheRows(),
       getStripeForecastMonthlyRows(),
       getStripeCollectedMonthlyRows(),
+      getPayrollRunRows(),
     ]);
 
     const scheduleByMmsId = enrichScheduleContextsWithSharedSlots(scheduleRows);
@@ -99,6 +103,8 @@ export async function GET(request) {
         deltas: trend.deltas,
         summary: trend.summary,
       },
+      completedMonth: buildCompletedMonthFinance({ month: previousMonthKey(), snapshotRows, expenseLogRows, payrollRows, collectedRows }),
+      scorecard: buildFinanceScorecard({ forecastRows, collectedRows, waitingRows: waitingStateRows }),
       stripeProof: {
         openForecast: openStripeForecast,
         reconciliation: stripeReconciliation,

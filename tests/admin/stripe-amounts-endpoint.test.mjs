@@ -237,3 +237,17 @@ test('Stripe amounts endpoint completes provider reads before either cache write
   assert.equal(cacheWrites, 0);
   assert.equal(collectionWrites, 0);
 });
+
+test('collection evidence limit refuses both cache writes and unmatched references survive refresh', async () => {
+  let writes = 0;
+  const oversized = createHandler({ summariseInvoices: () => ({ studentBreakdown: [{ value: 'x'.repeat(45001) }] }), replaceCacheRows: async () => { writes += 1; }, upsertCollectedMonth: async () => { writes += 1; } });
+  assert.equal((await oversized(request())).status, 500);
+  assert.equal(writes, 0);
+  let row;
+  const withReferences = createHandler({ fetchPaidInvoices: async () => [{ id: 'in_unmatched', status: 'paid', created: Date.parse('2026-07-10T12:00:00Z') / 1000, amount_paid: 2500 }], upsertCollectedMonth: async (value) => { row = value; } });
+  assert.equal((await withReferences(request())).status, 200);
+  const evidence = JSON.parse(row.student_breakdown_json);
+  assert.equal(evidence.unmatched[0].id, 'in_unmatched');
+  assert.equal(evidence.unmatched[0].amount, 25);
+  assert.deepEqual(evidence.students, []);
+});

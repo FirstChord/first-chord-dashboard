@@ -176,7 +176,7 @@ test('forecast rows are compact, first-write-wins monthly records', async () => 
   const row = buildStripeForecastRow(forecast);
   assert.equal(row.month, '2026-08');
   assert.equal(row.forecast_total, 125);
-  assert.equal(row.method, 'dashboard_price_x_calendar_v2');
+  assert.equal(row.method, 'dashboard_price_x_calendar_v3');
   assert.equal(JSON.parse(row.items_json)[0].mms_id, 'sdt_1');
   assert.equal(JSON.parse(row.items_json)[0].amount, 125);
   assert.equal(currentMonthKey(AT), '2026-08');
@@ -226,6 +226,7 @@ test('forecast confidence separates actionable gaps from normal calendar assumpt
     datedPauseCount: 1,
     missingWeekdayCount: 1,
     undatedPauseCount: 1,
+    unknownCadenceCount: 0,
     inactiveCount: 1,
     monthlyPriceCount: 0,
     unpricedCount: 1,
@@ -354,4 +355,52 @@ test('reconciliation attributes pause misses and separates students who joined a
     ['post_lock_onboarding', 1, 50],
   ]);
   assert.equal(result.differences.find((item) => item.mmsId === 'new').category, 'post_lock_onboarding');
+});
+
+test('fortnightly predictions count the observed phase rather than fractional weekly occurrences', () => {
+  const at = new Date('2026-11-01T05:00:00Z');
+  const make = (nextLessonAt, checkedAt = '2026-10-31T12:00:00Z') => student({ lessonFrequency: 'fortnightly', scheduleContext: { status: 'found', durationMinutes: '30', usualWeekday: 'Monday', nextLessonAt, checkedAt } });
+  const phaseOne = buildStripeMonthlyForecast({ students: [make('2026-11-02T17:00:00Z')], month: '2026-11', forecastedAt: at });
+  const phaseTwo = buildStripeMonthlyForecast({ students: [make('2026-11-09T17:00:00Z')], month: '2026-11', forecastedAt: at });
+  assert.equal(phaseOne.forecastTotal, 75);
+  assert.equal(phaseTwo.forecastTotal, 50);
+  assert.equal(phaseOne.items[0].expected_occurrences, 3);
+  assert.equal(phaseTwo.items[0].cadence_basis, 'dated_fortnightly_phase');
+  const stale = buildStripeMonthlyForecast({ students: [make('2026-11-02T17:00:00Z', '2026-09-01')], month: '2026-11', forecastedAt: at });
+  assert.equal(stale.items[0].cadence_basis, 'unknown_fortnightly_phase');
+  assert.equal(stale.items[0].confidence, 'low');
+  assert.equal(buildStripeForecastConfidence(buildStripeForecastRow(stale)).unknownCadenceCount, 1);
+  const wrongWeekday = buildStripeMonthlyForecast({ students: [make('2026-11-03T17:00:00Z')], month: '2026-11', forecastedAt: at });
+  assert.equal(wrongWeekday.items[0].cadence_basis, 'unknown_fortnightly_phase');
+});
+
+test('frozen zero and pause evidence survives serialization, without changing an already locked method', () => {
+  const forecast = buildStripeMonthlyForecast({ students: [student({ lifecycleStatus: 'paused', paymentExpectation: 'stripe_paused_expected' })], month: '2026-08', forecastedAt: AT });
+  const row = buildStripeForecastRow(forecast);
+  const item = JSON.parse(row.items_json)[0];
+  assert.equal(item.confidence, 'low');
+  assert.equal(item.lifecycle, 'paused');
+  assert.equal(item.expectation, 'stripe_paused_expected');
+  assert.equal(item.weekday, 'Monday');
+  assert.equal(findMonthlyStripeForecast([{ ...row, method: 'dashboard_price_x_calendar_v2' }], { month: '2026-08' }).method, 'dashboard_price_x_calendar_v2');
+});
+
+test('collection envelopes expose invoice references while preserving the scored student total', () => {
+  const result = buildStripeReconciliation({ now: AT,
+    forecastRows: [{ month: '2026-07', forecast_total: '100', items_json: JSON.stringify([{ mms_id: 'a', amount: 100 }]) }],
+    collectedRows: [{ month: '2026-07', collected_total: '125', unmatched_total: '25', unmatched_invoice_count: '1', student_breakdown_json: JSON.stringify({ students: [{ mms_id: 'a', amount: 100 }], unmatched: [{ id: 'in_unlinked', amount: 25, created_day: 8 }] }) }],
+  });
+  assert.equal(result.totalAbsoluteError, 25);
+  assert.equal(result.unmatchedInvoices[0].id, 'in_unlinked');
+  assert.equal(result.differences.length, 0);
+  const broken = buildStripeReconciliation({ now: AT,
+    forecastRows: [{ month: '2026-07', forecast_total: '100', items_json: '[]' }],
+    collectedRows: [{ month: '2026-07', collected_total: '100', student_breakdown_json: 'not json' }],
+  });
+  assert.equal(broken.breakdownAvailable, false);
+  assert.equal(broken.totalAbsoluteError, null);
+  assert.equal(broken.mismatchCount, null);
+  assert.equal(broken.matchedCollectionPct, null);
+  assert.equal(broken.unmatchedActualTotal, null);
+  assert.deepEqual(broken.differences, []);
 });

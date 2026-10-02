@@ -9,6 +9,7 @@ import {
   getExpenseLogRows,
   getExpenseRows,
   getFinanceSnapshotRows,
+  getPayrollRunRows,
   getScheduleContextRows,
   getStripeAmountsCacheRows,
   getStripeCollectedMonthlyRows,
@@ -39,6 +40,8 @@ import {
   onboardedDatesFromWaitingState,
 } from '@/lib/admin/roster-movement.mjs';
 import { authOptions } from '@/lib/admin/auth';
+import { addCurrentFinanceEvidence, buildCompletedMonthFinance, buildFinanceScorecard } from '@/lib/admin/finance-review-helpers.mjs';
+import { previousMonthKey } from '@/lib/admin/stripe-amounts-helpers.mjs';
 import AdminFinanceView from '@/components/finance/AdminFinanceView';
 
 export const dynamic = 'force-dynamic';
@@ -128,6 +131,9 @@ export default async function AdminFinancePage({ searchParams }) {
     waitingRows,
     archiveRows,
     stripeCacheRows,
+    forecastRows,
+    collectedRows,
+    payrollRows,
   ] = await Promise.all([
     getOperationalAdminStudents(),
     getScheduleContextRows(),
@@ -138,8 +144,14 @@ export default async function AdminFinancePage({ searchParams }) {
     getWaitingListStateRows(),
     getStudentsArchiveRows(),
     getStripeAmountsCacheRows(),
+    getStripeForecastMonthlyRows(),
+    getStripeCollectedMonthlyRows(),
+    getPayrollRunRows(),
   ]);
 
+  const scorecard = buildFinanceScorecard({ forecastRows, collectedRows, waitingRows });
+  const selectedMonth = scorecard.some((score) => score.month === params.month)
+    ? params.month : previousMonthKey();
   const scheduleByMmsId = enrichScheduleContextsWithSharedSlots(scheduleRows);
   const enriched = students.map((student) => ({
     ...student,
@@ -195,6 +207,9 @@ export default async function AdminFinancePage({ searchParams }) {
       attentionItems={attentionItems}
       roster={roster}
       spend={spend}
+      reviewReconciliation={addCurrentFinanceEvidence(buildStripeReconciliation({ forecastRows, collectedRows, waitingRows, month: selectedMonth }), { students: enriched, stripeCacheRows })}
+      completedMonth={buildCompletedMonthFinance({ month: selectedMonth, snapshotRows, expenseLogRows, payrollRows, collectedRows })}
+      scorecard={scorecard}
       today={new Date().toISOString().slice(0, 10)}
       addExpenseLogAction={addExpenseLogAction}
       deleteExpenseLogAction={deleteExpenseLogAction}

@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-17
+last_verified: 2026-10-02
 ---
 # Payments Rules
 
@@ -74,6 +74,40 @@ not imply lower collection unless First Chord's observed paid-invoice evidence
 shows a stable relationship. A holiday adjustment must be evaluated against at
 least one full seasonal cycle, separately from explicit student pause dates,
 before it can influence the headline prediction.
+
+## Finance review and completed-month evidence
+
+Finance distinguishes the total prediction difference, the sum of absolute
+student differences, and money linked to student IDs. ID matching is not
+prediction accuracy. Category labels describe observed evidence; a whole-price
+difference alone never establishes invoice timing, and a zero/nonbilling basis
+alone does not establish that a student stopped. All differences can be filtered
+and searched. Evidence compares the historical score with current records and
+explicitly dated billing caches without treating historical errors as current
+unresolved issues.
+
+Forecast method V3 counts fortnightly dates from a fresh (at most 21 days old)
+MMS next-lesson observation whose weekday agrees with the usual lesson day.
+Missing, stale, future-checked or conflicting phase evidence retains the prior
+weighted approximation at low confidence. A pause with no dated return is also
+low confidence. Future locked items retain weekday, non-weekly cadence, dated
+pause windows and the lifecycle/expectation behind zero outcomes. Existing V1/V2
+rows and amounts are never rewritten.
+
+The collection measurement is **paid invoices created in the target UTC month,
+as of the displayed refresh**, not receipts by payment date. Legacy `paid_days`
+contains invoice creation days. New collection evidence may be either the legacy
+student array or `{ students: [...], unmatched: [...] }`; unmatched references
+retain invoice ID, amount, creation day and provider linkage, never an invented
+student match. The endpoint refuses oversized evidence before either cache write.
+
+Evidence shows completed-month Expense Log totals, including entries made after
+the last snapshot. The baseline margin less that full month's logged extra spend
+remains an estimate. Payroll paid markers are human-attested workflow evidence;
+periods crossing a month boundary are not prorated into an invented monthly
+cost. No result is labelled actual profit or available bank cash. The same pure
+builders supply the page and the admin-gated JSON endpoint. History scores only
+completed months on their original method; missing forecasts remain gaps.
 
 ## Split Households
 

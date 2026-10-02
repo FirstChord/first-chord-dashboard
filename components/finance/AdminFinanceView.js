@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import FinanceDifferences from './FinanceDifferences';
+import { FINANCE_DIFFERENCE_LABELS } from '@/lib/admin/finance-review-labels.mjs';
 import { SubmitButton } from '@/components/admin/ui/SubmitButton';
 import { formatMoney } from '@/lib/admin/finance-helpers.mjs';
 import { EXPENSE_LOG_CATEGORIES } from '@/lib/admin/cost-helpers.mjs';
@@ -70,7 +72,13 @@ function formatMonth(month = '') {
     : date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
+function formatForecastMethod(method = '') {
+  const version = method.match(/_v(\d+)$/u)?.[1];
+  return version ? `Prediction V${version}` : method || 'No locked prediction';
+}
+
 function formatForecastLockTime(value = '') {
+  if (!value) return '';
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? ''
@@ -85,21 +93,8 @@ function formatForecastLockTime(value = '') {
       });
 }
 
-const ATTRIBUTION_LABELS = {
-  paused_expected_but_collected: 'Pause return was not captured',
-  post_lock_onboarding: 'Joined after the prediction locked',
-  invoice_occurrence_timing: 'Invoice timing / occurrence count',
-  no_paid_invoice: 'Predicted, but no paid invoice',
-  unmatched_collection: 'Stripe money not matched to a student',
-  price_difference: 'Price differs from the dashboard assumption',
-  inactive_but_collected: 'Marked inactive, but Stripe collected',
-  unforecast_collection: 'Collected without a forecast item',
-  unpriced_forecast: 'Dashboard could not price',
-  amount_mismatch: 'Other amount difference',
-};
-
 function attributionLabel(category) {
-  return ATTRIBUTION_LABELS[category] || category;
+  return FINANCE_DIFFERENCE_LABELS[category] || category;
 }
 
 function ForecastInputSummary({ forecast = {} }) {
@@ -107,13 +102,13 @@ function ForecastInputSummary({ forecast = {} }) {
   return (
     <div className="mt-4 grid gap-3 sm:grid-cols-2">
       <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
-        <p className="text-sm font-semibold text-emerald-950">{confidence.datedPauseCount || 0} dated pause return(s)</p>
-        <p className="mt-1 text-xs text-emerald-800">V2 removes lessons inside the pause and restores billing after the return date.</p>
+        <p className="text-sm font-semibold text-emerald-950">{confidence.datedPauseCount || 0} student(s) with dated pause evidence</p>
+        <p className="mt-1 text-xs text-emerald-800">Dated pauses remove only lessons inside the window; billing resumes on the return date.</p>
       </div>
-      <div className={`rounded-2xl border p-4 ${(confidence.undatedPauseCount || confidence.missingWeekdayCount || confidence.unparsedPauseCount || confidence.unpricedCount) ? 'border-amber-100 bg-amber-50/70' : 'border-emerald-100 bg-emerald-50/70'}`}>
+      <div className={`rounded-2xl border p-4 ${confidence.actionableInputCount ? 'border-amber-100 bg-amber-50/70' : 'border-emerald-100 bg-emerald-50/70'}`}>
         <p className="text-sm font-semibold text-slate-900">Inputs worth checking</p>
         <p className="mt-1 text-xs leading-5 text-slate-600">
-          {confidence.undatedPauseCount || 0} paused without a dated return · {confidence.missingWeekdayCount || 0} missing weekday · {confidence.unparsedPauseCount || 0} unreadable pause plan(s) · {confidence.unpricedCount || 0} unpriced
+          {confidence.undatedPauseCount || 0} paused without a dated return · {confidence.missingWeekdayCount || 0} missing weekday · {confidence.unknownCadenceCount || 0} unknown fortnightly pattern · {confidence.unparsedPauseCount || 0} unreadable pause plan(s) · {confidence.unpricedCount || 0} unpriced
         </p>
       </div>
     </div>
@@ -122,7 +117,7 @@ function ForecastInputSummary({ forecast = {} }) {
 
 function StripeProof({ reconciliation = {}, openForecast = null }) {
   const complete = reconciliation.forecastPresent && reconciliation.actualPresent;
-  const largest = (reconciliation.differences || []).slice(0, 8);
+  const differences = reconciliation.differences || [];
   const attribution = reconciliation.attribution || [];
   const lockTime = formatForecastLockTime(openForecast?.forecastedAt);
   const usedEarlierPauseModel = /_v1$/u.test(`${openForecast?.method || ''}`);
@@ -137,14 +132,16 @@ function StripeProof({ reconciliation = {}, openForecast = null }) {
           <p className="mt-2 text-sm text-slate-600">Result for {formatMonth(reconciliation.month)}</p>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Predicted</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{formatMoney(reconciliation.forecastTotal)}</p></div>
-            <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Stripe collected</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{formatMoney(reconciliation.collectedTotal)}</p></div>
+            <div className="rounded-2xl bg-slate-50 p-4"><p className="text-xs text-slate-500">Paid invoices</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{formatMoney(reconciliation.collectedTotal)}</p></div>
             <div className={`rounded-2xl p-4 ${Math.abs(reconciliation.deltaPct || 0) <= 2 ? 'bg-emerald-50' : 'bg-amber-50'}`}><p className="text-xs text-slate-500">Difference</p><p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">{formatSignedMoney(reconciliation.netDifference)}</p><p className="mt-1 text-xs text-slate-500">{Number.isFinite(reconciliation.deltaPct) ? `${reconciliation.deltaPct > 0 ? '+' : ''}${reconciliation.deltaPct}%` : '—'}</p></div>
           </div>
           <p className="mt-4 text-sm text-slate-600">
-            Reconciliation error <strong className="text-slate-900">{Number.isFinite(reconciliation.totalAbsoluteError) ? formatMoney(reconciliation.totalAbsoluteError) : '—'}</strong>
-            {' · '}{reconciliation.mismatchCount} differences
-            {Number.isFinite(reconciliation.matchedCollectionPct) ? ` · ${reconciliation.matchedCollectionPct}% matched` : ''}
+            Student-level absolute difference <strong className="text-slate-900">{Number.isFinite(reconciliation.totalAbsoluteError) ? formatMoney(reconciliation.totalAbsoluteError) : '—'}</strong>
+            {Number.isFinite(reconciliation.mismatchCount) ? ` · ${reconciliation.mismatchCount} differences` : ' · individual comparison unavailable'}
+            {Number.isFinite(reconciliation.matchedCollectionPct) ? ` · ${reconciliation.matchedCollectionPct}% of invoice money linked to student IDs` : ''}
           </p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">The total difference can hide overestimates and underestimates that cancel. Student-level error adds them instead; it is not money lost. Linking money to a student is not prediction accuracy.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-500">Locked {formatForecastLockTime(reconciliation.forecastedAt)} · invoices refreshed {formatForecastLockTime(reconciliation.refreshedAt)} · {formatForecastMethod(reconciliation.method)}. Paid invoices are grouped by creation month, not payment date.</p>
           {Number.isFinite(reconciliation.modelAbsoluteError) && reconciliation.modelAbsoluteError !== reconciliation.totalAbsoluteError ? (
             <p className="mt-1 text-xs text-slate-500">
               {formatMoney(reconciliation.modelAbsoluteError)} remains after separating students who joined after the prediction locked.
@@ -156,26 +153,16 @@ function StripeProof({ reconciliation = {}, openForecast = null }) {
                 <div key={item.category} className={`rounded-2xl border p-4 ${item.category === 'post_lock_onboarding' ? 'border-blue-100 bg-blue-50/70' : 'border-amber-100 bg-amber-50/70'}`}>
                   <p className="text-sm font-semibold text-slate-900">{attributionLabel(item.category)}</p>
                   <p className="mt-1 text-sm text-slate-600">
-                    {item.count} {item.category === 'unmatched_collection' ? 'invoice(s)' : 'student(s)'} · {formatMoney(item.absoluteError)} absolute difference
+                    {item.count} {item.category === 'unmatched_collection' ? 'invoice(s)' : 'student(s)'} · {formatMoney(item.absoluteError)} absolute difference · net {formatSignedMoney(item.netDifference)}
                   </p>
                 </div>
               ))}
             </div>
           ) : null}
-          {largest.length ? (
-            <details className="mt-5 border-t border-slate-100 pt-4">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-700">Check the largest differences</summary>
-              <div className="mt-3 divide-y divide-slate-100">
-                {largest.map((item) => (
-                  <div key={item.mmsId} className="grid gap-1 py-3 text-sm sm:grid-cols-[1fr_auto_auto] sm:gap-5">
-                    <div><Link href={`/admin/students/${encodeURIComponent(item.mmsId)}`} className="font-medium text-slate-900 hover:text-blue-700">{item.studentName || item.mmsId}</Link><p className="text-xs text-slate-500">{attributionLabel(item.category || item.status)}</p></div>
-                    <p className="text-slate-500">forecast {Number.isFinite(item.expectedAmount) ? formatMoney(item.expectedAmount) : 'unpriced'} · actual {formatMoney(item.actualAmount)}</p>
-                    <p className={`font-semibold tabular-nums ${item.difference > 0 ? 'text-amber-700' : 'text-rose-700'}`}>{formatSignedMoney(item.difference)}</p>
-                  </div>
-                ))}
-              </div>
-            </details>
-          ) : <p className="mt-4 text-sm font-semibold text-emerald-700">Every matched student landed on the prediction.</p>}
+          {differences.length ? <FinanceDifferences differences={differences} month={reconciliation.month} /> : reconciliation.breakdownAvailable ? <p className="mt-4 text-sm font-semibold text-emerald-700">Every linked student landed on the prediction.</p> : <p className="mt-4 text-sm text-amber-800">Student breakdown unavailable; no individual accuracy result can be claimed.</p>}
+          {reconciliation.unmatchedActualTotal > 0 ? <p className="mt-3 text-xs text-amber-800">{formatMoney(reconciliation.unmatchedActualTotal)} across {reconciliation.unmatchedInvoiceCount} invoices is separate from the student list. Check identifiers in Stripe; invoice references appear below when the cache retains them.</p> : null}
+          {reconciliation.unmatchedInvoices?.length ? <details className="mt-3"><summary className="text-sm font-semibold text-slate-700">Review unlinked invoices</summary><div className="mt-2 space-y-2">{reconciliation.unmatchedInvoices.map((invoice) => <p className="text-sm" key={invoice.id}><a href={`https://dashboard.stripe.com/invoices/${encodeURIComponent(invoice.id)}`} className="text-blue-800 underline">{invoice.id}</a> · {formatMoney(invoice.amount)} · created day {invoice.created_day}</p>)}</div></details> : null}
+          <p className="mt-3 text-sm"><Link href="/admin/finance?view=details#review-differences" className="text-blue-800 underline">Compare these differences with current records</Link></p>
           {openForecast && openForecast.month !== reconciliation.month ? (
             <div className="mt-5 border-t border-slate-100 pt-5">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-blue-600">Current frozen prediction · {formatMonth(openForecast.month)}</p>
@@ -243,12 +230,35 @@ function DetailRow({ label, value, strong = false }) {
   return <div className={`flex items-center justify-between gap-4 py-2 text-sm ${strong ? 'font-semibold text-slate-950' : 'text-slate-700'}`}><span>{label}</span><span className="tabular-nums">{value}</span></div>;
 }
 
-function DetailsView({ totals, cost, coverage, attentionItems, roster, trend }) {
+function DetailsView({ totals, cost, coverage, attentionItems, roster, trend, completedMonth, scorecard = [], reviewReconciliation }) {
   return (
     <div className="space-y-5">
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Completed month · {formatMonth(completedMonth?.month)}</h2>
+        <p className="mt-2 text-sm text-slate-600">Month-end evidence is read from the logs, including spending entered after the last snapshot.</p>
+        <div className="mt-3 divide-y divide-slate-100">
+          <DetailRow label="Paid invoices created in this month" value={formatMoney(completedMonth?.invoiceTotal)} />
+          <DetailRow label={`Logged extra spend · ${completedMonth?.spendCount || 0} entries`} value={formatMoney(completedMonth?.spendTotal)} strong />
+          <DetailRow label="Spend entered after the last snapshot" value={formatMoney(completedMonth?.lateSpendTotal)} />
+          <DetailRow label="Estimated monthly costs at the baseline" value={formatMoney(completedMonth?.estimatedCosts)} />
+          <DetailRow label="Baseline margin less completed-month extra spend" value={formatMoney(completedMonth?.marginAfterLoggedSpend)} />
+          <DetailRow label={`Payroll marked paid in this month · ${completedMonth?.payrollMarkedPaidCount || 0} runs`} value={formatMoney(completedMonth?.payrollMarkedPaidTotal)} />
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">Baseline captured {formatForecastLockTime(completedMonth?.baselineAt)}. Costs and margin remain estimates. Payroll markers record human confirmation, not bank receipts; {completedMonth?.payrollCrossMonthCount || 0} reviewed/paid periods cross a month boundary. Actual monthly profit and available cash are not yet reconciled.</p>
+      </section>
+      <section className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Monthly prediction scorecard</h2>
+        <p className="mt-2 text-sm text-slate-600">Compare completed months on their original methods. An absent prediction is a gap, not a backtest.</p>
+        <div className="mt-4 space-y-4">{scorecard.map((score) => <div key={score.month} className="rounded-xl bg-slate-50 p-4">
+          <p className="font-semibold text-slate-900"><Link className="underline underline-offset-4" href={viewHref('details', { month: score.month })}>{formatMonth(score.month)}</Link> · {formatForecastMethod(score.method)}</p>
+          <p className="mt-1 text-sm text-slate-600">Predicted {formatMoney(score.forecastTotal)} · paid invoices {formatMoney(score.collectedTotal)} · net {formatSignedMoney(score.netDifference)} · student error {formatMoney(score.totalAbsoluteError)}</p>
+          <p className="mt-1 text-xs text-slate-500">{score.breakdownAvailable ? `${score.mismatchCount} student differences` : 'Individual comparison unavailable'} · {Number.isFinite(score.unmatchedActualTotal) ? `${formatMoney(score.unmatchedActualTotal)} unlinked` : 'Unlinked amount unavailable'} · locked {formatForecastLockTime(score.forecastedAt) || 'not recorded'} · refreshed {formatForecastLockTime(score.refreshedAt) || 'not recorded'}</p>
+        </div>)}</div>
+      </section>
+      {reviewReconciliation ? <section className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-6 shadow-sm"><h2 className="text-lg font-semibold text-slate-900">Compare with current records</h2>{reviewReconciliation.breakdownAvailable ? <FinanceDifferences differences={reviewReconciliation.differences} month={reviewReconciliation.month} /> : <p className="mt-3 text-sm text-slate-500">The frozen prediction and invoice breakdown needed for this comparison are unavailable.</p>}</section> : null}
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Monthly model</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Current monthly model</h2>
           <div className="mt-3 divide-y divide-slate-100">
             <DetailRow label="Gross revenue" value={formatMoney(totals.grossRevenueMonthly)} />
             <DetailRow label="VAT" value={`−${formatMoney(totals.vatLiabilityMonthly)}`} />
@@ -326,7 +336,7 @@ function SpendView({ today, spend, totals, addExpenseLogAction, deleteExpenseLog
       <section className="rounded-[1.5rem] border border-slate-200 bg-white/90 p-6 shadow-sm">
         <p className="text-sm text-slate-500">This month</p>
         <p className="mt-1 text-4xl font-semibold text-slate-950 tabular-nums">{formatMoney(spend.monthTotal)}</p>
-        <p className="mt-2 text-sm text-slate-500">Cash-view margin {formatMoney(totals.cashViewMarginMonthToDate)}</p>
+        <p className="mt-2 text-sm text-slate-500">Run-rate margin less this month’s logged extra spend {formatMoney(totals.cashViewMarginMonthToDate)}</p>
         <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
           Last month ({spend.previousMonth}): <strong className="text-slate-900">{formatMoney(spend.previousMonthTotal)}</strong> across {spend.previousMonthEntries.length} entr{spend.previousMonthEntries.length === 1 ? 'y' : 'ies'}.
         </p>
@@ -362,11 +372,14 @@ export default function AdminFinanceView({
   today,
   addExpenseLogAction,
   deleteExpenseLogAction,
+  completedMonth,
+  scorecard,
+  reviewReconciliation,
 }) {
   return (
     <div className="space-y-6">
       <FinanceHeader view={view} />
-      {view === 'details' ? <DetailsView totals={totals} cost={cost} coverage={coverage} attentionItems={attentionItems} roster={roster} trend={trend} /> : null}
+      {view === 'details' ? <DetailsView totals={totals} cost={cost} coverage={coverage} attentionItems={attentionItems} roster={roster} trend={trend} completedMonth={completedMonth} scorecard={scorecard} reviewReconciliation={reviewReconciliation} /> : null}
       {view === 'spend' ? <SpendView today={today} spend={spend} totals={totals} addExpenseLogAction={addExpenseLogAction} deleteExpenseLogAction={deleteExpenseLogAction} /> : null}
       {!['details', 'spend'].includes(view) ? <Overview stripeReconciliation={stripeReconciliation} openStripeForecast={openStripeForecast} /> : null}
     </div>
