@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import { Check, ChevronRight, Loader2, Reply } from 'lucide-react';
 import { getClusterReplyReceipt, schoolReplierLabel } from '@/lib/admin/incoming-reply-evidence-helpers.mjs';
 import { resolveIncomingQueueSwipe } from '@/lib/admin/incoming-queue-helpers.mjs';
-import IncomingCategoryBadge from './IncomingCategoryBadge';
+import IncomingCategoryBadge, { IncomingNoticeCue } from './IncomingCategoryBadge';
+import { getIncomingAbsenceNoticeCue } from '@/lib/admin/incoming-category-presentation-helpers.mjs';
 
 export default function IncomingMessageQueueItem({
   cluster, selected = false, onSelect, onHandled, selectionMode = false,
@@ -19,11 +20,7 @@ export default function IncomingMessageQueueItem({
   const preview = entries.map((message) => message.messageText).filter(Boolean).join(' ');
   const replyReceipt = getClusterReplyReceipt(entries);
   const studentNeedsCheck = entry.groupType !== 'tutor' && (!entry.matchedMmsId || entry.matchConfidence !== 'high');
-  const detailsNeedCheck = entries.some((message) => (
-    message.status === 'needs_review'
-    || message.classificationActionability === 'uncertain'
-    || message.classificationConfidence === 'low'
-  ));
+  const noticeCue = getIncomingAbsenceNoticeCue({ category: entry.suspectedCategory, entries });
   const isOpen = entries.some((message) => ['inbox', 'needs_review'].includes(message.status));
   const selectedCount = entries.filter((message) => Object.hasOwn(checkedIds, message.incomingId)).length;
   const checked = selectedCount === entries.length;
@@ -134,10 +131,11 @@ export default function IncomingMessageQueueItem({
                 <span className="shrink-0 text-[10px] text-slate-400">{formatStamp(newest.messageAt || newest.capturedAt)}</span>
               </span>
               <span className="mt-1 block truncate text-xs leading-5 text-slate-500">{preview}</span>
-              <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold text-slate-500">
+              <span className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-slate-500">
                 <IncomingCategoryBadge category={entry.suspectedCategory} />
-                {isOpen && (studentNeedsCheck || detailsNeedCheck) ? (
-                  <span className="text-slate-600">{studentNeedsCheck ? 'Check student' : 'Check details'}</span>
+                {isOpen ? <IncomingNoticeCue cue={noticeCue} /> : null}
+                {isOpen && studentNeedsCheck ? (
+                  <span className="text-slate-600">Check student</span>
                 ) : null}
                 {(resolutionSuggestion?.feedback || resolutionSuggestion?.label) === 'looks_answered' ? <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700" title="A reviewable assessment, not proof that school work is complete">Looks answered</span> : null}
                 {entries.length > 1 ? <span>{entries.length} messages</span> : null}

@@ -6,6 +6,7 @@ import GroupMapPanel from './IncomingGroupMapPanel';
 import TutorMessageBadge from './TutorMessageBadge';
 import IncomingMessageQueueItem from './IncomingMessageQueueItem';
 import { IncomingCategoryKey } from './IncomingCategoryBadge';
+import { getIncomingAbsenceNoticeCue } from '@/lib/admin/incoming-category-presentation-helpers.mjs';
 import IncomingResolutionAssessment from './IncomingResolutionAssessment';
 import IncomingClassificationAssessment from './IncomingClassificationAssessment';
 import { currentClassificationSuggestion } from '@/lib/admin/incoming-classification-helpers.mjs';
@@ -781,6 +782,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
     [entry, entries],
   );
   const spottedDates = describeSpottedDates(burstEntry);
+  const noticeCue = getIncomingAbsenceNoticeCue({ category: entry.suspectedCategory, entries });
   // The stack is stamped with when it finished arriving.
   const newest = entries[entries.length - 1];
   const isOpen = ['inbox', 'needs_review'].includes(entry.status);
@@ -886,6 +888,8 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
       </div>
 
       <ConversationContext messages={conversationContext} loading={contextLoading} />
+
+      {isOpen && noticeCue ? <p className="mt-3 text-xs leading-5 text-slate-600"><span className="font-semibold">{noticeCue.label}.</span> {noticeCue.description}</p> : null}
 
       <SchoolReplyEvidence entries={entries} />
       <IncomingClassificationAssessment

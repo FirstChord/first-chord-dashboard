@@ -111,15 +111,24 @@ message after an outcome, so a review run does not lose its place. **Earlier in
 this chat** is a collapsed, four-message context read made only when a card is
 selected; it reads the cached inbox tab and does not join Planning, students,
 the group map, or `Communication_Log`.
-Category pills use subject colours: payment is purple (Stripe), one-off and
-extended absence, summer break and scheduling are blue (MMS lessons/attendance),
-absence/pause, leaving and concerns are amber (participation/concerns), and
-general or unknown categories are grey. The queue's collapsed **Category colours**
+Category pills use short words and subject colours: **Payment** is purple
+(Stripe), **Absence** and **Schedule** are blue (MMS lessons/attendance),
+**Leaving** and **Concern** are amber, and **General** is grey. All temporary
+absence subtypes share the blue **Absence** badge; their stored types, extracted
+dates and duration remain available to planning. The queue's collapsed **Category colours**
 key explains this convention. Colour never means urgency, completion or no
-action. The old yellow/green review dots are removed; open messages instead show
-**Check student** for an uncertain student match or **Check details** for review
-status/uncertain or low-confidence classification. Completed messages do not
-retain those open-review prompts. This is presentation only: capture filtering,
+action. The old yellow/green review dots and generic **Check details** are removed;
+open messages retain **Check student** for an uncertain student match.
+Parent absence bursts show **Short notice** only when an exact stated start date is
+less than seven school calendar days from the earliest original message timestamp,
+including same-day notice. Dates use Europe/London; capture time and today's date
+are never substitutes. A clear start/return range uses its start. Missing
+timestamps, vague/weekday/ordinal dates, lists of missed dates or an uncertain
+date role show **Check notice**. The detail card explains
+the cue, including the same-day practice-video exclusion. No notice cue authorises
+a payment pause or sends a reply; apply the [school cancellation policy](../../policies/school.md)
+in human review. Tutor groups do not get the parent-policy cue. Completed messages
+do not retain open-review prompts. Capture filtering,
 Jev checks, attention groups and workflow state are unchanged.
 The detail card leads with student/sender, time and the original message. Tutor-group cards lead with the linked tutor and a compact **Tutor** badge.
 Consecutive messages from the same sender, chat and matched student sent within

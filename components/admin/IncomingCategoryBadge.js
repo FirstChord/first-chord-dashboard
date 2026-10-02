@@ -1,4 +1,4 @@
-import { labelIncomingCategory } from '@/lib/admin/incoming-message-helpers.mjs';
+import { labelIncomingQueueCategory } from '@/lib/admin/incoming-category-presentation-helpers.mjs';
 
 const CATEGORY_AREAS = {
   payment: 'money',
@@ -6,7 +6,7 @@ const CATEGORY_AREAS = {
   extended_absence: 'lessons',
   summer_break: 'lessons',
   schedule: 'lessons',
-  absence_pause: 'participation',
+  absence_pause: 'lessons',
   leaving: 'participation',
   concern: 'participation',
 };
@@ -22,9 +22,14 @@ export default function IncomingCategoryBadge({ category }) {
   const area = AREAS[CATEGORY_AREAS[category]] || AREAS.general;
   return (
     <span className={`rounded-full px-2 py-0.5 ${area.tone}`} title={area.description}>
-      {labelIncomingCategory(category)}
+      {labelIncomingQueueCategory(category)}
     </span>
   );
+}
+
+export function IncomingNoticeCue({ cue }) {
+  if (!cue) return null;
+  return <span className={cue.window === 'unknown' ? 'text-slate-600' : 'text-amber-800'} title={cue.description}>{cue.label}</span>;
 }
 
 export function IncomingCategoryKey() {
