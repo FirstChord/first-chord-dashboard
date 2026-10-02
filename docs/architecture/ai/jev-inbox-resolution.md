@@ -5,9 +5,13 @@ last_verified: 2026-10-02
 ---
 # Jev inbox message checks
 
-The pilot helps a reviewer assess whether WhatsApp replies appear to answer an
-open inbox request. It never clears, hides by default, sends a message, changes
-attendance/payment, or completes Planning. **All** remains the default view.
+The inbox automatically proposes attention groups for messages that already
+reach Open. Existing deterministic capture filtering remains unchanged: rows
+already filtered into Done are not reopened or processed. The new Jev sweep
+never clears a message, applies details, sends, changes attendance/payment, or
+completes Planning. **Needs attention** is the default when automatic checking
+is enabled; **Probably nothing** has a visible count and **All** restores the
+complete open queue. This is a reviewable view, not a status change.
 **Replied** means an actual reply was captured; **Looks answered** is a suggestion
 with a separate opt-in filter. The reviewer uses the existing checkmark/swipe/
 Select controls and Undo for any manual clearing.
@@ -23,6 +27,7 @@ TYPESAFE_API_KEY=<secret entered privately>
 TYPESAFE_MODEL=jev-1.13.0
 ADMIN_AI_INBOX_RESOLUTION_ENABLED=true
 ADMIN_AI_INBOX_CLASSIFICATION_ENABLED=true
+ADMIN_AI_INBOX_AUTO_CHECK_ENABLED=true
 ```
 
 The model setting is optional; the version above is the pinned default. Do not
@@ -38,12 +43,71 @@ ten expected labels with zero false `looks_answered` results. This establishes
 only the initial synthetic check, not real-inbox accuracy. The key was supplied
 through Railway environment injection and never printed or stored locally.
 
-The pilot button appears only with both flag and key. **Check replies** assesses
+The manual button appears only with both classification flag and key. **Check replies** assesses
 one card when classification is disabled. With classification enabled, **Check
 message** proposes topic, intent and actionability and assesses captured replies
-in the same bounded Jev request. No page load, focus refresh, ingest,
-cron or batch selection triggers a model call. Removing the flag or key disables
-new assessments while existing fresh suggestions and feedback remain accessible.
+in the same bounded Jev request. Automatic classification has its own flag and
+the contract below. Removing the classification flag or key disables all new
+assessments while existing fresh suggestions and feedback remain accessible.
+
+## Automatic attention slice
+
+Finn approved this slice on 2026-10-02 and explicitly retained the successful
+existing automatic capture filters. Only open, unsnoozed, unlinked inbox bursts
+are eligible. The authenticated inbox starts a separate `{mode: "auto"}` POST
+on opening and every twenty seconds while visible. It pauses while the reviewer
+explicitly opens a card or selects/handles messages. GET/page rendering stays
+read-only. A GitHub workflow calls secret-gated `POST /api/cron/inbox-check`
+every thirty minutes using the existing `SCHEDULE_REFRESH_SECRET`; that route
+returns only counts. Scheduled runs may be delayed by GitHub. No ingest or
+bridge code changes, reply generation, automatic reply resolution or provider
+actions are introduced.
+
+Each call checks at most three bursts, after five quiet minutes since their
+latest **capture** (including replayed historical messages). A fresh existing
+classification is reused. Automatic calls ask only the three classification
+questions over the same bounded redacted projection. There is no per-message
+click or requirement to apply classification details. Automatic details start
+collapsed; the existing manual check remains available for ambiguous cases.
+
+Only a fresh whole-burst suggestion with no guard, `no_action` and an explicit
+social/acknowledgement/informational intent qualifies for Probably nothing.
+Low confidence, incomplete text, provider failures, stale suggestions, Planning
+links, and human-reviewed work stay in Needs attention. A later captured inbound
+in the same chat invalidates an older quiet cue even if later cleared. Applying
+human details remains independent. **Keep in Needs attention** rejects a
+suggestion; automatic runs do not overwrite a human decision for the same
+source. Select snapshots only visible explicit IDs; **Mark done** reuses the
+existing batch review, stale-review checks and twenty-second Undo. Fresh
+arrivals are never added silently to the selection.
+
+Automatic starts are bounded to ten per minute per service process and one
+hundred persisted attempt records in a rolling day. A metadata-only pending
+proposal is saved before the provider call, suppressing ordinary repeated
+requests across tabs/restarts for fifteen minutes. A failed provider call saves
+an uncertain failure marker and waits an hour before retry eligibility. A crash
+leaves its pending marker uncertain. Successful checks reuse fresh results for
+twenty-four hours; unchanged human decisions are not automatically rerun.
+The worker has an in-process overlap guard; Sheets has no atomic claim, so
+multi-process simultaneous reads can still duplicate attempts. These are pilot
+cost bounds, not a guaranteed distributed quota. No messages become handled
+from an attempt marker or model result. A storage/source-change failure also
+leaves the message in attention.
+
+Rollback: set `ADMIN_AI_INBOX_AUTO_CHECK_ENABLED=false` and redeploy. This stops
+both producers and returns the default to All without altering inbox rows or
+the existing capture filters. Manual checking remains independently available.
+
+Classification version v2 explicitly recognises standalone informal information
+sharing while retaining uncertainty for ambiguous fragments. The expanded live
+synthetic release check matched 17/19 classification triples and 10/10 reply
+labels, with zero false no-action or answered results. The two mismatches stayed
+in attention through conservative abstention. This does not measure real-inbox
+accuracy. Executed tests cover automatic bounds, cooldown, overlap, human
+rejection, source changes, auth and safe cron output; synthetic browser checks at 390×844, 1440×1000 and 1100×900 on
+`/jev-attention-preview` covered grouping, batch review/Undo, human rejection,
+keyboard navigation and a controlled failure without school-record writes.
+The temporary page and API mocks were removed before delivery.
 
 ## Human-reviewed message details
 
@@ -82,7 +146,8 @@ Classification suggestions also use forced reads before/after evaluation,
 invalidates an older reply assessment because its reviewed-source hash changes;
 **Check message again** refreshes it explicitly. Turning either flag off prevents
 new calls for that feature while existing fresh human decisions remain possible.
-The classification endpoint limits checks to ten per admin per minute per process.
+The classification endpoint limits POST check requests to ten per admin per
+minute per process; automatic provider starts also have their own process bound.
 
 Run `node scripts/eval-jev-inbox-check.mjs --live` with Railway environment
 injection for synthetic-only classification and combined reply checks. On

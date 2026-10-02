@@ -499,3 +499,13 @@ The bridge does not call Jev, backfill transcripts or change reply association.
 **Replied** remains a factual capture cue; **Looks answered** is a separate,
 reviewable suggestion. Even confirmed feedback never archives a message or
 completes linked Planning work. New requests/replies invalidate old suggestions.
+
+### Automatic attention checks after capture
+
+Finn approved an automatic Jev attention slice on 2026-10-02 for messages that
+already reach Open. Existing confirmed-group gates, deterministic filtering and
+pre-archive behaviour remain unchanged. The bridge still never calls Jev.
+A bounded dashboard producer checks quiet open bursts and proposes Needs attention
+or Probably nothing views; it never handles, applies details or sends.
+Human batch clearing reuses Select, stale-review checks and Undo. Contract and
+kill switch: [Jev inbox message checks](../../architecture/ai/jev-inbox-resolution.md).

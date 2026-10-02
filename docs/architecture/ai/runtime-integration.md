@@ -23,17 +23,22 @@ validator are documented in `docs/architecture/ai/tool-contracts.md` under
 `incoming_reply_draft.propose`; everything below about key scope, provider data
 handling, cost controls and rollback applies to it unchanged.
 
-A third integration is the manual Jev inbox classification/resolution pilot, approved for
+A third integration is the Jev inbox classification/resolution pilot, approved for
 implementation on 2026-10-01. It uses `lib/admin/jev-provider.mjs` as a reusable
 typed transport; each future feature must still define its own projection,
 permissions, flag, evaluation and output contract. The inbox-specific contract
 is in [Jev inbox resolution](jev-inbox-resolution.md). It is off by default and
-has no background producer. **Check message** proposes topic, intent and
+has a separately approved automatic attention producer for already-open bursts
+behind `ADMIN_AI_INBOX_AUTO_CHECK_ENABLED` (2026-10-02). The existing capture
+filters remain unchanged; bounded checks produce reviewable proposals, never
+apply details or handle messages. **Check message** proposes topic, intent and
 actionability and, when actual reply evidence supports it, assesses resolution
 in one redacted typed request. **Apply details** requires human review and patches
 only the inbox classification/reviewer cells. Handling, Planning and provider
 actions retain their separate human boundaries. **Check replies** remains available
-when the classification flag is off. Output never instructs hiding, archive or send.
+when the classification flag is off. Only confident no-action proposals enter a visible Probably nothing view;
+uncertainty stays in Needs attention, All is always available, and clearing
+requires the existing human review. Output never instructs archive or send.
 
 The durable rule is:
 

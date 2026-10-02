@@ -9,10 +9,11 @@ Last updated: 2026-10-02
 
 This is the allowlist and design boundary for AI assistance inside the
 dashboard. The implemented model runtimes are the optional issue briefing, bounded
-incoming-reply pilot, and manual Jev inbox classification/resolution pilot. Each makes a
+incoming-reply pilot, and Jev inbox classification/resolution pilot. Each makes a
 server-side, tool-free call over a narrow deterministic projection. Reply
-drafting requires **Reply** on one card; Jev checking requires **Check message**
-(or **Check replies** with classification disabled) on one card. None grants an
+drafting requires **Reply** on one card; manual Jev checking uses **Check message**
+(or **Check replies** with classification disabled). Automatic inbox attention checks
+were approved separately on 2026-10-02 under the contract below. None grants an
 agent access to an integration or action. Other capabilities remain
 unavailable to a model or user until their privacy review, tests, UI boundary,
 provider/retention decision, and logging exist.
@@ -23,14 +24,19 @@ Implementation was requested on 2026-10-01; the live synthetic
 evaluation on that date matched all ten expected labels with no false
 `looks_answered` result. Real-inbox accuracy remains unverified. Its complete data,
 retention, freshness, human-feedback and rollback boundary is documented in
-[Jev inbox resolution](jev-inbox-resolution.md). This approval does not enable
-automatic classification, hiding, workflow mutations, or other Jev features.
+[Jev inbox resolution](jev-inbox-resolution.md). That reply-assessment approval does not enable automatic resolution, workflow
+mutations, or other Jev features.
 
 Manual `incoming_classification.propose` was separately approved on 2026-10-01
 behind `ADMIN_AI_INBOX_CLASSIFICATION_ENABLED` and the same server key. It
 proposes existing category/intent/actionability enums only. **Apply details** is
 the human boundary and leaves messages open, even for a `no_action` suggestion.
-No automatic capture classification or archive behavior changes. The final
+The separate attention slice preserves all existing capture filtering and
+archive behaviour. Automatic checking produces proposals only for rows already
+in Open, behind `ADMIN_AI_INBOX_AUTO_CHECK_ENABLED`; the quiet group is visible
+and batch clearing remains a human action. No model-approved details are applied
+automatically. Its background/open-inbox producers, cost bounds and rollback
+are documented in the focused contract. The final
 2026-10-02 synthetic combined evaluation matched 14/14 classification triples
 and 10/10 resolution labels with zero false no-action/answered results; real-inbox
 accuracy remains unverified. See the same focused contract for the narrow writer
@@ -88,7 +94,7 @@ These names reserve narrow contracts; they are not callable tools today.
 | `issue_context.read` | Explain why a named issue exists and what evidence would resolve it | Exact student/source/type plus non-mutating detector inputs and current queue state | Explanation, missing evidence, and relevant workflow link | Call `getAdminIssues()` because that synchronizes `Issue_Queue`; acknowledge/resolve issues; write student truth | Read-only. Golden fixtures cover current, recorded-only, source-absent, unavailable, and conflicting states. Avoid unrelated family context | Admin-only detective case file live; optional tool-free AI opinion receives only that explanation. A separate deterministic UI allowlist may hand the human to an existing action, but the model cannot select or execute it |
 | `finance_overview.read` | Explain aggregate finance position without exposing provider accounts | Existing aggregate finance overview, assumptions version, cache age, and coverage counts | Plain-English aggregate explanation and caveats | Fetch live Stripe data, expose per-family payment details, change assumptions, or execute payment | Read-only aggregate. Evaluate calculations against the deterministic response and require explicit cache caveats | Viable now as a future wrapper around the existing aggregate service |
 | `operations_guidance.read` | Find the right policy or recovery step quickly | Fixed allowlist of runbook/policy document IDs and sections | Quoted-short guidance, source link, and whether human escalation is needed | Read arbitrary repository files, use shell, inspect secrets, or invent recovery steps | Read-only. Retrieval tests require citations, bounded results, and abstention when the allowlist has no answer | Pure fixed index/search implemented; no arbitrary file read, route, UI, or model |
-| `incoming_classification.propose` | Reduce manual triage of captured WhatsApp bursts | Up to four bounded redacted original texts and student/tutor group type | Exactly existing category, intent and actionability enums; conservative per-dimension abstention | Propose dates/student matches, create a pause/plan, handle/archive, send or change payments | **Check message** explicitly requests processing; human edits/reviews before **Apply details**, which patches only classification/reviewer cells and leaves status open. Separate `incoming_classification` proposal lane preserves suggested/applied enums | **Manual pilot approved 2026-10-01**, behind `ADMIN_AI_INBOX_CLASSIFICATION_ENABLED`; 14-case synthetic live release check and ten combined reply checks; no background/bulk runtime or production holdout |
+| `incoming_classification.propose` | Reduce manual triage of captured WhatsApp bursts | Up to four bounded redacted original texts and student/tutor group type | Exactly existing category, intent and actionability enums; conservative per-dimension abstention | Propose dates/student matches, create a pause/plan, handle/archive, send or change payments | Manual **Check message** or separately enabled bounded automatic checking requests processing; human edits/reviews before **Apply details**, which patches only classification/reviewer cells and leaves status open. Needs attention/Probably nothing are derived views; human Select/Mark done handles only reviewed explicit IDs. Separate `incoming_classification` proposal lane preserves suggested/applied enums | **Manual pilot approved 2026-10-01**; **automatic attention slice approved 2026-10-02**, behind separate `ADMIN_AI_INBOX_AUTO_CHECK_ENABLED`. Only already-open bursts, bounded producers, reviewable quiet group and human batch clearing; no automatic detail/status writes. Expanded synthetic release check: 17/19 triples, 10/10 replies, zero false no-action/answered; no production holdout |
 | `communication_draft.propose` | Prepare a reply from confirmed context and policy | Confirmed student/workflow facts, approved policy snippets, audience/tone chosen by the admin | Draft text plus cited facts and unresolved placeholders | Select or reveal a recipient, send/copy/log as sent, claim delivery, or invent a promise/date | Human edits and approves in the existing communication workflow. Evaluate approved edits, unsupported claims, tone, and safeguarding leakage | Pure low-risk context/proposal validator implemented for acknowledgement cases; no contact-role lookup, UI, provider, copy, log, or send |
 | `incoming_reply_draft.propose` | Draft a suggested WhatsApp reply for one open `Incoming_Message_Inbox` row, enforcing the Lesson Cancellation Policy | Redacted parent message text (known names → placeholders; emails/phones/URLs stripped; bounded length) plus a deterministic policy context: policy case (one-off vs permanent vs ending vs break), computed notice window (lesson date from message extraction or `Schedule_Context` vs message date), and the fixed allowed policy facts for that case/window | A draft reply citing only allowed policy facts, with `[PARENT_FIRST]`/`[STUDENT_FIRST]` placeholders the server substitutes after validation. A clear general message may receive a warm acknowledgement but no school-policy or operational promise. Ambiguous cases never reach the model: a deterministic neutral acknowledgement is proposed instead | Offer a one-off reschedule/swap/make-up; state a charge/no-charge/video outcome the computed notice window does not support; promise a refund, cancellation, pause, schedule/payment change, call, message, or other school action without an allowed fact; send, copy, log-as-sent, reveal a recipient, or draft in bulk | Pressing **Reply** on one card is consent for that message's redacted text to be processed. The human edits the result, then **Copy & open WhatsApp** records the copy in `Communication_Log` and opens WhatsApp; the human still chooses the chat and taps Send. Deterministic validation runs before display/storage. Proposal telemetry distinguishes used, edited and discarded; the original message is not copied into `Proposals` evidence | **Bounded per-card pilot approved 2026-08-04** behind `ADMIN_AI_REPLY_DRAFT_ENABLED`. No cron, pre-generation, or bulk drafting. Provider/validation failure falls back to the standard editable reply |
 

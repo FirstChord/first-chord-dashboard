@@ -1,0 +1,31 @@
+name: Check Inbox Attention
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+concurrency:
+  group: inbox-attention-check
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Check a bounded batch of open inbox messages
+        env:
+          ENDPOINT: https://first-chord-dashbord-production.up.railway.app/api/cron/inbox-check
+          SECRET: ${{ secrets.SCHEDULE_REFRESH_SECRET }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SECRET" ]; then
+            echo "SCHEDULE_REFRESH_SECRET is missing"; exit 1
+          fi
+          response=$(curl --fail-with-body --silent --show-error --max-time 150 -X POST "$ENDPOINT" \
+            -H "x-firstchord-schedule-secret: $SECRET")
+          echo "$response"
+          echo "$response" | jq -e '.success == true' > /dev/null

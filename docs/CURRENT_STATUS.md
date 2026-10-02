@@ -30,6 +30,15 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Automatic attention checks for the existing open inbox — 2026-10-02:**
+  approved by Finn with the current capture filters explicitly preserved.
+  Jev checks quiet open bursts without per-card clicks; confident no-action
+  suggestions appear in a visible Probably nothing group. Uncertainty remains
+  in Needs attention, All stays available, and clearing is human Select/Mark done
+  with Undo. Separate kill switch; bounded background/open-inbox producers never
+  apply details or change status. Expanded synthetic checks: 17/19 triples,
+  10/10 replies, zero false no-action/answered. Contract:
+  `docs/architecture/ai/jev-inbox-resolution.md`.
 - **Jev checks message details and captured replies — 2026-10-02:** manual
   **Check message** suggests topic, intent and actionability, and adds reply
   resolution in the same call when captured evidence supports it. Humans edit
@@ -124,20 +133,7 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   morning), a heartbeat arriving >90 min late now writes that window to
   `Bridge_Status.raw_json` and the inbox shows it **even while healthy**. Ninety
   minutes = three heartbeats, so ordinary restarts (26 in five days) stay quiet.
-- **The note format is now a contract both renderers are held to — DEPLOYED
-  2026-09-15:** a tutor's note is turned into HTML twice, by two separate
-  implementations — Practice Chat for the tutor's check, the dashboard for the
-  parent's email and the portal. Nobody sees both, so drift would mean the tutor
-  approves one thing and the parent receives another. They agreed on all 17
-  sampled notes, so this guards an unbroken contract rather than fixing a bug.
-  `tests/fixtures/note-markup-contract.mjs` is mirrored byte-for-byte in both
-  repositories and **each side tests only its own renderer**, so it runs on both
-  CIs with neither needing the other checked out. `docs:check` compares the two
-  copies locally and warns (never fails — Practice Chat is absent on CI).
-  Generated from the behaviour the two already agreed on, so it records what is
-  true. Verified by breaking each renderer on purpose and watching it fail.
-  **Also found:** `test:admin` globbed only `tests/admin/`, so 16 root-level
-  tests had never run on CI; the glob now covers both (1,668 → 1,684).
+
 ## Current operating contracts
 
 | Area | Current boundary |

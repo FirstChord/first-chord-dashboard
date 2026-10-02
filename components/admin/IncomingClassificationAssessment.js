@@ -19,12 +19,15 @@ export default function IncomingClassificationAssessment({ proposal, available, 
     setAction(mode);
     try { await callback(); } finally { setAction(''); }
   }
+  const checkButton = available ? <ActionButton variant="quiet" pending={action === 'assess'} pendingLabel="Checking message…" disabled={pending} onClick={() => run('assess', onAssess)}
+    title="Ask Jev to assess redacted captured message text and replies"
+    className="min-h-11 rounded-full px-3 font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">{proposal ? 'Check message again' : 'Check message'}</ActionButton> : null;
   return (
     <div className="my-3 space-y-2 text-xs">
       {proposal ? (
-        <details open={open} className="rounded-xl border border-slate-200 bg-slate-50 px-3">
+        <details open={open && !proposal.automatic} className="rounded-xl border border-slate-200 bg-slate-50 px-3">
           <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-slate-700">
-            {open ? 'Suggested message details' : proposal.applied ? 'Message details applied' : 'Suggestion discarded'}
+            {open ? proposal.automatic ? 'Message check' : 'Suggested message details' : proposal.applied ? 'Message details applied' : 'Suggestion discarded'}
           </summary>
           <div className="space-y-3 pb-3">
             {open ? <>
@@ -45,15 +48,14 @@ export default function IncomingClassificationAssessment({ proposal, available, 
                 <ActionButton variant="green" pending={action === 'apply'} pendingLabel="Applying…" disabled={pending} onClick={() => run('apply', () => onReview('apply', proposal.proposalId, classification))}
                   className="min-h-11 rounded-lg bg-emerald-50 px-3 font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50">Apply details</ActionButton>
                 <ActionButton variant="quiet" pending={action === 'discard'} pendingLabel="Discarding…" disabled={pending} onClick={() => run('discard', () => onReview('discard', proposal.proposalId))}
-                  className="min-h-11 rounded-lg px-3 font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">Discard</ActionButton>
+                  className="min-h-11 rounded-lg px-3 font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">{proposal.automatic ? 'Keep in Needs attention' : 'Discard'}</ActionButton>
               </div>
             </> : proposal.applied ? <p className="text-slate-500">{labelIncomingCategory(proposal.applied.category)} · {labelIncomingIntent(proposal.applied.intent)} · {labelIncomingActionability(proposal.applied.actionability)}. Mark handled separately when the work is complete.</p> : null}
+            {proposal.automatic ? checkButton : null}
           </div>
         </details>
       ) : null}
-      {available ? <ActionButton variant="quiet" pending={action === 'assess'} pendingLabel="Checking message…" disabled={pending} onClick={() => run('assess', onAssess)}
-        title="Ask Jev to assess redacted captured message text and replies"
-        className="min-h-11 rounded-full px-3 font-semibold text-slate-600 hover:bg-slate-100 disabled:opacity-50">{proposal ? 'Check message again' : 'Check message'}</ActionButton> : null}
+      {!proposal?.automatic ? checkButton : null}
     </div>
   );
 }

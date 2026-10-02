@@ -8,6 +8,7 @@ import IncomingMessageQueueItem from './IncomingMessageQueueItem';
 import IncomingResolutionAssessment from './IncomingResolutionAssessment';
 import IncomingClassificationAssessment from './IncomingClassificationAssessment';
 import { currentClassificationSuggestion } from '@/lib/admin/incoming-classification-helpers.mjs';
+import { isProbablyNothing } from '@/lib/admin/incoming-attention-helpers.mjs';
 import { currentResolutionSuggestion } from '@/lib/admin/incoming-resolution-helpers.mjs';
 import { collectSchoolReplies, getClusterReplyReceipt, schoolReplierLabel } from '@/lib/admin/incoming-reply-evidence-helpers.mjs';
 import {
@@ -1110,7 +1111,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
   );
 }
 
-export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, coverageGaps = [], lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false, initialResolutionProposals = {}, resolutionAvailable = false, initialClassificationProposals = {}, classificationAvailable = false }) {
+export default function AdminIncomingMessagesPageClient({ initialInbox = [], initialGroupMap = [], studentOptions = [], tutorOptions = [], bridgeStatus = null, coverageGaps = [], lastAutoCaptureAt = '', error = '', initialReplyProposals = {}, replyDraftingAvailable = false, initialResolutionProposals = {}, resolutionAvailable = false, initialClassificationProposals = {}, classificationAvailable = false, autoCheckAvailable = false }) {
   const [inbox, setInbox] = useState(initialInbox);
   const [groupMap, setGroupMap] = useState(initialGroupMap);
   const [groupTutorOptions, setGroupTutorOptions] = useState(tutorOptions);
@@ -1129,7 +1130,9 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const [submitError, setSubmitError] = useState(error);
   const [duplicatePlanningId, setDuplicatePlanningId] = useState('');
   const [inboxView, setInboxView] = useState('open');
-  const [replyFilter, setReplyFilter] = useState('all');
+  const [replyFilter, setReplyFilter] = useState(autoCheckAvailable ? 'attention' : 'all');
+  const [autoCheckStatus, setAutoCheckStatus] = useState('');
+  const [assessmentTime, setAssessmentTime] = useState(() => new Date());
   const [showCapture, setShowCapture] = useState(false);
   const [showGroupMap, setShowGroupMap] = useState(false);
   const [groupsLoaded, setGroupsLoaded] = useState(initialGroupMap.length > 0);
@@ -1291,6 +1294,43 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     }
   }, [inboxView, replyDraftingAvailable]);
 
+  // Catch up without per-card clicks. GETs remain read-only; this separate
+  // authenticated POST can only produce bounded proposals, never handle rows.
+  // Pause visual regrouping while a person reads or selects messages.
+  useEffect(() => {
+    if (!autoCheckAvailable || inboxView !== 'open' || selectionMode || mobileDetailOpen || pendingId || undoPending) return undefined;
+    let stopped = false, timer;
+    const controller = new AbortController();
+    async function check() {
+      if (document.visibilityState !== 'visible' || queueBusyRef.current) {
+        timer = window.setTimeout(check, 20_000); return;
+      }
+      const version = inboxMutationVersionRef.current;
+      setAssessmentTime(new Date());
+      setAutoCheckStatus('checking');
+      try {
+        const response = await fetch('/api/admin/incoming-messages/classification-proposals', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'auto' }), signal: controller.signal,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) throw new Error('unavailable');
+        if (!stopped && version === inboxMutationVersionRef.current && !queueBusyRef.current) {
+          if (Array.isArray(data.inbox)) setInbox(current => [
+            ...data.inbox, ...current.filter(entry => !['inbox', 'needs_review'].includes(entry.status)),
+          ]);
+          if (Object.hasOwn(data, 'lastAutoCaptureAt')) setLatestAutoCaptureAt(data.lastAutoCaptureAt || '');
+          setClassificationProposals(data.byIncomingId || {});
+          setAssessmentTime(new Date());
+          setAutoCheckStatus(data.failed ? 'unavailable' : '');
+        }
+      } catch { if (!stopped) setAutoCheckStatus('unavailable'); }
+      finally { if (!stopped) timer = window.setTimeout(check, 20_000); }
+    }
+    timer = window.setTimeout(check, 700);
+    return () => { stopped = true; controller.abort(); window.clearTimeout(timer); };
+  }, [autoCheckAvailable, inboxView, selectionMode, mobileDetailOpen, pendingId, undoPending]);
+
   async function handleResolution(mode, values) {
     if (queueBusyRef.current || pendingId) return;
     const selectedId = values.incomingId || selectedCluster?.lead?.incomingId || selectedIncomingId;
@@ -1352,7 +1392,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     setQueueSelection({});
     setQueueError('');
     setInboxView(value);
-    setReplyFilter('all');
+    setReplyFilter(value === 'open' && autoCheckAvailable ? 'attention' : 'all');
     setMobileDetailOpen(false);
     if (value !== 'done' || doneLoaded || doneLoading) return;
     setDoneLoading(true);
@@ -1476,10 +1516,16 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     const proposal = currentResolutions[cluster.lead.incomingId];
     return (proposal?.feedback || proposal?.label) === 'looks_answered';
   }).length;
+  const quietIds = useMemo(() => new Set(allVisibleClusters.filter(cluster => isProbablyNothing(
+    classificationProposals[cluster.lead.incomingId], cluster.entries, { now: assessmentTime, rows: inbox },
+  )).map(cluster => cluster.lead.incomingId)), [allVisibleClusters, classificationProposals, assessmentTime, inbox]);
+  const quietCount = quietIds.size;
   const visibleClusters = useMemo(() => inboxView !== 'open' || replyFilter === 'all' ? allVisibleClusters
-    : allVisibleClusters.filter(cluster => replyFilter === 'replied' ? getClusterReplyReceipt(cluster.entries)
+    : allVisibleClusters.filter(cluster => replyFilter === 'attention' ? !quietIds.has(cluster.lead.incomingId)
+      : replyFilter === 'quiet' ? quietIds.has(cluster.lead.incomingId)
+      : replyFilter === 'replied' ? getClusterReplyReceipt(cluster.entries)
       : (currentResolutions[cluster.lead.incomingId]?.feedback || currentResolutions[cluster.lead.incomingId]?.label) === 'looks_answered'),
-  [allVisibleClusters, inboxView, replyFilter, currentResolutions]);
+  [allVisibleClusters, inboxView, replyFilter, currentResolutions, quietIds]);
   const selectedCluster = useMemo(() => (
     visibleClusters.find((cluster) => cluster.lead.incomingId === selectedIncomingId)
     || visibleClusters[0]
@@ -2203,8 +2249,9 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                   </div>
                 </div>
                 {inboxView === 'open' ? (
-                  <div data-inbox-filters="reply" className="flex flex-wrap items-center gap-1" role="group" aria-label="Reply filter">
-                    {[['all', 'All'], ['replied', `Replied ${repliedCount}`], ...(resolutionAvailable || Object.keys(resolutionProposals).length ? [['answered', `Looks answered ${answeredCount}`]] : [])].map(([value, label]) => (
+                  <div data-inbox-filters="reply" className="flex flex-wrap items-center gap-1" role="group" aria-label="Message filter">
+                    {[...(autoCheckAvailable ? [['attention', `Needs attention ${allVisibleClusters.length - quietCount}`], ['quiet', `Probably nothing ${quietCount}`]] : []),
+                      ['all', 'All'], ...(repliedCount ? [['replied', `Replied ${repliedCount}`]] : []), ...(answeredCount ? [['answered', `Looks answered ${answeredCount}`]] : [])].map(([value, label]) => (
                       <button
                         key={String(value)}
                         type="button"
@@ -2220,6 +2267,11 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                       >{label}</button>
                     ))}
                   </div>
+                ) : null}
+                {autoCheckAvailable && autoCheckStatus && inboxView === 'open'
+                  && (autoCheckStatus !== 'checking' || !Object.keys(classificationProposals).length) ? (
+                  <p role="status" className="px-2 py-1 text-xs text-slate-500">{autoCheckStatus === 'checking'
+                    ? 'Checking messages…' : 'Automatic checking is unavailable. Unchecked messages stay in Needs attention.'}</p>
                 ) : null}
                 {selectionMode ? (
                   <div className="flex items-center justify-between gap-2">
@@ -2239,7 +2291,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
                       onClick={handleSelectedQueueReview}
                       className="text-xs"
                     >
-                      Mark handled
+                      Mark done
                     </ActionButton>
                   </div>
                 ) : null}
@@ -2273,7 +2325,9 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
               </div>
               {!visibleClusters.length ? (
                 <div className={`rounded-xl border px-3 py-4 text-sm ${inboxView === 'open' && bridgeHealth.state === 'warn' ? 'border-amber-200 bg-amber-50/70 text-amber-900' : 'border-emerald-100 bg-emerald-50/70 text-emerald-800'}`}>
-                  {inboxView === 'open' && replyFilter !== 'all'
+                  {inboxView === 'open' && replyFilter === 'quiet' ? 'Nothing in Probably nothing right now.'
+                    : inboxView === 'open' && replyFilter === 'attention' ? 'Needs attention is clear. Review Probably nothing or see All.'
+                    : inboxView === 'open' && replyFilter !== 'all'
                     ? replyFilter === 'answered' ? 'No open requests currently look answered.' : 'No captured replies on open messages yet.'
                     : inboxView === 'later'
                     ? 'Nothing is waiting for later.'

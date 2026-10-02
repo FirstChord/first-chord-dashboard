@@ -4,7 +4,7 @@ import { parseBridgeCoverageGaps, selectUnrecoveredBridgeCoverageGaps } from '@/
 import { getIncomingResolutionProposals } from '@/lib/admin/incoming-resolution-proposals';
 import { isIncomingResolutionConfigured } from '@/lib/admin/incoming-resolution-service.mjs';
 import { getIncomingClassificationProposals } from '@/lib/admin/incoming-classification-proposals';
-import { isIncomingClassificationConfigured } from '@/lib/admin/incoming-classification-service.mjs';
+import { isIncomingClassificationConfigured, isIncomingAutoCheckConfigured } from '@/lib/admin/incoming-classification-service.mjs';
 import { getIncomingReplyProposals } from '@/lib/admin/incoming-reply-proposals';
 import { isIncomingReplyDraftingConfigured } from '@/lib/admin/incoming-reply-ai-provider.mjs';
 import { getOperationalAdminStudents } from '@/lib/admin/students';
@@ -86,6 +86,7 @@ export default async function AdminIncomingMessagesPage() {
       resolutionAvailable={isIncomingResolutionConfigured()}
       initialClassificationProposals={classificationProposals}
       classificationAvailable={isIncomingClassificationConfigured()}
+      autoCheckAvailable={isIncomingAutoCheckConfigured()}
     />
   );
 }
