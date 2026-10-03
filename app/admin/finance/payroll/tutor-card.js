@@ -8,6 +8,8 @@ import PayrollSaveButtons from './save-buttons';
 import PayrollReviewForm from './review-form';
 import AttendanceDecision from './attendance-decision';
 import { SubmitButton } from '@/components/admin/ui/SubmitButton';
+import { decideRecordsNudge, payrollRecordReadiness } from '@/lib/admin/payroll-record-readiness.mjs';
+import RecordsNudgeButton from './records-nudge-button';
 
 function minutesLabel(minutes) {
   if (!minutes) return '0h';
@@ -123,14 +125,17 @@ function CollapsibleSlotList({ title, slots = [], empty = 'None', note = '' }) {
   );
 }
 
-export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, recordManualCutoverPaymentAction, recordManualCutoverConfirmationAction }) {
+export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, recordNoteExceptionAction, recordManualCutoverPaymentAction, recordManualCutoverConfirmationAction }) {
   const calculatedFinal = row.recalculatedFinalAmount
     ?? Math.round((row.expectedAmount + row.adjustmentAmount) * 100) / 100;
   const owed = row.owedAmount ?? (row.status === 'paid' ? 0 : (row.finalAmount || calculatedFinal));
   const reviewPast = (row.reviewSlots || []).filter((slot) => slot.timing === 'past');
   const reviewUpcoming = (row.reviewSlots || []).filter((slot) => slot.timing === 'upcoming');
   const workflow = row.workflow || getPayrollWorkflowState(row);
-  const reviewBlocked = Boolean(reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || row.windowCapped || workflow.key === 'data_unavailable');
+  const recordReadiness = payrollRecordReadiness(row);
+  const recordNudge = decideRecordsNudge({ row, contactEmail: row.contactEmail, verifiedAt: row.contactEmailVerifiedAt });
+  const recordContext = { payrollId: row.payrollId, tutorShortName: row.tutorShortName, payDate: row.payDate, periodStart: row.periodStart, periodEnd: row.periodEnd };
+  const reviewBlocked = Boolean(!recordReadiness.ready || reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || row.windowCapped || workflow.key === 'data_unavailable');
   const periodCorrection = ['cutover_start', 'window_conflict', 'statement_overlap'].includes(workflow.key) || row.windowCapped;
   const showAttendance = workflow.key === 'attendance' && row.cadenceDue;
   const statementUrl = `/admin/finance/payroll/statement?pid=${encodeURIComponent(row.payrollId)}`;
@@ -212,6 +217,44 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
           {['awaiting', 'send'].includes(workflow.key) ? <Link href={`${statementUrl}#whatsapp-reminder`} className="text-sm font-medium text-blue-700 hover:underline">{workflow.key === 'send' ? 'Share in WhatsApp →' : 'Remind in WhatsApp →'}</Link> : null}
           {row.tutorResponse === 'disputed' ? <Link href={`${statementUrl}#whatsapp-query`} className="text-sm font-medium text-amber-700 hover:underline">Reply to query in WhatsApp →</Link> : null}
         </div>
+      ) : null}
+
+      {row.status === 'draft' && !row.periodOpen && (recordReadiness.missingAttendance.length || recordReadiness.missingNotes.length) ? (
+        <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" aria-label="Finish lesson records">
+          <h4 className="font-semibold">{recordReadiness.ready ? 'School note exception recorded' : 'Finish records before the statement'}</h4>
+          {!recordReadiness.ready ? <p className="mt-1 text-xs">Tutor: finish in <a className="underline" href="https://firstchord.co.uk/dashboard" target="_blank" rel="noreferrer">Practice Chat via the tutor dashboard ↗</a>. School: fix a known anomaly at source or record why one practice note is not required.</p> : null}
+          <ul className="mt-3 space-y-1 text-xs">
+            {recordReadiness.missingAttendance.map((item) => <li key={`a-${item.attendanceId || item.startAt}-${item.studentId}`}>Attendance · {formatPayrollDate(item.startAt, { withTime: true })} · {item.studentName || 'Student unknown'}</li>)}
+            {recordReadiness.unresolvedNotes.map((item) => <li key={`n-${item.attendanceId || item.startAt}-${item.studentId}`}>Practice note · {formatPayrollDate(item.startAt, { withTime: true })} · {item.studentName || 'Student unknown'}{item.studentId ? <> · <a className="underline" href={mmsStudentUrl(item.studentId)} target="_blank" rel="noreferrer">Check in MMS ↗</a></> : null}</li>)}
+          </ul>
+          {recordReadiness.exceptions.filter((entry) => recordReadiness.missingNotes.some((item) => item.attendanceId === entry.attendanceId)).map((entry) => {
+            const item = recordReadiness.missingNotes.find((missing) => missing.attendanceId === entry.attendanceId);
+            return <p key={entry.attendanceId} className="mt-2 text-xs">Note not required · {item?.studentName || 'Student'} · {entry.reason} · {entry.actor} · {formatPayrollDate(entry.recordedAt)}</p>;
+          })}
+          {recordReadiness.uncertain.length ? <p className="mt-2 text-xs font-semibold">An exact MMS lesson ID or date is missing. Check at school before emailing.</p> : null}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            {recordNudge.ok && !row.legacyNeedsReconciliation && !row.priorRunPending ? <RecordsNudgeButton context={recordContext} /> : null}
+            {recordNudge.reason === 'already_sent' ? <span className="text-xs">Checklist emailed{row.recordsNudgeSentAt ? ` ${formatPayrollDate(row.recordsNudgeSentAt)}` : ''}.</span> : null}
+            {recordNudge.reason === 'check_gmail' ? <span className="text-xs font-semibold">Check Gmail Sent. Delivery is uncertain; no automatic retry.</span> : null}
+            {recordNudge.reason === 'unverified_contact' ? <Link className="text-xs underline" href="/admin/finance/payroll/settings">Verify the tutor’s payroll email ↗</Link> : null}
+          </div>
+          {recordReadiness.unresolvedNotes.filter((item) => item.attendanceId).length ? (
+            <details className="mt-3 border-t border-amber-200 pt-2">
+              <summary className="cursor-pointer text-xs font-semibold">School-side note exception</summary>
+              <p className="mt-2 text-xs">Use only if the note genuinely is not required. This does not mark it complete in MMS.</p>
+              {recordReadiness.unresolvedNotes.filter((item) => item.attendanceId).map((item) => (
+                <PayrollReviewForm key={item.attendanceId} action={recordNoteExceptionAction} className="mt-2 flex flex-wrap items-end gap-2">
+                  {Object.entries(recordContext).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
+                  <input type="hidden" name="attendanceId" value={item.attendanceId} />
+                  <label className="min-w-56 flex-1 text-xs">{formatPayrollDate(item.startAt, { withTime: true })} · {item.studentName || 'Student'}
+                    <input name="reason" required minLength={8} maxLength={400} placeholder="Why is the note not required?" className="mt-1 w-full rounded-lg border border-amber-300 bg-white px-2 py-2 text-xs" />
+                  </label>
+                  <SubmitButton className="rounded-lg border border-amber-400 bg-white px-3 py-2 text-xs font-semibold">Record exception</SubmitButton>
+                </PayrollReviewForm>
+              ))}
+            </details>
+          ) : null}
+        </section>
       ) : null}
 
       <div className="mt-4 space-y-3">

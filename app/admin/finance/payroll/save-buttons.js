@@ -30,7 +30,7 @@ export default function PayrollSaveButtons({ status, blocked = false, attendance
         value="reviewed"
         onClick={() => setClicked('reviewed')}
         disabled={pending || blocked}
-        title={blocked ? 'Resolve the attendance or period warning first' : ''}
+        title={blocked ? 'Resolve the attendance, notes or period warning first' : ''}
         aria-busy={pending && clicked === 'reviewed'}
         className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
       >

@@ -27,6 +27,7 @@ function attendance(overrides = {}) {
     TeacherID: overrides.TeacherID || 'tch_zMX5Jc', // Calum
     OriginalTeacherID: overrides.OriginalTeacherID || overrides.TeacherID || 'tch_zMX5Jc',
     AttendanceStatus: overrides.AttendanceStatus || 'Present',
+    StudentNote: overrides.StudentNote ?? '',
     EventStartDate: overrides.EventStartDate || '2026-06-24T16:00:00',
     EventDuration: overrides.EventDuration ?? 30,
     StudentID: overrides.StudentID || 'sdt_1',
@@ -443,6 +444,7 @@ test('recorded TeacherAbsentNoMakeup lessons are £0 exclusions, not unmarked wo
     TeacherID: teacherId,
     EventID: `david_present_${index}`,
     AttendanceStatus: 'Present',
+    StudentNote: 'Practice notes recorded',
     EventStartDate: `2026-09-${String(1 + index).padStart(2, '0')}T16:00:00`,
     EventDuration: duration,
   }));
@@ -459,6 +461,7 @@ test('recorded TeacherAbsentNoMakeup lessons are £0 exclusions, not unmarked wo
   assert.equal(david.reviewPastCount, 0);
   assert.equal(david.lessonCount, 5);
   assert.equal(david.expectedAmount, 78);
+  assert.ok(david.payableSlots.every((slot) => slot.students.every((student) => student.hasStudentNote)));
   assert.equal(getPayrollWorkflowState(david).key, 'review');
 });
 

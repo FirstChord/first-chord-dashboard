@@ -77,6 +77,32 @@ A saved statement correction rechecks MMS, rejects a stale form, and clears the
 old response/delivery evidence when its material basis changes. Review errors
 remain beside the form.
 
+## Finish records before a new statement
+
+For a closed pay period, the tutor card shows one compact checklist of past
+unrecorded attendance and missing practice notes on attended lessons. MMS is
+the source for both facts; paid no-makeup absences do not require a practice
+note in this first slice. A new statement cannot be reviewed until the
+checklist clears. The server rechecks fresh MMS records at review, regardless
+of what the page previously showed. Tutors finish notes and attendance in
+Practice Chat, launched from `https://firstchord.co.uk/dashboard`.
+
+If records are missing, an admin may deliberately send one consolidated email
+to the tutor's verified payroll contact. It lists the exact lessons and asks
+them to finish in Practice Chat; it is not a pay statement and asks for no
+reply when done. Delivery is claimed before Gmail; an uncertain result is held
+for manual Gmail Sent inspection, never automatically retried. A changed
+checklist can be emailed again after the previous one is definitively sent.
+No email sends on page load or merely by reviewing payroll.
+
+For a small known anomaly, school staff can fix the underlying record in MMS.
+When a particular attended lesson genuinely needs no practice note, they may
+record an exact attendance-ID exception with reason, actor and time. This
+remains visibly different from an MMS note; it never writes a fictitious note
+or waives unrecorded attendance. The exception and nudge delivery audit live
+on the existing `Payroll_Runs` draft/reviewed row, not a new source-of-truth
+table. Practice video links are outside this slice.
+
 ## Private WhatsApp reminders
 
 Use **Remind in WhatsApp** or **Share in WhatsApp** from the selected tutor's

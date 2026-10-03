@@ -31,6 +31,7 @@ import { parseTutorWise, buildWiseBatch, selectPayableReviewedRuns } from '@/lib
 import { hasMaterialTutorStatementChange } from '@/lib/admin/payroll-workflow-helpers.mjs';
 import { buildManualCutoverEmailConfirmation, buildManualCutoverPayment } from '@/lib/admin/payroll-manual-settlement-helpers.mjs';
 import { findPauseHistoryCoverageForLesson } from '@/lib/admin/pause-helpers.mjs';
+import { savePayrollNoteException } from '@/lib/admin/payroll-record-actions.js';
 import WisePayoutPanel from './wise-payout-panel';
 import TutorSelector from './tutor-selector';
 
@@ -126,6 +127,14 @@ async function savePayrollRunAction(formData) {
     statement_delivery_attempted_at: statementChanged ? '' : `${existingRun?.statement_delivery_attempted_at || ''}`.trim(),
     statement_delivery_message_id: statementChanged ? '' : `${existingRun?.statement_delivery_message_id || ''}`.trim(),
     statement_delivery_error: statementChanged ? '' : `${existingRun?.statement_delivery_error || ''}`.trim(),
+    record_exceptions_json: `${existingRun?.record_exceptions_json || ''}`.trim(),
+    records_nudge_status: `${existingRun?.records_nudge_status || ''}`.trim(),
+    records_nudge_attempted_at: `${existingRun?.records_nudge_attempted_at || ''}`.trim(),
+    records_nudge_sent_at: `${existingRun?.records_nudge_sent_at || ''}`.trim(),
+    records_nudge_message_id: `${existingRun?.records_nudge_message_id || ''}`.trim(),
+    records_nudge_to: `${existingRun?.records_nudge_to || ''}`.trim(),
+    records_nudge_sent_by: `${existingRun?.records_nudge_sent_by || ''}`.trim(),
+    records_nudge_fingerprint: `${existingRun?.records_nudge_fingerprint || ''}`.trim(),
     notes: `${formData.get('notes') || ''}`.trim(),
     reviewed_at: status === 'reviewed' ? reviewedAt : `${formData.get('reviewed_at') || now}`.trim(),
     reviewed_by: status === 'reviewed' ? session.user.email || '' : `${formData.get('reviewed_by') || session.user.email || ''}`.trim(),
@@ -156,6 +165,22 @@ async function reviewPayrollAction(previous, formData) {
   catch (error) {
     if (isRedirectError(error)) throw error;
     return { error: error.message || 'The statement could not be saved. Please reopen it.' };
+  }
+}
+
+async function recordNoteExceptionAction(previous, formData) {
+  'use server';
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.isAdmin) throw new Error('Not authorised');
+    const context = Object.fromEntries(['payrollId', 'tutorShortName', 'payDate', 'periodStart', 'periodEnd']
+      .map((key) => [key, `${formData.get(key) || ''}`.trim()]));
+    await savePayrollNoteException({ context, attendanceId: formData.get('attendanceId'), reason: formData.get('reason'), actor: session.user.email || '' });
+    revalidatePath('/admin/finance/payroll');
+    redirect(`/admin/finance/payroll?payDate=${encodeURIComponent(context.payDate)}&tutor=${encodeURIComponent(context.tutorShortName)}#payroll-tutor-card`);
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    return { error: error.message || 'Could not save the exception. Refresh payroll.' };
   }
 }
 
@@ -600,7 +625,7 @@ async function PayrollWorkspace({ payDate, tutor, start, end }) {
       <section className="grid items-start gap-5 lg:grid-cols-[minmax(17rem,0.7fr)_minmax(0,1.3fr)]">
         <TutorSelector rows={selectorRows} selectedTutor={selectedTutor} payDate={payDate}  />
         {selectedRow ? (
-          <PayrollTutorCard key={selectedRow.payrollId} row={selectedRow} payDate={payDate} reviewPayrollAction={reviewPayrollAction} recordManualCutoverPaymentAction={recordManualCutoverPaymentFormAction} recordManualCutoverConfirmationAction={recordManualCutoverConfirmationFormAction} />
+          <PayrollTutorCard key={selectedRow.payrollId} row={selectedRow} payDate={payDate} reviewPayrollAction={reviewPayrollAction} recordNoteExceptionAction={recordNoteExceptionAction} recordManualCutoverPaymentAction={recordManualCutoverPaymentFormAction} recordManualCutoverConfirmationAction={recordManualCutoverConfirmationFormAction} />
         ) : (
           <div className="rounded-[1.6rem] border border-slate-200 bg-white/90 p-6 text-sm text-slate-500">
             No payroll rows found for this period.

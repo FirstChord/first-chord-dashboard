@@ -119,9 +119,12 @@ test('payroll contact and delivery evidence remain separate from banking identit
     'statement_delivery_message_id',
     'statement_delivery_error',
   ]);
-  assert.deepEqual(PAYROLL_RUNS_HEADERS.slice(-5), [
+  assert.deepEqual(PAYROLL_RUNS_HEADERS.slice(-13), [
     'tutor_response_source', 'paid_via', 'cutover_confirmation_waived_at',
     'cutover_confirmation_waived_by', 'cutover_confirmation_waiver_reason',
+    'record_exceptions_json', 'records_nudge_status', 'records_nudge_attempted_at',
+    'records_nudge_sent_at', 'records_nudge_message_id', 'records_nudge_to',
+    'records_nudge_sent_by', 'records_nudge_fingerprint',
   ]);
   assert.ok(PAYROLL_RUNS_HEADERS.includes('paid_at'));
   assert.ok(PAYROLL_RUNS_HEADERS.includes('tutor_responded_at'));
