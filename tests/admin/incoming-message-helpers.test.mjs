@@ -427,10 +427,10 @@ test('buildIncomingReplyTemplate produces a per-category parent draft', () => {
     studentName: 'Alex Chang',
     startDate: '2026-07-10',
   });
-  assert.equal(absence, 'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.');
+  assert.equal(absence, 'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.');
   // House style: parent drafts never use em-dashes.
   assert.doesNotMatch(absence, /—/u);
-  assert.doesNotMatch(absence, /pause|charge|practice video/iu);
+  assert.doesNotMatch(absence, /(?:have|has|is|are) (?:been )?paused|charged?|practice video/iu);
 
   const leaving = buildIncomingReplyTemplate({ category: 'leaving', senderName: 'Laura', studentName: 'Sam Reid' });
   assert.match(leaving, /sorry to see Sam go/u);
@@ -586,7 +586,7 @@ test('buildIncomingReplyTemplate keeps pause replies short and general', () => {
     startDate: '2026-06-24',
     returnDate: '2026-07-21',
   });
-  assert.equal(dated, 'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.');
+  assert.equal(dated, 'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.');
   assert.doesNotMatch(dated, /Mina|Alex|June|July/u);
 
   const oneOff = buildIncomingReplyTemplate({
@@ -595,16 +595,16 @@ test('buildIncomingReplyTemplate keeps pause replies short and general', () => {
     studentName: 'Alex',
     startDate: '2026-07-03',
   });
-  assert.equal(oneOff, 'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.');
+  assert.equal(oneOff, 'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.');
   assert.doesNotMatch(oneOff, /Mina|Alex|July/u);
 
   // The parent's own message carries the detail even when extraction is incomplete.
   const undated = buildIncomingReplyTemplate({ category: 'extended_absence', senderName: 'Mina', studentName: 'Alex' });
-  assert.equal(undated, 'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.');
+  assert.equal(undated, 'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.');
 
   assert.equal(
     buildIncomingReplyTemplate({ category: 'summer_break', senderName: 'Mina', studentName: 'Alex' }),
-    'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.',
+    'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.',
   );
 });
 
