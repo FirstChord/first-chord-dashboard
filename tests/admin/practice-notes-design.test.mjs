@@ -1,0 +1,95 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildStyledPracticeNoteContent,buildGmailRawMessageWithIllustration} from '../../lib/admin/practice-notes-design-helpers.mjs';
+import {preparePracticeNoteEmail} from '../../lib/admin/practice-notes-email.js';
+import {buildPracticeNoteEmailContent} from '../../lib/admin/practice-notes-email-helpers.mjs';
+const base={studentName:'Test Studenty',tutorName:'Finn Le Marinel',noteText:'[What we did]\nFinn: First turn.\n**Test Studenty:** Second turn.\n**Finn: A & B**.\nTempo: 100\n\n[Practice Goals]\n- Try <script>alert(1)</script> as literal text.',lessonDate:'2026-10-04T13:30:00',dashboardUrl:'https://firstchord.co.uk/student/test'};
+const image=Buffer.from('test-image');
+test('explicit dialogue turns are separated while notation and literal HTML stay intact',()=>{
+ const c=buildStyledPracticeNoteContent(base);
+ assert.equal((c.html.match(/data-dialogue-turn/g)||[]).length,3);
+ assert.match(c.html,/Finn:<\/strong> First turn/);
+ assert.match(c.html,/Test Studenty:<\/strong> Second turn/);
+ assert.match(c.html,/A &amp; B/);
+ assert.match(c.html,/Tempo: 100/);
+ assert.match(c.html,/&lt;script&gt;/);assert.doesNotMatch(c.html,/<script>/);
+ assert.match(c.html,/font-size:20px/);assert.match(c.plain,/First turn/);assert.match(c.plain,/At this time/);
+});
+test('dashboard link and conditional reminder are usable without exposing a code',()=>{
+ const c=buildStyledPracticeNoteContent({...base,protectionEnabled:true});
+ assert.match(c.html,/href="https:\/\/firstchord.co.uk\/student\/test"/);
+ assert.match(c.plain,/WhatsApp group description/);
+ assert.doesNotMatch(buildStyledPracticeNoteContent(base).html,/data-protection-reminder/);
+ assert.throws(()=>buildStyledPracticeNoteContent({...base,dashboardUrl:'javascript:alert(1)'}));
+ const noLink=buildStyledPracticeNoteContent({...base,dashboardUrl:''});assert.doesNotMatch(noLink.html,/Open Test Studenty/);
+});
+test('inline image MIME retains both alternatives and recipient privacy',()=>{
+ const c=buildStyledPracticeNoteContent(base);
+ const message=Buffer.from(buildGmailRawMessageWithIllustration({fromEmail:'school@example.com',fromName:'School',toEmail:'one@example.com',bccEmails:['two@example.com','one@example.com'],subject:'Test',plainText:c.plain,html:c.html},image),'base64url').toString();
+ assert.match(message,/To: one@example.com\r\nBcc: two@example.com/);
+ assert.match(message,/multipart\/related/);assert.match(message,/multipart\/alternative/);
+ assert.match(message,/text\/plain/);assert.match(message,/text\/html/);
+ assert.match(message,/Content-ID: <firstchord-music-map@firstchord.co.uk>/);assert.match(message,/Message-ID: </);
+});
+test('rollback flag avoids all design reads and preserves the established email',async()=>{
+ const forbid=()=>{throw new Error('Unexpected provider read');};
+ for(const options of [{studentMmsId:'sdt_fBg9JN',designEnabled:false},{studentMmsId:'unknown-real-student',designEnabled:false}]){
+  const p=await preparePracticeNoteEmail({...base,...options,readProtection:forbid,readIllustration:forbid});
+  assert.deepEqual(p.content,buildPracticeNoteEmailContent(base));assert.equal(p.illustration,null);
+ }
+});
+test('missing optional protection state still produces a styled note',async()=>{
+ const p=await preparePracticeNoteEmail({...base,studentMmsId:'sdt_fBg9JN',readProtection:async()=>{throw new Error('Unavailable');},readIllustration:async()=>image,warn:()=>{}});
+ assert.match(p.content.html,/At this time/);assert.doesNotMatch(p.content.html,/WhatsApp group description/);assert.equal(p.illustration,image);
+});
+test('missing illustration falls back to the established email instead of blocking delivery',async()=>{
+ const p=await preparePracticeNoteEmail({...base,studentMmsId:'sdt_fBg9JN',readProtection:async()=>null,readIllustration:async()=>{throw new Error('Missing');},warn:()=>{}});
+ assert.deepEqual(p.content,buildPracticeNoteEmailContent(base));assert.equal(p.illustration,null);
+});
+
+test('subtle ivory card declares light-only rendering for supporting mail clients',()=>{
+ const c=buildStyledPracticeNoteContent(base);
+ assert.match(c.html,/<meta name="color-scheme" content="light only">/);
+ assert.match(c.html,/bgcolor="#fdfcf9" style="background-color:#fdfcf9/);
+});
+
+test('household email links only explicitly covered students, not everyone on the lesson',async()=>{
+ const entries=[['sdt_fBg9JN','Test Studenty'],['sdt_test_sibling','Sibling']];
+ // An unknown mapping cannot accidentally reuse the first student's URL.
+ const p=await preparePracticeNoteEmail({...base,studentMmsId:'sdt_fBg9JN',studentName:'Test Studenty and Sibling',emailStudents:entries.map(([studentMmsId,studentName])=>({studentMmsId,studentName})),readProtection:async()=>({protectionEnabled:true,activeCodeCiphertext:'SECRET-CODE-MATERIAL'}),readIllustration:async()=>image});
+ assert.match(p.content.html,/Test Studenty and Sibling’s lesson notes/);
+ assert.equal((p.content.html.match(/href="https:\/\/firstchord.co.uk\/student\/test"/g)||[]).length,1);
+ assert.doesNotMatch(p.content.html,/Open Sibling’s dashboard/);
+ assert.match(p.content.html,/each student’s dashboard/);
+ assert.doesNotMatch(p.content.html,/SECRET-CODE-MATERIAL/);
+});
+
+test('multiple known household links and names remain separate and escaped',()=>{
+ const c=buildStyledPracticeNoteContent({...base,studentName:'Ada & Ben',studentNames:['Ada','Ben'],dashboardLinks:[{studentName:'Ada',url:'https://firstchord.co.uk/student/ada'},{studentName:'Ben',url:'https://firstchord.co.uk/student/ben'}],protectionEnabled:true,noteText:'[What we did]\nAda: Hello.\nBen: Goodbye.'});
+ assert.match(c.html,/Ada &amp; Ben’s lesson notes/);
+ assert.match(c.html,/href="https:\/\/firstchord.co.uk\/student\/ada"/);
+ assert.match(c.html,/href="https:\/\/firstchord.co.uk\/student\/ben"/);
+ assert.equal((c.html.match(/data-dialogue-turn/g)||[]).length,2);
+ assert.equal((c.html.match(/data-protection-reminder/g)||[]).length,1);
+ assert.match(c.plain,/Notes and songs for Ben: https:\/\/firstchord.co.uk\/student\/ben/);
+});
+
+test('unknown registry student keeps the design but has no invented dashboard link or protection read',async()=>{
+ const p=await preparePracticeNoteEmail({...base,studentMmsId:'unknown',readProtection:()=>{throw new Error('Unexpected read');},readIllustration:async()=>image});
+ assert.match(p.content.html,/At this time/);
+ assert.doesNotMatch(p.content.html,/href=|data-protection-reminder/);
+});
+
+test('invalid or empty image gracefully falls back before the Gmail call',async()=>{
+ for(const badImage of [null,Buffer.alloc(0),'not-a-buffer']){
+  const p=await preparePracticeNoteEmail({...base,studentMmsId:'sdt_fBg9JN',readProtection:async()=>null,readIllustration:async()=>badImage,warn:()=>{}});
+  assert.deepEqual(p.content,buildPracticeNoteEmailContent(base));
+  assert.equal(p.illustration,null);
+ }
+});
+
+test('dashboard URLs reject credentials, foreign paths and code-bearing queries',()=>{
+ for(const dashboardUrl of ['https://firstchord.co.uk/admin','https://firstchord.co.uk/student/test?code=secret','https://user:pass@firstchord.co.uk/student/test','https://evil.example/student/test']){
+  assert.throws(()=>buildStyledPracticeNoteContent({...base,dashboardUrl}));
+ }
+});

@@ -241,6 +241,7 @@ export async function POST(request) {
             targetAttendanceId: entry.attendanceId,
             attendanceStatus,
             emailStudentLabel: entry.emailStudentLabel || '',
+            emailStudents: entry.emailStudents || [],
             suppressEmailReason,
           }),
           finalizeDelivery: async (result) => {

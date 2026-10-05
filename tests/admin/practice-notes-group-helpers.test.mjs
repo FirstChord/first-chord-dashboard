@@ -96,6 +96,7 @@ test('siblings sharing one parent inbox get one email naming both', () => {
   const [athena, sophia] = plan;
   assert.equal(athena.emailRole, 'carrier');
   assert.equal(athena.emailStudentLabel, 'Athena Papadakis and Sophia Papadakis');
+  assert.deepEqual(athena.emailStudents, members.map(({ studentMmsId, studentName }) => ({ studentMmsId, studentName })));
   assert.equal(athena.recipient.email, 'yiotavl@gmail.com');
 
   // Covered, not skipped: "no email was needed" and "the email failed" must
@@ -124,6 +125,10 @@ test('students with different parents each get their own email', () => {
   assert.equal(emailCount, 2);
   assert.deepEqual(plan.map((entry) => entry.emailRole), ['carrier', 'carrier']);
   assert.deepEqual(plan.map((entry) => entry.emailStudentLabel), ['Ada Two', 'Ben One']);
+  assert.deepEqual(plan.map((entry) => entry.emailStudents), [
+    [{ studentMmsId: 'sdt_a', studentName: 'Ada Two' }],
+    [{ studentMmsId: 'sdt_b', studentName: 'Ben One' }],
+  ]);
 });
 
 test('recipient matching ignores address case and padding', () => {

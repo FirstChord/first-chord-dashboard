@@ -30,6 +30,13 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Warm practice-note emails — 2026-10-05:** Finn approved the tested design
+  and requested a barely off-white card plus supported light-mode override.
+  Presentation changes at the email boundary; reviewed notes, recipients, tutor
+  workflow and delivery identity stay unchanged. Household links are restricted
+  to the server-derived students covered by that email. Previous-format rollback:
+  `PRACTICE_NOTES_EMAIL_DESIGN_ENABLED=false`. Contract:
+  `docs/workflows/practice-chat/delivery.md`.
 - **Automatic attention checks for the existing open inbox — 2026-10-02:**
   approved by Finn with the current capture filters explicitly preserved.
   Jev checks quiet open bursts without per-card clicks; confident no-action
@@ -118,15 +125,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   student update with stale-state guards. It never changes Stripe and a generic
   Brain/Sheets refresh is deliberately not offered: refresh was not the missing
   operation.
-- **Scoped payroll send-when-ready approved, 2026-10-05:** the tested build
-  is deployed; Finn has approved the additive coordination schema and canonical
-  service activation. Staff may approve one checked standard period while asking
-  for missing attendance/notes, then fresh trusted records can unlock its single
-  statement email. This is bounded deferred execution of a human approval, not
-  blanket auto-invoicing or payment. No existing draft is opted in. Activation
-  checks and current state: `docs/operations/runbook.md`. Real cutover, manual
-  payment, corrections and £0-week lessons:
-  `docs/architecture/system/scoped-payroll-delivery.md`.
 
 ## Current operating contracts
 

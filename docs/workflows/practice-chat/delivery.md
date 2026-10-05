@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-03
+last_verified: 2026-10-05
 ---
 # Practice Chat Delivery Contract
 
@@ -39,6 +39,35 @@ Typed notes remain available if speech capture fails. `AbsentNoMakeup` records
 the on-the-day cancellation without sending a parent practice-note email.
 
 ## Delivery And Idempotency
+
+### Email appearance
+
+The email adapter applies the warm design after the raw lesson note has been
+reviewed and its unchanged delivery key established. The map illustration is an
+inline MIME part; both HTML and plain-text alternatives remain available.
+Explicit speaker turns receive separate paragraphs, populated Practice Goals
+receive a quiet panel, and the actual MMS tutor name and lesson date are used.
+The approved introduction is presentation only: it never enters MMS notes,
+the audit's raw note, or the delivery hash.
+
+Dashboard URLs come from each covered student's registry ID. A shared-household
+email gets links only for members that the server's delivery plan includes in
+that email, never for the other households on the lesson. Missing portal
+configuration omits that link. Optional protection state adds a reminder of
+where to find the code, never the code or encrypted credential material.
+Unavailable protection state omits the reminder. A missing image or rendering
+failure uses the previous format before the single Gmail call; provider errors
+still follow the existing manual-follow-up contract below.
+
+The near-white card is `#FDFCF9`. A `color-scheme: light only` meta tag asks
+supporting clients, including updated Gmail apps, to preserve it. Other clients
+may still recolour emails, so do not promise identical light-mode appearance.
+Compatibility evidence: [Email Markup Consortium's September 2026 Gmail test](https://emailmarkup.org/en/blog/2026/gmail-app-dark-mode-update).
+
+The design is enabled by default. Set `PRACTICE_NOTES_EMAIL_DESIGN_ENABLED=false`
+on the sending service to restore the previous format without changing tutor
+screens, recipients, delivery claims or lesson storage. Redeploy/restart after
+changing the variable. The earlier test-only pilot variable is not required.
 
 `delivery_key = student + MMS attendance + note hash` identifies one delivery.
 The execute path must:
