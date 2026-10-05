@@ -55,7 +55,8 @@ email gets links only for members that the server's delivery plan includes in
 that email, never for the other households on the lesson. Missing portal
 configuration omits that link. Optional protection state adds a reminder of
 where to find the code, never the code or encrypted credential material.
-Unavailable protection state omits the reminder. A missing image or rendering
+Unavailable protection state or a lookup taking over two seconds omits the reminder.
+A missing image or rendering
 failure uses the previous format before the single Gmail call; provider errors
 still follow the existing manual-follow-up contract below.
 

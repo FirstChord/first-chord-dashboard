@@ -93,3 +93,10 @@ test('dashboard URLs reject credentials, foreign paths and code-bearing queries'
   assert.throws(()=>buildStyledPracticeNoteContent({...base,dashboardUrl}));
  }
 });
+
+test('a stalled optional protection lookup cannot stall the practice email',async()=>{
+ const p=await preparePracticeNoteEmail({...base,studentMmsId:'sdt_fBg9JN',protectionTimeoutMs:10,readProtection:()=>new Promise(()=>{}),readIllustration:async()=>image});
+ assert.match(p.content.html,/At this time/);
+ assert.doesNotMatch(p.content.html,/data-protection-reminder/);
+ assert.equal(p.illustration,image);
+});
