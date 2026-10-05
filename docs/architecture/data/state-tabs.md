@@ -96,6 +96,14 @@ recurring IDs to the latest updated row, preserving human edits and showing one
 card. This is display repair, not a cross-instance Sheets transaction; remove
 verified redundant physical rows separately after inspecting their fields.
 
+For regular £0 periods, `Payroll_Runs.status=no_payment_due` is a dated
+coverage decision, not payment evidence. It keeps the exact period, reason,
+actor, timestamp and fingerprint of current MMS attendance. It produces no
+statement, tutor confirmation or Wise row. MMS remains attendance truth;
+`paid_at` and `paid_by` remain blank. Active £0 periods are rechecked before
+subsequent review/payment, while later changes to already-settled historical
+periods need explicit reconciliation rather than silently changing paid runs.
+
 ## Future store dispositions
 
 Where each lane is expected to live long-term (rationale in

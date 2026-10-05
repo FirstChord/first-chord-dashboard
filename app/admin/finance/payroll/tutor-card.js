@@ -125,7 +125,7 @@ function CollapsibleSlotList({ title, slots = [], empty = 'None', note = '' }) {
   );
 }
 
-export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, recordNoteExceptionAction, recordManualCutoverPaymentAction, recordManualCutoverConfirmationAction }) {
+export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, recordNoPaymentDueAction, reopenNoPaymentDueAction, recordNoteExceptionAction, recordManualCutoverPaymentAction, recordManualCutoverConfirmationAction }) {
   const calculatedFinal = row.recalculatedFinalAmount
     ?? Math.round((row.expectedAmount + row.adjustmentAmount) * 100) / 100;
   const owed = row.owedAmount ?? (row.status === 'paid' ? 0 : (row.finalAmount || calculatedFinal));
@@ -135,7 +135,15 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
   const recordReadiness = payrollRecordReadiness(row);
   const recordNudge = decideRecordsNudge({ row, contactEmail: row.contactEmail, verifiedAt: row.contactEmailVerifiedAt });
   const recordContext = { payrollId: row.payrollId, tutorShortName: row.tutorShortName, payDate: row.payDate, periodStart: row.periodStart, periodEnd: row.periodEnd };
-  const reviewBlocked = Boolean(!recordReadiness.ready || reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || row.windowCapped || workflow.key === 'data_unavailable');
+  const zeroAmount = row.status === 'draft' && row.payModel === 'hourly' && !row.isCutover
+    && row.lessonCount === 0 && row.expectedAmount === 0 && row.adjustmentAmount === 0 && row.finalAmount === 0;
+  const zeroCandidate = zeroAmount && !row.periodOpen
+    && row.cadenceDue && row.windowBasis !== 'override' && !row.windowEndCustom
+    && !row.windowEmpty && !row.windowCapped && !row.legacyNeedsReconciliation
+    && !row.priorRunPending && !row.overlapsPaid && !row.overlapsNoPaymentDue && !row.overlapsOutstanding
+    && !row.noPaymentDueConflict && !reviewPast.length
+    && workflow.key !== 'data_unavailable';
+  const reviewBlocked = Boolean(zeroAmount || row.status === 'no_payment_due' || row.noPaymentDueConflict || row.overlapsNoPaymentDue || !recordReadiness.ready || reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || row.windowCapped || workflow.key === 'data_unavailable');
   const periodCorrection = ['cutover_start', 'window_conflict', 'statement_overlap'].includes(workflow.key) || row.windowCapped;
   const showAttendance = workflow.key === 'attendance' && row.cadenceDue;
   const statementUrl = `/admin/finance/payroll/statement?pid=${encodeURIComponent(row.payrollId)}`;
@@ -202,6 +210,23 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
       {row.overlapsOutstanding ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">Overlaps the open statement for {formatPayrollDate(row.overlapsOutstanding.periodStart)}–{formatPayrollDate(row.overlapsOutstanding.periodEnd)}. Correct the period below.</p> : null}
       {row.amountConflict ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">Conflicting statements: {row.amountConflict.amounts.map((amount) => formatMoney(amount)).join(' versus ')}. Reconcile the originals before payment.</p> : null}
       {row.attendanceChanged ? <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-950">Attendance changed: reviewed {formatMoney(row.finalAmount)} → recalculated {formatMoney(calculatedFinal)}. Check the lessons before saving the correction.</p> : null}
+      {row.noPaymentDueConflict ? (
+        <div className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">
+          Attendance changed in the £0 period {formatPayrollDate(row.noPaymentDueConflict.periodStart)}–{formatPayrollDate(row.noPaymentDueConflict.periodEnd)}. Payment is held.{' '}
+          {row.status === 'no_payment_due' && row.noPaymentDueConflict.laterReviewed ? (
+            <span className="block mt-2">A later statement is already open. Reconcile it before reopening this week.</span>
+          ) : row.status === 'no_payment_due' ? (
+            <PayrollReviewForm action={reopenNoPaymentDueAction} className="mt-3">
+              <input type="hidden" name="payroll_id" value={row.payrollId} />
+              <input type="hidden" name="expected_updated_at" value={row.updatedAt} />
+              <SubmitButton className="rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Reopen £0 period</SubmitButton>
+            </PayrollReviewForm>
+          ) : <Link className="font-semibold underline" href={`/admin/finance/payroll?payDate=${row.noPaymentDueConflict.payDate}&tutor=${encodeURIComponent(row.tutorShortName)}`}>Open the £0 period →</Link>}
+        </div>
+      ) : null}
+      {row.status === 'no_payment_due' && !row.noPaymentDueConflict ? <p className="mt-4 text-sm text-slate-600">No statement or payment created. {row.noPaymentDueReason}</p> : null}
+      {zeroAmount && !zeroCandidate && (row.windowBasis === 'override' || row.windowEndCustom) ? <p className="mt-4 text-sm text-slate-600">Clear custom dates to close the full £0 period.</p> : null}
+      {row.overlapsNoPaymentDue ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">This period overlaps a closed £0 week. Adjust the dates before reviewing.</p> : null}
       {row.tutorResponse === 'disputed' ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900"><strong>Tutor query</strong>{row.tutorNote ? `: “${row.tutorNote}”` : ''}. Payment is held.</p> : null}
       {row.windowCapped ? <p className="mt-4 text-sm text-amber-900">The preview cannot cover the full unpaid period. Check the start date below.</p> : null}
       {workflow.key === 'data_unavailable' ? <p className="mt-4 rounded-xl bg-rose-50 p-4 text-sm text-rose-900">Attendance unavailable. Refresh MMS before reviewing or paying.</p> : null}
@@ -286,7 +311,20 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
         </details>
       </div>
 
-      {row.status !== 'paid' ? (
+      {zeroCandidate ? (
+        <PayrollReviewForm action={recordNoPaymentDueAction} className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-800">No payment due this period</p>
+          <p className="mt-1 text-xs text-slate-600">Close this £0 week without emailing a statement or recording a payment. Attendance is checked again before saving.</p>
+          {Object.entries({ payroll_id: row.payrollId, tutor_short_name: row.tutorShortName, pay_date: row.payDate,
+            period_start: row.periodStart, period_end: row.periodEnd, expected_updated_at: row.createdAt ? row.updatedAt : '' }).map(([name, value]) => <input key={name} type="hidden" name={name} value={value} />)}
+          <label className="mt-3 block text-xs font-medium text-slate-700">Reason
+            <input name="reason" required minLength={4} maxLength={240} placeholder="Another tutor covered this week" className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
+          </label>
+          <SubmitButton className="mt-3 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white">Close £0 period</SubmitButton>
+        </PayrollReviewForm>
+      ) : null}
+
+      {row.status !== 'paid' && row.status !== 'no_payment_due' && !zeroCandidate ? (
       <details id="payroll-review-options" open={(!reviewBlocked && row.status === 'draft') || row.attendanceChanged || periodCorrection} className="mt-4">
       <summary className="cursor-pointer text-sm text-slate-600">{reviewBlocked ? 'Statement and period options' : row.status === 'draft' ? 'Review statement' : 'Correct statement'}</summary>
       <PayrollReviewForm action={reviewPayrollAction} className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">

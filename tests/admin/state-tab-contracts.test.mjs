@@ -119,7 +119,7 @@ test('payroll contact and delivery evidence remain separate from banking identit
     'statement_delivery_message_id',
     'statement_delivery_error',
   ]);
-  assert.deepEqual(PAYROLL_RUNS_HEADERS.slice(-13), [
+  assert.deepEqual(PAYROLL_RUNS_HEADERS.slice(-17, -4), [
     'tutor_response_source', 'paid_via', 'cutover_confirmation_waived_at',
     'cutover_confirmation_waived_by', 'cutover_confirmation_waiver_reason',
     'record_exceptions_json', 'records_nudge_status', 'records_nudge_attempted_at',
@@ -128,6 +128,9 @@ test('payroll contact and delivery evidence remain separate from banking identit
   ]);
   assert.ok(PAYROLL_RUNS_HEADERS.includes('paid_at'));
   assert.ok(PAYROLL_RUNS_HEADERS.includes('tutor_responded_at'));
+  assert.deepEqual(PAYROLL_RUNS_HEADERS.slice(-4), [
+    'no_payment_due_at', 'no_payment_due_by', 'no_payment_due_reason', 'no_payment_due_fingerprint',
+  ]);
 });
 
 // Header constants and row builders live a few lines apart but nothing joins

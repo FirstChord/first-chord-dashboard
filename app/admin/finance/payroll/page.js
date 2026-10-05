@@ -1,6 +1,7 @@
 import { defaultPayrollWorkspaceCycle, requiresPayrollConfirmation } from '@/lib/admin/payroll-cycle-helpers.mjs';
 import { ADMIN_TUTORS } from '@/lib/admin/tutors-data.js';
 import { validatePayrollReview } from '@/lib/admin/payroll-review-helpers.mjs';
+import { activeNoPaymentDueRuns, noPaymentDueFingerprint, validateNoPaymentDue } from '@/lib/admin/payroll-zero-period-helpers.mjs';
 import { payrollBatchFingerprint } from '@/lib/admin/payroll-batch-helpers.mjs';
 import { buildPayrollQueue, payrollWorkspaceAttendanceQuery } from '@/lib/admin/payroll-queue-helpers.mjs';
 import ScopeBadge from '@/components/admin/ui/ScopeBadge';
@@ -84,11 +85,14 @@ async function savePayrollRunAction(formData) {
   }
   const days = (Date.parse(periodEnd) - Date.parse(nextStatement.period_start)) / 86400000;
   if (!Number.isFinite(days) || days < 0 || days > 366 || !Number.isFinite(finalAmount)) throw new Error('Check the statement dates and amount.');
+  const activeZeroRuns = activeNoPaymentDueRuns(existingRuns, tutorShortName, periodEnd);
+  const attendanceStart = [nextStatement.period_start, ...activeZeroRuns.map((row) => row.period_start)].sort()[0];
   const attendanceRows = await searchAttendanceForPayroll({
-    startDate: nextStatement.period_start, endDate: periodEnd,
+    startDate: attendanceStart, endDate: periodEnd,
     teacherIds: [identity.teacherId], forceRefresh: true,
   });
   const freshPreview = buildPayrollPreview({ attendanceRows, savedRuns: existingRuns,
+    attendanceRange: { startDate: attendanceStart, endDate: periodEnd },
     tutorPay: parseTutorPay(await getTutorPayRows()), payDate: `${formData.get('pay_date') || ''}`,
     overrides: { [tutorShortName]: { start: nextStatement.period_start, end: periodEnd } }, maxLookbackDays: 366,
   }).rows.find((row) => row.payrollId === payrollId);
@@ -97,8 +101,12 @@ async function savePayrollRunAction(formData) {
   const statementChanged = status === 'reviewed'
     && existingRun
     && hasMaterialTutorStatementChange(existingRun, nextStatement);
-  const latestRun = (await getPayrollRunRows({ force: true })).find((row) => row.payroll_id === payrollId);
+  const latestRuns = await getPayrollRunRows({ force: true });
+  const latestRun = latestRuns.find((row) => row.payroll_id === payrollId);
   if (`${latestRun?.updated_at || ''}` !== `${existingRun?.updated_at || ''}`) throw new Error('The statement changed during the attendance check. Reopen it before saving.');
+  const markerVersion = (runs) => activeNoPaymentDueRuns(runs, tutorShortName, periodEnd)
+    .map((row) => `${row.payroll_id}|${row.updated_at}|${row.no_payment_due_fingerprint}`).join(';');
+  if (markerVersion(existingRuns) !== markerVersion(latestRuns)) throw new Error('An earlier £0 period changed during the attendance check. Refresh payroll.');
   const reviewedAt = statementChanged ? now : (existingRun?.reviewed_at || now);
   await upsertPayrollRunRow({
     payroll_id: payrollId,
@@ -165,6 +173,100 @@ async function reviewPayrollAction(previous, formData) {
   catch (error) {
     if (isRedirectError(error)) throw error;
     return { error: error.message || 'The statement could not be saved. Please reopen it.' };
+  }
+}
+
+async function recordNoPaymentDueAction(previous, formData) {
+  'use server';
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.isAdmin) throw new Error('Not authorised');
+    if (!session.user.email) throw new Error('Admin identity is missing. Sign in again before closing payroll.');
+    const payrollId = `${formData.get('payroll_id') || ''}`.trim();
+    const tutorShortName = `${formData.get('tutor_short_name') || ''}`.trim();
+    const identity = ADMIN_TUTORS[tutorShortName];
+    if (!identity?.teacherId) throw new Error('Choose a recognised payroll tutor.');
+    const periodStart = `${formData.get('period_start') || ''}`.trim();
+    const periodEnd = `${formData.get('period_end') || ''}`.trim();
+    const payDate = `${formData.get('pay_date') || ''}`.trim();
+    const span = (Date.parse(periodEnd) - Date.parse(periodStart)) / 86400000;
+    if (!Number.isFinite(span) || span < 0 || span > 366) throw new Error('Check the period dates.');
+    if (Date.parse(payDate) - Date.parse(periodEnd) !== 86400000) throw new Error('A £0 close-out must use the completed Monday cycle.');
+    const savedRuns = await getPayrollRunRows({ force: true });
+    const existing = savedRuns.find((row) => `${row.payroll_id || ''}`.trim() === payrollId) || null;
+    if (existing && `${existing.updated_at || ''}` !== `${formData.get('expected_updated_at') || ''}`) {
+      throw new Error('This period changed. Refresh before closing it.');
+    }
+    const activeMarkers = activeNoPaymentDueRuns(savedRuns, tutorShortName, periodEnd);
+    const startDate = [periodStart, ...activeMarkers.map((row) => row.period_start)].sort()[0];
+    const attendanceRows = await searchAttendanceForPayroll({ startDate, endDate: periodEnd,
+      teacherIds: [identity.teacherId], forceRefresh: true });
+    const tutorPay = parseTutorPay(await getTutorPayRows());
+    const preview = buildPayrollPreview({ attendanceRows, attendanceRange: { startDate, endDate: periodEnd },
+      savedRuns, tutorPay, payDate,
+      overrides: { [tutorShortName]: { start: periodStart, end: periodEnd } }, maxLookbackDays: 366,
+    }).rows.find((row) => row.payrollId === payrollId);
+    const standardWindow = buildPayrollPreview({ attendanceRows, savedRuns,
+      tutorPay, payDate, maxLookbackDays: 366,
+    }).rows.find((row) => row.tutorShortName === tutorShortName);
+    if (!standardWindow || standardWindow.periodStart !== periodStart || standardWindow.periodEnd !== periodEnd) {
+      throw new Error('Close only the full standard period. Remove custom dates and refresh payroll.');
+    }
+    const reason = validateNoPaymentDue({ preview, reason: formData.get('reason') });
+    if (findBlockingReviewedRun(savedRuns, { tutorShortName, tutor: identity.fullName, payrollId })) {
+      throw new Error('Finish the earlier statement before closing this period.');
+    }
+    const latest = (await getPayrollRunRows({ force: true })).find((row) => `${row.payroll_id || ''}`.trim() === payrollId);
+    if (`${latest?.updated_at || ''}` !== `${existing?.updated_at || ''}`) throw new Error('This period changed during the attendance check. Refresh it.');
+    const fingerprint = noPaymentDueFingerprint(attendanceRows, { teacherId: identity.teacherId, periodStart, periodEnd });
+    if (fingerprint.length > 30000) throw new Error('This period has too much attendance evidence for a £0 close-out. Review it manually.');
+    const now = new Date().toISOString();
+    await upsertPayrollRunRow({ ...existing,
+      payroll_id: payrollId, pay_date: payDate, period_start: periodStart, period_end: periodEnd,
+      tutor: identity.fullName, tutor_short_name: tutorShortName, teacher_id: identity.teacherId,
+      invoice_cadence: preview.invoiceCadence, pay_model: preview.payModel,
+      lesson_count: 0, review_lesson_count: preview.reviewLessonCount, teaching_minutes: 0,
+      expected_amount: 0, adjustment_amount: 0, final_amount: 0,
+      status: 'no_payment_due', source: 'mms_attendance_no_payment_due',
+      no_payment_due_at: now, no_payment_due_by: session.user.email,
+      no_payment_due_reason: reason,
+      no_payment_due_fingerprint: fingerprint,
+      reviewed_at: '', reviewed_by: '', paid_at: '', paid_by: '',
+      created_at: existing?.created_at || now, updated_at: now,
+    });
+    revalidatePath('/admin/finance/payroll');
+    redirect(`/admin/finance/payroll?payDate=${encodeURIComponent(payDate)}&tutor=${encodeURIComponent(tutorShortName)}#payroll-tutor-card`);
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    return { error: error.message || 'Could not close this £0 period.' };
+  }
+}
+
+async function reopenNoPaymentDueAction(previous, formData) {
+  'use server';
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.isAdmin) throw new Error('Not authorised');
+    if (!session.user.email) throw new Error('Admin identity is missing. Sign in again before reopening payroll.');
+    const payrollId = `${formData.get('payroll_id') || ''}`.trim();
+    const savedRuns = await getPayrollRunRows({ force: true });
+    const existing = savedRuns.find((row) => `${row.payroll_id || ''}`.trim() === payrollId);
+    if (!existing || existing.status !== 'no_payment_due') throw new Error('This £0 period is no longer closed. Refresh payroll.');
+    if (`${existing.updated_at || ''}` !== `${formData.get('expected_updated_at') || ''}`) throw new Error('This period changed. Refresh payroll.');
+    if (savedRuns.some((row) => row.status === 'reviewed'
+      && `${row.tutor_short_name || row.tutor}`.trim().toLowerCase() === `${existing.tutor_short_name || existing.tutor}`.trim().toLowerCase()
+      && row.period_start > existing.period_end)) {
+      throw new Error('A later statement is already open. Reconcile that statement before reopening this £0 period.');
+    }
+    const now = new Date().toISOString();
+    await upsertPayrollRunRow({ ...existing, status: 'draft', updated_at: now,
+      notes: [existing.notes, `£0 close-out reopened by ${session.user.email} at ${now} after attendance changed.`].filter(Boolean).join(' '),
+    });
+    revalidatePath('/admin/finance/payroll');
+    redirect(`/admin/finance/payroll?payDate=${encodeURIComponent(existing.pay_date)}&tutor=${encodeURIComponent(existing.tutor_short_name)}#payroll-tutor-card`);
+  } catch (error) {
+    if (isRedirectError(error)) throw error;
+    return { error: error.message || 'Could not reopen the £0 period.' };
   }
 }
 
@@ -330,6 +432,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
 
   const preview = buildPayrollPreview({
     attendanceRows,
+    attendanceRange: attendanceQuery,
     tutorPay: parseTutorPay(tutorPayRows),
     savedRuns,
     overrides,
@@ -345,7 +448,7 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
   // A refreshed correction must go back through the existing human save step.
   // Hold every saved row for that tutor out of this rendered Wise batch so an
   // older duplicate window cannot become the fallback payment by accident.
-  const attendanceChangedRows = activeRows.filter((row) => row.legacyNeedsReconciliation || row.attendanceChanged || (row.status === 'reviewed' && row.reviewPastCount > 0));
+  const attendanceChangedRows = activeRows.filter((row) => row.legacyNeedsReconciliation || row.attendanceChanged || row.noPaymentDueConflict || (row.status === 'reviewed' && row.reviewPastCount > 0));
   const heldTutorKeys = new Set(attendanceChangedRows.map((row) => `${row.tutorShortName || row.tutor}`.trim().toLowerCase()));
   const heldPayrollIds = savedRuns
     .filter((row) => heldTutorKeys.has(`${row.tutor_short_name ?? row.tutorShortName ?? row.tutor ?? row.Tutor ?? ''}`.trim().toLowerCase()))
@@ -625,7 +728,7 @@ async function PayrollWorkspace({ payDate, tutor, start, end }) {
       <section className="grid items-start gap-5 lg:grid-cols-[minmax(17rem,0.7fr)_minmax(0,1.3fr)]">
         <TutorSelector rows={selectorRows} selectedTutor={selectedTutor} payDate={payDate}  />
         {selectedRow ? (
-          <PayrollTutorCard key={selectedRow.payrollId} row={selectedRow} payDate={payDate} reviewPayrollAction={reviewPayrollAction} recordNoteExceptionAction={recordNoteExceptionAction} recordManualCutoverPaymentAction={recordManualCutoverPaymentFormAction} recordManualCutoverConfirmationAction={recordManualCutoverConfirmationFormAction} />
+          <PayrollTutorCard key={selectedRow.payrollId} row={selectedRow} payDate={payDate} reviewPayrollAction={reviewPayrollAction} recordNoPaymentDueAction={recordNoPaymentDueAction} reopenNoPaymentDueAction={reopenNoPaymentDueAction} recordNoteExceptionAction={recordNoteExceptionAction} recordManualCutoverPaymentAction={recordManualCutoverPaymentFormAction} recordManualCutoverConfirmationAction={recordManualCutoverConfirmationFormAction} />
         ) : (
           <div className="rounded-[1.6rem] border border-slate-200 bg-white/90 p-6 text-sm text-slate-500">
             No payroll rows found for this period.

@@ -172,6 +172,15 @@ handoff above to share the checked link.
 5. New-system periods always require tutor confirmation. The route selector remains only for legacy periods.
 6. Click **Review and generate statement**. Review freezes the figure in
    `Payroll_Runs`; a draft or unrecorded lesson cannot silently enter the batch.
+   For a closed regular period with no payable lessons, no adjustments and no
+   unrecorded attendance, use **Close £0 period** instead and enter a short
+   reason, such as cover by another tutor. This saves `no_payment_due` on the
+   exact `Payroll_Runs` period, with MMS attendance evidence and the admin/date.
+   It advances date coverage only: it is not `paid`, creates no statement,
+   sends no email and never enters Wise. A later MMS change to that period
+   flags the tutor and holds their next payment until an admin reopens and
+   reconciles it. After a subsequent real payment, old £0 periods remain
+   historical; later corrections require explicit payment reconciliation.
 7. Open **Send statement**. The statement itself is the final preview. If the
    tutor has a verified payroll contact, click **Send email to...**. For the
    manual fallback, copy the link, share it in a private one-to-one conversation,
