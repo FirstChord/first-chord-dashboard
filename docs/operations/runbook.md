@@ -222,11 +222,20 @@ restricted AI key may be exposed, rotate it and re-check both AI pilots.
 Finn approved activation on **2026-10-05**. Build `ca49502` passed 1,954 tests,
 GitHub CI and all three Railway deployments. The canonical production endpoint
 returned 401 without its secret and a successful disabled zero-job result with
-the secret. Current pre-activation check found PostgreSQL 17.11, existing
-Practice Note claims, no payroll coordination tables and configured Gmail/cron
-credentials. The feature remains off while the current Neon recovery window is
-being verified; the six-hour window recorded in August is not current evidence.
-No real period has been opted in or tutor email sent by this rollout.
+the secret. Finn supplied a current Neon console screenshot showing a **6-hour
+history window** on 2026-10-05; no restore or setting change was performed.
+The additive schema was applied to the canonical PostgreSQL 17.11 database with
+the feature off. Both payroll coordination tables were verified empty and
+existing Practice Note claims remain present. Gmail/cron configuration is present.
+`PAYROLL_DEFERRED_SEND_ENABLED=true` is now configured on the canonical service;
+the activation deployment and enabled zero-job check are being verified.
+No real period has been opted in or tutor email sent by this rollout. A history
+window is recovery configuration evidence, not a proven end-to-end restore drill.
+Railway's console reported delayed GitHub-triggered builds during activation;
+the validated, committed source can use the direct `railway up --detach`
+fallback in this runbook. Preserve current main and ignored-file exclusions;
+never deploy the unrelated dirty primary checkout. Verify the actual deployment
+and enabled checker, not just the configuration value or GitHub CI result.
 The current console guide locates **History window** in the project’s
 **Settings → Postgres**. Read its hours/days; do not change it or press Restore
 for this check. Older console layouts called it the restore window.
