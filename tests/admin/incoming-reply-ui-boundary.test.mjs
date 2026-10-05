@@ -25,7 +25,7 @@ test('the inbox has no bulk or background reply-drafting control', async () => {
   assert.doesNotMatch(source, /useEffect\([^)]*onDraftReply|setInterval\([^)]*onDraftReply/u);
 });
 
-test('Reply + Plan copies one reviewed draft, persists it, and stays in the inbox', async () => {
+test('non-absence Reply + Plan retains its reviewed draft and inbox handoff', async () => {
   const source = await readFile(inboxClientUrl, 'utf8');
   const copyIndex = source.indexOf('await navigator.clipboard.writeText(reply)');
   const convertIndex = source.indexOf("await onConvert(entry, correctionPayload('converted'))");
@@ -38,6 +38,18 @@ test('Reply + Plan copies one reviewed draft, persists it, and stays in the inbo
   assert.match(source, /Send acknowledgement to \$\{label\}/u);
   assert.match(source, /View plan/u);
   assert.match(source, /advanceAfter\(entry\.incomingId\)/u);
+});
+
+test('parent absence planning navigates without an inbox conversion, and the server refuses the legacy fallback', async () => {
+  const [source, service, route] = await Promise.all([readFile(inboxClientUrl, 'utf8'), readFile(inboxServiceUrl, 'utf8'),
+    readFile(new URL('../../app/api/admin/planning/incoming-pause/route.js', import.meta.url), 'utf8')]);
+  const handler = source.slice(source.indexOf('  function openPlan() {'), source.indexOf('  async function openReply()'));
+  assert.match(handler, /shouldOpenIncomingPause\(burstEntry\)/u);
+  assert.match(handler, /router\.push\(`\/admin\/planning\?incomingPause=/u);
+  assert.doesNotMatch(handler, /onConvert|postPayload|fetch\(/u);
+  assert.match(service, /Open pause planning to review the student and dates/u);
+  assert.match(route, /if \(!session\?\.user\?\.isAdmin\)/u);
+  assert.match(route, /saveIncomingPausePlanning/u);
 });
 
 test('reply handoff keeps the inbox open and requires a human sent confirmation', async () => {

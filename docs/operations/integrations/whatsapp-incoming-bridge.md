@@ -139,24 +139,51 @@ message with the highest actionability — while date extraction and the plan
 draft read the whole burst. Clustering is display and outcome scope only; the
 sheet keeps one row per WhatsApp message. One human burst decision is persisted
 as one batched Sheets write and returned to the browser as changed rows only.
-**Reply + Plan** opens one pre-write preview: plan type and student are
-prefilled, extracted first/return dates are visible and editable, and a short
-deterministic initial acknowledgement is editable beside them. **Create plan &
-copy acknowledgement** copies that exact wording, stores it as acknowledgement
-context in the linked Planning item, closes the
-inbox burst and advances to the adjacent message only after the write succeeds.
-A persistent acknowledgement strip now has one job: **Copy & open WhatsApp**,
-then human **Acknowledgement sent**. It survives an accidental page reload for
-this browser session. Opening WhatsApp never claims delivery. The latter press
-adds a note to the exact linked plan via the admin-only Planning progress route;
-it never changes plan status, next action, dates or payment expectation, and it
-does not satisfy the final-confirmation gate. A failed write keeps the strip
-available to retry. Another reply/plan cannot overwrite an outstanding handoff.
-There is no **Leave with plan** or planning shortcut in this acknowledgement strip.
+For parent absence messages, **Reply + Plan** navigates to the existing
+structured pause builder on Planning (`?incomingPause=<source ID>`). This applies
+to every stored temporary absence category and clear absence wording even when
+the stored category is General. Routing does not change classification or the
+capture/attention filters. An uncertain parent topic can be explicitly chosen as
+absence in the Inbox preview; it then opens the same builder. Tutor messages keep
+their separate reviewed workflow. The legacy conversion service refuses a parent
+absence instead of producing an incomplete generic task.
+
+Opening the builder performs no planning write and leaves the source open. The
+original message/burst is visible, the matched student is preselected for review,
+and extracted dates are suggestions only. A general away-period boundary is
+shown as evidence, not silently treated as a lesson date. Review the actual MMS
+lesson suggestions or enter the dates. Only **Create pause plan** saves a dated
+structured pause. Missing students/dates, invalid calendar dates, reversed ranges,
+and changed source text/review/student state are refused before writing. Cancel
+returns to Inbox without changing the message. The intake has no generic Capture
+form alongside it.
+
+The admin-only `/api/admin/planning/incoming-pause` route re-reads fresh source
+evidence, validates the exact reviewed burst and student, builds the draft with
+the existing structured-pause helper, and saves the stable source-linked ID.
+Only after that save succeeds are the reviewed source messages linked and moved
+out of Open. It never changes Stripe, attendance or payment expectation. A save
+failure retains the source and draft; a response retry reveals an already linked
+card without creating or rewriting it. Existing exact-open-pause duplicate guards
+remain in force. A sibling-link failure is explicit partial success with the
+saved plan ID; a failed post-save dashboard refresh cannot hide the successful
+save. Success and errors are brought into view on narrow screens. The receipt
+provides **View pause plan** and **Return to Inbox** immediately.
+
+The pause intake keeps an editable **Initial acknowledgement**. Its explicit
+**Copy & open WhatsApp** copies the reviewed text and opens the chat chooser;
+the human chooses the correct lesson group and sends. **Acknowledgement sent**
+records progress on the saved pause, without finishing it or satisfying the final
+confirmation gate. That field is read-only after creation so the stored context
+matches what is recorded. No send is automatic.
+
+Other topics retain their reviewed Inbox preview and persistent acknowledgement
+strip. It copies the editable draft, saves only on explicit creation, and survives
+reload for this browser session. An outstanding reply cannot be overwritten by
+another reply or generic plan; it does not block navigating to the read-only pause
+builder. Human **Acknowledgement sent** records only progress, not completion.
 After recording, **View plan** locates the card without opening its editor
 (`?view=`); explicit editing links (`?focus=`) elsewhere retain their behaviour.
-Clearing a false date clears it from the draft. A failed Planning write cannot
-create false closure.
 
 Planning owns the later outcome confirmation. The initial acknowledgement is
 collapsed context, including legacy **Suggested reply** note blocks. For a

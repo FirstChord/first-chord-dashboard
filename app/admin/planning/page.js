@@ -1,4 +1,5 @@
 import AdminPlanningPageClient from '@/components/admin/AdminPlanningPageClient';
+import { getIncomingPausePlanningContext } from '@/lib/admin/incoming-pause';
 import { getPlanningDashboard } from '@/lib/admin/planning';
 import { getScheduleContextRows } from '@/lib/admin/sheets';
 import { enrichScheduleContextsWithSharedSlots } from '@/lib/admin/schedule-context-helpers.mjs';
@@ -38,6 +39,10 @@ export default async function AdminPlanningPage({ searchParams }) {
   const requestedFilter = `${resolvedSearchParams?.filter || ''}`.trim();
   const initialFilter = ALLOWED_INITIAL_FILTERS.has(requestedFilter) ? requestedFilter : 'due_now';
   const initialFocusId = `${resolvedSearchParams?.focus || ''}`.trim();
+  const incomingPauseId = `${resolvedSearchParams?.incomingPause || ''}`.trim();
+  const initialIncomingPause = incomingPauseId
+    ? await getIncomingPausePlanningContext(incomingPauseId).catch(error => ({ error: error.message || 'Could not load this message. Return to Inbox and try again.' }))
+    : null;
   const initialViewId = `${resolvedSearchParams?.view || ''}`.trim();
   const studentOptions = students.map((student) => ({
     mmsId: student.mmsId,
@@ -60,6 +65,7 @@ export default async function AdminPlanningPage({ searchParams }) {
       initialFilter={initialFilter}
       initialFocusId={initialFocusId}
       initialViewId={initialViewId}
+      initialIncomingPause={initialIncomingPause}
       studentOptions={studentOptions}
       tutorOptions={tutorOptions}
     />

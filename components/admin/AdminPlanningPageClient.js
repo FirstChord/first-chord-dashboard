@@ -43,6 +43,7 @@ import { ExpandableText } from './planning/fields';
 import MondayIntentionRow from './planning/MondayIntentionRow';
 import SchoolNoteCapture from './planning/SchoolNoteCapture';
 import ItemForm from './planning/ItemForm';
+import IncomingPausePlanning from './planning/IncomingPausePlanning';
 import QuickBrainCapture from './planning/QuickBrainCapture';
 import PlanningCard from './planning/PlanningCard';
 import PauseDatesEditor from './planning/PauseDatesEditor';
@@ -92,7 +93,7 @@ const EMPTY_SCHOOL_NOTE_FORM = {
 const PAUSE_EXPECTATION_SET_NOTE = 'Set Stripe paused expected from linked pause planning item.';
 const PAUSE_COMPLETED_NOTE = 'Pause completed from Planning: pause tool run, parent confirmation sent, and payment expectation aligned.';
 
-export default function AdminPlanningPageClient({ initialPlanning, initialFilter = 'all', initialFocusId = '', initialViewId = '', studentOptions = [], tutorOptions = [] }) {
+export default function AdminPlanningPageClient({ initialPlanning, initialFilter = 'all', initialFocusId = '', initialViewId = '', initialIncomingPause = null, studentOptions = [], tutorOptions = [] }) {
   const [planning, setPlanning] = useState(initialPlanning || { items: [], summary: {} });
   const [quickNote, setQuickNote] = useState('');
   const [quickOptions, setQuickOptions] = useState({});
@@ -860,6 +861,10 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
 
   return (
     <div className="space-y-8">
+      {initialIncomingPause ? <IncomingPausePlanning key={initialIncomingPause.source?.incomingId || initialIncomingPause.linkedPlanningId || 'error'} context={initialIncomingPause} studentOptions={studentOptions} onCreated={data => {
+        if (data.planning) setPlanning(data.planning);
+        setFilter('all');
+      }} /> : null}
       <section className="flex items-baseline justify-between gap-3">
         <h2 className="fc-display text-3xl text-slate-900">Planning</h2>
         <p className="text-sm text-slate-500">{filteredItems.length} plan{filteredItems.length === 1 ? '' : 's'}</p>
@@ -950,6 +955,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
         </section>
       ) : null}
 
+      {!initialIncomingPause ? (
       <section className={cardClasses()}>
         {saveState.savedAt && (
           <div className="flex justify-end">
@@ -978,6 +984,7 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
           />
         </div>
       </section>
+      ) : null}
 
       <section>
         <div className={cardClasses()}>

@@ -43,6 +43,7 @@ export default function QuickBrainCapture({
   onTutorAbsenceCapture,
   onPauseCapture,
   pending = false,
+  pauseOnly = false,
 }) {
   // Live schedule refreshes done from this builder, keyed by MMS id. These take
   // precedence over the cached scheduleContext (which can be stale or missing).
@@ -250,6 +251,7 @@ export default function QuickBrainCapture({
       return;
     }
     await onPauseCapture(pauseDraft.title, {
+      pauseDetails: { pauseType, lessonDate: effectiveOptions.pauseLessonDate || '', firstPauseDate: effectiveOptions.pauseFirstPauseDate || '', returnDate: effectiveOptions.pauseReturnDate || '', extraNote: effectiveOptions.pauseExtraNote || '' },
       structuredCapture: 'pause',
       title: pauseDraft.title,
       notes: pauseDraft.notes,
@@ -265,13 +267,13 @@ export default function QuickBrainCapture({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <label className="block">
+      <label hidden={pauseOnly} className="block">
         <span className="sr-only">Brain capture note</span>
         <textarea
           value={rawNote}
           onChange={(event) => setRawNote(event.target.value)}
           rows={5}
-          autoFocus
+          autoFocus={!pauseOnly}
           placeholder="Whatcha got for me"
           className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base font-medium leading-7 text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-blue-300 focus:ring-4 focus:ring-blue-100"
         />
@@ -287,6 +289,7 @@ export default function QuickBrainCapture({
               </p>
             </div>
             <button
+              hidden={pauseOnly}
               type="button"
               onClick={() => {
                 setOption('showPauseBuilder', false);
@@ -458,11 +461,11 @@ export default function QuickBrainCapture({
           <button
             type="button"
             onClick={captureStructuredPause}
-            disabled={pending || !pauseDraft.isComplete}
+            disabled={pending || !pauseDraft.isComplete || (pauseOnly && !effectiveOptions.linkedStudentId)}
             className="mt-3 inline-flex items-center gap-2 rounded-xl bg-violet-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            Capture pause
+            {pauseOnly ? 'Create pause plan' : 'Capture pause'}
           </button>
         </div>
       ) : (
@@ -478,6 +481,7 @@ export default function QuickBrainCapture({
         </button>
       )}
 
+      <div hidden={pauseOnly}>
       {tutorAbsenceBuilderVisible ? (
         <div className="rounded-2xl border border-orange-200 bg-orange-50/80 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -746,6 +750,7 @@ export default function QuickBrainCapture({
           {effectiveOptions.itemType === 'initiative' ? 'Create project' : 'Capture'}
         </button>
       )}
+      </div>
     </form>
   );
 }

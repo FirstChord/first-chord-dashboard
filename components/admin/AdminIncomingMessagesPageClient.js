@@ -20,6 +20,8 @@ import {
 } from '@/lib/admin/incoming-queue-helpers.mjs';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { shouldOpenIncomingPause } from '@/lib/admin/incoming-pause-helpers.mjs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Check, Clock3, Ellipsis, Loader2, RefreshCw, Reply, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/admin/ui/ActionButton';
@@ -269,6 +271,14 @@ function PlanPanel({ entry, studentOptions = [], onCorrect, onConvert, isPending
   }
 
   if (!isOpen) return null;
+  if (entry.groupType !== 'tutor' && ABSENCE_CATEGORIES.has(category)) return (
+    <div className="mt-4 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+      <p className="text-sm font-semibold">Plan this absence in Planning</p>
+      <p className="mt-2 text-sm text-slate-600">Review the student and lesson dates in the pause builder. No plan is created here.</p>
+      <Link className="mt-3 inline-block rounded-xl bg-violet-900 px-4 py-3 text-sm font-semibold text-white" href={`/admin/planning?incomingPause=${encodeURIComponent(entry.incomingId)}`}>Open pause planning</Link>
+      <button type="button" onClick={() => onOpenChange(false)} className="ml-3 text-sm underline">Cancel</button>
+    </div>
+  );
 
   return (
     <div className="mt-4 rounded-2xl border border-blue-100 bg-blue-50/40 px-3 py-3">
@@ -769,6 +779,7 @@ function MessageQueueItem(props) {
 // the one Reply and Reply + Plan work from. `entries` is the whole burst,
 // oldest first; outcome actions apply to all of it so nothing is left behind.
 function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyBlocked = false, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false, resolutionProposal, resolutionAvailable, onAssessResolution, onResolutionFeedback, classificationProposal, classificationAvailable, onCheckMessage, onClassificationReview, assessmentFeedback }) {
+  const router = useRouter();
   const isPending = entries.some((message) => pendingId === message.incomingId);
   // pendingId only says this card is busy; the pressed button alone shows it.
   const { press, pendingFor } = usePressedAction(isPending);
@@ -818,6 +829,10 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
   const laterId = `incoming-later-${entry.incomingId}`;
 
   function openPlan() {
+    if (shouldOpenIncomingPause(burstEntry)) {
+      router.push(`/admin/planning?incomingPause=${encodeURIComponent(entry.incomingId)}`);
+      return;
+    }
     setIsMoreOpen(false);
     setIsLaterOpen(false);
     setIsReplyOpen(false);
@@ -959,7 +974,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
         {!entry.isSnoozed && planningAction !== 'none' && !entry.createdPlanningId ? (
           <button
             type="button"
-            disabled={isPending || replyBlocked}
+            disabled={isPending || (replyBlocked && !shouldOpenIncomingPause(burstEntry))}
             onClick={openPlan}
             className="min-h-11 flex-1 rounded-full bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
           >
