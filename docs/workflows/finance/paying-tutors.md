@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-26
+last_verified: 2026-10-05
 ---
 # Paying tutors
 
@@ -23,8 +23,9 @@ clear record.
 - **Wise** is where the payment is actually uploaded and approved.
 
 Nothing on the payroll page sends money or WhatsApp messages automatically.
-The reviewed statement page can send one explicitly approved Gmail message; it
-does not schedule itself and it never pays the tutor.
+The reviewed statement page can send one explicitly approved Gmail message.
+An optional exact-period approval can send it after missing lesson records clear;
+there is no blanket tutor auto-send setting and neither flow pays the tutor.
 For hourly tutors, each payable slot is `hourly rate × duration / 60`. A group
 slot adds £2 once to that slot, regardless of duration or student count; it is
 never multiplied per student.
@@ -41,7 +42,8 @@ retains its separate human checks.
   are due 28 September; fortnightly statements cover 21 September–4 October and
   are due 5 October, then alternate Mondays. Actual payment dates do not move
   that shared calendar. A new-period override cannot make a short fortnight due
-  early. Nothing schedules or sends itself.
+  early. Sending is manual unless staff deliberately approve the scoped
+  missing-records option described below.
 - A missing or earlier cutover paid-through record remains a separate visible
   reconciliation check and blocks reviewing the new statement. Moving the
   preview start to 21 September does not attest that older lessons were paid.
@@ -102,6 +104,50 @@ remains visibly different from an MMS note; it never writes a fictitious note
 or waives unrecorded attendance. The exception and nudge delivery audit live
 on the existing `Payroll_Runs` draft/reviewed row, not a new source-of-truth
 table. Practice video links are outside this slice.
+
+### Optional: ask for records, then send when ready
+
+Behind `PAYROLL_DEFERRED_SEND_ENABLED=true`, staff can check **Send this
+period’s statement once records are complete**, then press **Ask for records,
+then send when ready**. Check the exact period and saved school adjustments
+first; unsaved review-form edits are not part of this approval. The ordinary
+checklist-only email remains the default. If the same checklist was already
+definitively emailed, **Approve send when ready** approves without another email.
+The waiting card has **Cancel automatic send**; cancel first before editing its
+school-side note exceptions, reviewing it yourself or closing it as £0.
+
+Only an active hourly tutor's complete standard, closed, due regular period
+qualifies. Custom/partial windows, legacy cutover work, unknown attendance,
+queries, overlapping/open statements and changed £0 evidence remain manual.
+Approval binds exact tutor/teacher and attendance/event/student IDs, lesson dates
+and durations, period, rate/cadence, verified recipient, saved adjustments, notes,
+invoice tracking and note exceptions. Only attendance status and practice-note
+presence are expected to change. It expires after 14 days. A settings, recipient,
+lesson-structure, school-decision or coverage change holds for staff instead of
+silently widening approval.
+
+The secret-only scheduled checker runs every 30 minutes, up to three waiting
+periods per call, rotating incomplete/unavailable periods behind other work.
+It forces fresh MMS, payroll, pay-setting and lifecycle reads (including active
+earlier £0 evidence), applies the existing review guards, freezes the freshly
+recalculated positive amount, and invokes the existing statement email sender.
+A newly £0 period requires the ordinary human **Close £0 period** action.
+No additional checklist reminders send automatically. Tutor confirmation and
+Wednesday payment eligibility are unchanged; no confirmation or paid marker is
+invented. Provider outages stay waiting, not falsely complete.
+
+Postgres stores approval/execution coordination only, not lesson, amount or
+payment truth. `Payroll_Runs` remains the statement and delivery audit.
+Tutor-scoped advisory locks coordinate automated review/send with manual review,
+checklists, note exceptions, zero close-out and statement response/delivery writes.
+An atomic job claim precedes review; immutable email revision claims are shared
+by the manual and automatic statement senders (and exact checklist sends).
+Timeouts, missing Gmail receipts and audit failures never release a claim for
+automatic replay. Interrupted preparing/claimed jobs are parked as unknown
+after 15 minutes, not resumed. Inspect the statement and Gmail Sent; record a
+manual delivery only when actually verified. Never delete a claim to retry.
+
+Rollout and kill switch: [operations runbook](../../operations/runbook.md#scoped-payroll-delivery-rollout).
 
 ## Private WhatsApp reminders
 

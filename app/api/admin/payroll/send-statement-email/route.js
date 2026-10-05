@@ -13,6 +13,7 @@ const MESSAGES = {
   gmail_not_configured: 'The First Chord Gmail sender is not configured.',
   statement_secret_missing: 'The private statement link cannot be created on this service.',
   delivery_unknown: 'Gmail did not return a definite result. Check the Sent folder; the dashboard will not retry automatically.',
+  contact_changed: 'The approved payroll contact changed. Check it before sending.',
 };
 
 export async function POST(request) {
@@ -21,10 +22,12 @@ export async function POST(request) {
     return Response.json({ ok: false, error: 'Unauthorized' }, { status: 401 });
   }
   const body = await request.json().catch(() => ({}));
-  const result = await sendTutorStatementEmail({
+  let result;
+  try { result = await sendTutorStatementEmail({
     payrollId: body.payrollId,
     actorEmail: session.user.email || '',
-  });
+  }); }
+  catch { return Response.json({ ok: false, error: 'Payroll is being checked or delivery tracking is unavailable. Refresh before trying again.' }, { status: 409 }); }
   if (!result.ok) {
     return Response.json({ ok: false, reason: result.reason, error: MESSAGES[result.reason] || 'The statement email could not be sent.' }, { status: result.reason === 'already_sent' ? 409 : 400 });
   }

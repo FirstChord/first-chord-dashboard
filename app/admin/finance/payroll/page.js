@@ -33,6 +33,7 @@ import { hasMaterialTutorStatementChange } from '@/lib/admin/payroll-workflow-he
 import { buildManualCutoverEmailConfirmation, buildManualCutoverPayment } from '@/lib/admin/payroll-manual-settlement-helpers.mjs';
 import { findPauseHistoryCoverageForLesson } from '@/lib/admin/pause-helpers.mjs';
 import { savePayrollNoteException } from '@/lib/admin/payroll-record-actions.js';
+import { createPayrollDeliveryStore, payrollDeferredEnabled, withPayrollDeliveryLock } from '@/lib/admin/payroll-delivery-store.mjs';
 import WisePayoutPanel from './wise-payout-panel';
 import TutorSelector from './tutor-selector';
 
@@ -40,6 +41,21 @@ export const dynamic = 'force-dynamic';
 
 async function savePayrollRunAction(formData) {
   'use server';
+  return runManualPayrollAction(formData, savePayrollRunUnlocked);
+}
+
+async function runManualPayrollAction(formData, operation) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.isAdmin) throw new Error('Not authorised');
+  const tutor = `${formData.get('tutor_short_name') || ''}`.trim();
+  if (!ADMIN_TUTORS[tutor]) throw new Error('Choose a recognised payroll tutor.');
+  return withPayrollDeliveryLock(tutor, async () => {
+    if (payrollDeferredEnabled()) await createPayrollDeliveryStore().assertManual(`${formData.get('payroll_id') || ''}`.trim());
+    return operation(formData);
+  });
+}
+
+async function savePayrollRunUnlocked(formData) {
 
   const session = await getServerSession(authOptions);
   if (!session?.user?.isAdmin) {
@@ -178,6 +194,14 @@ async function reviewPayrollAction(previous, formData) {
 
 async function recordNoPaymentDueAction(previous, formData) {
   'use server';
+  try { return await runManualPayrollAction(formData, (form) => recordNoPaymentDueUnlocked(previous, form)); }
+  catch (error) {
+    if (isRedirectError(error)) throw error;
+    return { error: error.message || 'Could not close this £0 period.' };
+  }
+}
+
+async function recordNoPaymentDueUnlocked(previous, formData) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.isAdmin) throw new Error('Not authorised');
@@ -406,13 +430,14 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
     ? { [tutorParam]: { start: startParam, end: endParam } }
     : {};
 
-  const [tutorPayRows, savedRuns, tutorWiseRows, studentRows, pauseRows, lifecycleRows] = await Promise.all([
+  const [tutorPayRows, savedRuns, tutorWiseRows, studentRows, pauseRows, lifecycleRows, deferredJobs] = await Promise.all([
     getTutorPayRows(),
     getPayrollRunRows(),
     getTutorWiseRows(),
     getStudentsSheetRows(),
     getPauseHistoryRows(),
     getTutorLifecycleRows(),
+    payrollDeferredEnabled() ? createPayrollDeliveryStore().jobs() : [],
   ]);
 
   // allowExpired: a save re-renders this whole page inside its own POST, and the
@@ -444,7 +469,9 @@ const loadPayrollWorkspace = cache(async (payDate, tutorParam, startParam, endPa
   // this Wise reconciliation — keep them off the payroll page entirely. Totals and
   // the Wise batch already exclude salary, so this is display-only.
   const activeRows = addPauseEvidenceToPayrollRows(selectPayrollRosterRows(preview.rows, lifecycleRows, savedRuns), studentRows, pauseRows)
-    .filter((row) => row.payModel !== 'salary');
+    .filter((row) => row.payModel !== 'salary')
+    .map((row) => ({ ...row, allowDeferred: payrollDeferredEnabled(),
+      deferredDelivery: deferredJobs.find((job) => job.payroll_id === row.payrollId) || null }));
   // A refreshed correction must go back through the existing human save step.
   // Hold every saved row for that tutor out of this rendered Wise batch so an
   // older duplicate window cannot become the fallback payment by accident.

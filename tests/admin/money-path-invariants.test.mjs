@@ -9,6 +9,21 @@ import { fetchAllPages } from '../../lib/admin/mms-pagination.mjs';
 import { buildPayrollPeriod, buildPayrollPreview } from '../../lib/admin/payroll-helpers.mjs';
 import { buildWiseBatch, selectPayableReviewedRuns } from '../../lib/admin/wise-helpers.mjs';
 import { getPayrollWorkflowState, isPayrollRunReadyForPayment } from '../../lib/admin/payroll-workflow-helpers.mjs';
+import { buildDeferredReviewedRun } from '../../lib/admin/payroll-deferred-helpers.mjs';
+
+test('deferred review and successful email never authorize payment or manufacture a tutor response', () => {
+  const run = buildDeferredReviewedRun({ row: {
+    payrollId: 'exact-period', tutor: 'Fixture', tutorShortName: 'Fixture', teacherId: 'teacher-fixture',
+    payDate: '2026-10-05', periodStart: '2026-09-28', periodEnd: '2026-10-04', invoiceCadence: 'weekly', payModel: 'hourly',
+    lessonCount: 2, teachingMinutes: 60, expectedAmount: 24, adjustmentAmount: 0, recalculatedFinalAmount: 24,
+  }, existing: {} }, 'admin@example.test', new Date('2026-10-05T10:00:00Z'));
+  for (const status of ['waiting', 'claimed', 'sent', 'held', 'unknown', 'cancelled']) {
+    const row = { ...run, deferredDelivery: { status }, statement_delivery_status: 'sent', statement_sent_at: '2026-10-05T11:00:00Z' };
+    assert.equal(row.tutor_response, ''); assert.equal(row.paid_at, '');
+    assert.equal(isPayrollRunReadyForPayment(row, { now: new Date('2026-10-07T10:00:00Z') }), false);
+    assert.deepEqual(selectPayableReviewedRuns([row], { now: new Date('2026-10-07T10:00:00Z') }).rows, []);
+  }
+});
 
 test('an incomplete biweekly window can never become payment-ready', () => {
   const state = getPayrollWorkflowState({ status: 'draft', cadenceDue: false, reviewPastCount: 0 });

@@ -23,6 +23,7 @@
     "lifecycle:refresh": "node scripts/refresh-student-lifecycle.mjs",
     "ensure:state-tabs": "node scripts/ensure-state-tabs.mjs",
     "ensure:practice-delivery-claims": "node scripts/ensure-practice-delivery-claims.mjs",
+    "ensure:payroll-delivery": "node scripts/ensure-payroll-delivery.mjs",
     "docs:check": "node scripts/check-docs.mjs",
     "generate-code-map": "node scripts/code-map.mjs generate",
     "code-map:check": "node scripts/code-map.mjs check",

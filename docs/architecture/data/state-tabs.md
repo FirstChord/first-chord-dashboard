@@ -1,11 +1,11 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-10-02
+last_verified: 2026-10-05
 ---
 # State Tabs Schema
 
-Last updated: 2026-10-02
+Last updated: 2026-10-05
 
 This note is the canonical map for dashboard-owned state lanes. It documents the Google Sheets tabs that store workflow state, cache snapshots, append-only logs, or derived context. It is intentionally about dashboard state, not the main `Students` operational sheet.
 
@@ -14,10 +14,11 @@ This note is the canonical map for dashboard-owned state lanes. It documents the
 External systems own external truth. The dashboard stores workflow state, action history, cached snapshots, and derived context that helps humans close loops.
 
 **Sheets/database boundary:** Sheets remains the general workflow store because
-humans can inspect and correct its human-paced lanes. PostgreSQL has two bounded
-responsibilities: the unique Practice Chat delivery claim committed before
-provider work, and the rebuildable event-grain MMS lesson mirror used to prove
-parity before any source cutover. It is not a wholesale replacement for Sheets,
+humans can inspect and correct its human-paced lanes. PostgreSQL has bounded
+responsibilities: unique Practice Chat delivery claims committed before provider
+work, the rebuildable event-grain MMS lesson mirror used to prove parity before
+any source cutover, and opt-in exact-period payroll delivery coordination.
+It is not a wholesale replacement for Sheets,
 and the mirror is not schedule truth. New event-heavy/machine-generated state
 must justify its concurrency, growth, correction, backup, and recovery model; use
 [the storage boundary](./storage-boundary.md) and sheet census rather than adding
@@ -103,6 +104,28 @@ statement, tutor confirmation or Wise row. MMS remains attendance truth;
 `paid_at` and `paid_by` remain blank. Active £0 periods are rechecked before
 subsequent review/payment, while later changes to already-settled historical
 periods need explicit reconciliation rather than silently changing paid runs.
+
+## Payroll delivery coordination (Postgres)
+
+`payroll_deferred_deliveries` stores one named admin's exact-period scope,
+expiry and execution status. `payroll_email_delivery_claims` stores immutable
+statement-revision/checklist keys, actor, provider receipt and send status.
+These are transactional coordination records, not a replacement ledger:
+`Payroll_Runs` still owns reviewed amounts, tutor responses and payment markers;
+MMS owns attendance/notes, and `Tutor_Pay` owns settings/contact verification.
+No new Sheets lane is introduced. Runtime requests never create schema.
+
+Only authenticated admin approval/cancellation and the secret-only bounded
+`POST /api/cron/payroll-records` checker write approvals. The existing email
+senders also use the shared claim table while the feature is enabled.
+Per-tutor PostgreSQL advisory locks serialize the participating manual/automatic
+writers; Sheets itself remains last-write-wins, so fresh reads and snapshot
+comparisons also guard direct school edits. No database transaction can make
+MMS, Gmail and Sheets one atomic operation: interrupted/ambiguous execution is
+manual follow-up, never automatic replay. Terminal claims must remain retained
+for deduplication. Do not purge them while the corresponding statement can be
+sent, or treat approval expiry as permission to delete an email claim.
+Contract: [paying tutors](../../workflows/finance/paying-tutors.md#optional-ask-for-records-then-send-when-ready).
 
 ## Future store dispositions
 

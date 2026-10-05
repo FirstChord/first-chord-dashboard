@@ -93,11 +93,12 @@ These names come from real code reads of `process.env` and local token paths.
 | `TYPESAFE_MODEL` | Jev version pin | Optional; defaults to `jev-1.13.0` | Rerun the synthetic inbox evaluation before changing the version or using a moving alias. |
 | `ADMIN_AI_INBOX_CLASSIFICATION_ENABLED` | Manual **Check message** classification | Missing/false disables new message checks; saved fresh suggestions remain reviewable | Approved 2026-10-01. Enable on the canonical admin service after `scripts/eval-jev-inbox-check.mjs --live` passes; set false for rollback. |
 | `ADMIN_AI_INBOX_AUTO_CHECK_ENABLED` | Automatic attention checks for messages already in Open | Missing/false stops both automatic producers and returns the default to All; existing capture filters stay intact | Approved 2026-10-02. Canonical admin service only. Three bursts per call, five-minute quiet window, ten starts/minute/process, 100 persisted attempts/day; rollback by setting false and redeploying. Contract: `docs/architecture/ai/jev-inbox-resolution.md`. |
+| `PAYROLL_DEFERRED_SEND_ENABLED` | Exact-period missing-records approval and automatic statement delivery | Missing/false leaves the checklist/manual-statement flow in place and scheduled checks no-op before source reads | Default off. Enable only on the canonical admin service after the additive coordination schema and smoke checks below; disabling stops new approvals/checks without deleting receipts. |
 | `ADMIN_AI_INBOX_RESOLUTION_ENABLED` | Captured reply-resolution suggestions | Missing/false omits resolution from message checks and disables standalone reply checking | Enable only after the synthetic release check. Handling messages stays separate. Contract: `docs/architecture/ai/jev-inbox-resolution.md`. |
 | `ADMIN_AI_OPENAI_API_KEY` | Server-side OpenAI Responses API call for issue briefing | AI pilot returns unavailable; deterministic Issues workflow is unaffected | Use a separate restricted/budget-capped project key on the canonical admin Railway service only. Do not reuse the historically exposed Practice Chat relay key. Never expose as `NEXT_PUBLIC_*`. |
 | `ADMIN_AI_OPENAI_MODEL` | Optional model override shared by the bounded admin AI pilots | Defaults to `gpt-5.6-luna` | Change only with representative contract/evaluation checks; record the model used in pilot results. |
 | `GOOGLE_SPREADSHEET_ID` | Admin Sheets integration | Admin data reads/writes fail | Set to the main First Chord operational Sheet ID. FINN TO FILL IN exact Sheet link. |
-| `DATABASE_URL` | Practice Note delivery claim store and lesson mirror | Execute route returns 503 before MMS/Gmail work; lesson migration/sync/status commands fail | Neon PostgreSQL connection URL supplied to the Railway app. Run `npm run ensure:practice-delivery-claims` for the claim schema. Apply lesson migrations separately with `node scripts/apply-lesson-mirror-migrations.mjs` only through the reviewed rollout below. The mirror is rebuildable and owns no current MMS fact. |
+| `DATABASE_URL` | Practice Note delivery claims, lesson mirror, and opt-in payroll coordination | Practice delivery fails before MMS/Gmail; lesson commands fail; enabled payroll automation/locks fail closed | Neon PostgreSQL URL supplied to Railway. Run `npm run ensure:practice-delivery-claims` for practice schema; `npm run ensure:payroll-delivery` adds payroll coordination only after approved rollout. Apply lesson migrations separately as below. Neither mirror nor delivery coordination owns MMS facts. |
 | `SHEETS_REFRESH_TOKEN` | Google Sheets OAuth | Sheets reads/writes fail once token is invalid | Generate a new OAuth refresh token with Sheets scope, then update Railway. FINN TO FILL IN exact refresh procedure. |
 | `SHEETS_CLIENT_ID` | Google Sheets OAuth | Sheets reads/writes fail | Update from Google Cloud OAuth credentials. |
 | `SHEETS_CLIENT_SECRET` | Google Sheets OAuth | Sheets reads/writes fail | Update from Google Cloud OAuth credentials. |
@@ -215,6 +216,46 @@ metadata; do not add parent message text, proposal bodies, student identifiers,
 or contact details to logs. Fix and
 evaluate with synthetic/redacted fixtures before re-enabling. If the shared
 restricted AI key may be exposed, rotate it and re-check both AI pilots.
+
+## Scoped payroll delivery rollout
+
+The build defaults to **off**. Publishing it does not approve periods, create
+database tables or send tutor emails. This is an additive coordination schema,
+not a migration of payroll/lesson/payment facts. Approve activation separately
+because it permits background Gmail sends for explicitly approved periods.
+
+1. Verify the canonical `pure-spontaneity` service and its existing Neon
+   `DATABASE_URL`, current backup/PITR recovery window and Gmail configuration.
+   Keep `PAYROLL_DEFERRED_SEND_ENABLED` absent/false everywhere. Never print
+   credentials or copy them to the repo.
+2. Publish and validate CI plus all Railway services. Run
+   `npm run ensure:payroll-delivery` with the canonical service environment after
+   schema rollout approval. It only adds two payroll-specific tables and an
+   active-period unique index; existing practice/lesson tables and Sheets are
+   unchanged. Requests cannot create schema.
+3. Enable `PAYROLL_DEFERRED_SEND_ENABLED=true` only on the canonical admin
+   service, then redeploy. Leave legacy services off. No historical draft is
+   implicitly opted in; the approval store initially has no waiting rows.
+4. Smoke-check the payroll checklist checkbox and ordinary manual statement
+   flow without pressing Send. Unauthorized cron calls must be 401; authorized
+   zero-job calls return counts only. Dispatch **Check Approved Payroll Records**
+   with the existing matching `SCHEDULE_REFRESH_SECRET`. Empty-store checks must
+   send nothing. Use deterministic fixture tests for waiting, cancellation,
+   positive completion, zero, uncertainty and crash behavior before activation.
+5. Staff can opt in one checked real period. That explicit click authorizes the
+   checklist and later statement, not payment. Verify waiting/cancel visibility,
+   then a definite single Gmail receipt and reviewed Sheets row when its actual
+   records clear. Do not manufacture attendance or confirmation for a test.
+
+Kill switch: set `PAYROLL_DEFERRED_SEND_ENABLED=false` and redeploy/restart the
+canonical service; optionally disable the GitHub workflow. It stops new approvals
+and checker work, not an already-started provider request. Inspect any preparing,
+claimed or unknown jobs and Gmail Sent before proceeding manually. Revert the
+code if needed, but retain both tables and immutable email keys. Never delete a
+claim, erase receipts or reverse reviewed/paid rows by guesswork. Partial work
+requires reconciliation from Sheets and Gmail, not blind resend. Source outages
+leave jobs waiting; interrupted claimed/preparing jobs are parked unknown after
+15 minutes. Expired/held approvals return to manual review.
 
 ## Lesson Mirror Parity Runbook
 

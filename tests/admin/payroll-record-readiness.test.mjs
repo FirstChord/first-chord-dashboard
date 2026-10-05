@@ -42,7 +42,8 @@ test('one digest is ordered, attributed to exact lessons, and never sends for un
   const first = decideRecordsNudge({ row: preview, contactEmail: 'tutor@example.test', verifiedAt: '2026-01-01' });
   assert.equal(first.ok, true);
   const message = buildRecordsNudgeEmail({ tutorName: 'Tutor Smith', periodStart: '2026-09-28', periodEnd: '2026-10-04', readiness: first.readiness });
-  assert.ok(message.plainText.indexOf('Zed — attendance') < message.plainText.indexOf('Alice — practice note'));
+  assert.ok(message.plainText.indexOf('Zed: attendance') < message.plainText.indexOf('Alice: practice note'));
+  assert.doesNotMatch(message.plainText, /—/);
   assert.match(message.plainText, /firstchord.co.uk\/dashboard/);
   assert.doesNotMatch(message.plainText, /£|invoice link/);
   preview.recordsNudgeStatus = 'sent'; preview.recordsNudgeFingerprint = first.fingerprint; preview.recordsNudgeTo = 'tutor@example.test';

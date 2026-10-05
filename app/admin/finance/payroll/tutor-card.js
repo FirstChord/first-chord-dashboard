@@ -135,15 +135,17 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
   const recordReadiness = payrollRecordReadiness(row);
   const recordNudge = decideRecordsNudge({ row, contactEmail: row.contactEmail, verifiedAt: row.contactEmailVerifiedAt });
   const recordContext = { payrollId: row.payrollId, tutorShortName: row.tutorShortName, payDate: row.payDate, periodStart: row.periodStart, periodEnd: row.periodEnd };
+  const approval = row.deferredDelivery;
+  const autoPending = ['preparing', 'waiting', 'claimed'].includes(approval?.status);
   const zeroAmount = row.status === 'draft' && row.payModel === 'hourly' && !row.isCutover
     && row.lessonCount === 0 && row.expectedAmount === 0 && row.adjustmentAmount === 0 && row.finalAmount === 0;
-  const zeroCandidate = zeroAmount && !row.periodOpen
+  const zeroCandidate = !autoPending && zeroAmount && !row.periodOpen
     && row.cadenceDue && row.windowBasis !== 'override' && !row.windowEndCustom
     && !row.windowEmpty && !row.windowCapped && !row.legacyNeedsReconciliation
     && !row.priorRunPending && !row.overlapsPaid && !row.overlapsNoPaymentDue && !row.overlapsOutstanding
     && !row.noPaymentDueConflict && !reviewPast.length
     && workflow.key !== 'data_unavailable';
-  const reviewBlocked = Boolean(zeroAmount || row.status === 'no_payment_due' || row.noPaymentDueConflict || row.overlapsNoPaymentDue || !recordReadiness.ready || reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || row.windowCapped || workflow.key === 'data_unavailable');
+  const reviewBlocked = Boolean(autoPending || zeroAmount || row.status === 'no_payment_due' || row.noPaymentDueConflict || row.overlapsNoPaymentDue || !recordReadiness.ready || reviewPast.length || row.overlapsPaid || row.overlapsOutstanding || row.priorRunPending || row.periodOpen || !row.cadenceDue || row.cutoverNeedsStart || row.legacyNeedsReconciliation || row.cutoverNothingOwed || row.windowCapped || workflow.key === 'data_unavailable');
   const periodCorrection = ['cutover_start', 'window_conflict', 'statement_overlap'].includes(workflow.key) || row.windowCapped;
   const showAttendance = workflow.key === 'attendance' && row.cadenceDue;
   const statementUrl = `/admin/finance/payroll/statement?pid=${encodeURIComponent(row.payrollId)}`;
@@ -244,6 +246,10 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
         </div>
       ) : null}
 
+      {approval && ['preparing', 'waiting', 'claimed', 'held', 'unknown'].includes(approval.status) ? <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+        <p>{approval.status === 'waiting' ? 'Statement will be emailed once this period’s records are complete.' : approval.reason || 'Delivery was interrupted. Check the statement and Gmail Sent.'}</p>
+        {['waiting', 'preparing', 'held'].includes(approval.status) ? <div className="mt-2"><RecordsNudgeButton key={approval.id} context={recordContext} approval={approval} /></div> : null}
+      </div> : null}
       {row.status === 'draft' && !row.periodOpen && (recordReadiness.missingAttendance.length || recordReadiness.missingNotes.length) ? (
         <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950" aria-label="Finish lesson records">
           <h4 className="font-semibold">{recordReadiness.ready ? 'School note exception recorded' : 'Finish records before the statement'}</h4>
@@ -258,12 +264,13 @@ export default function PayrollTutorCard({ row, payDate, reviewPayrollAction, re
           })}
           {recordReadiness.uncertain.length ? <p className="mt-2 text-xs font-semibold">An exact MMS lesson ID or date is missing. Check at school before emailing.</p> : null}
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            {recordNudge.ok && !row.legacyNeedsReconciliation && !row.priorRunPending ? <RecordsNudgeButton context={recordContext} /> : null}
+            {!autoPending && recordNudge.ok && !row.legacyNeedsReconciliation && !row.priorRunPending ? <RecordsNudgeButton key={row.payrollId} context={recordContext} allowDeferred={row.allowDeferred && !row.isCutover && row.windowBasis !== 'override'} /> : null}
+            {!autoPending && row.allowDeferred && recordNudge.reason === 'already_sent' && !row.isCutover && row.windowBasis !== 'override' ? <RecordsNudgeButton key={`${row.payrollId}-approve`} context={recordContext} alreadySent /> : null}
             {recordNudge.reason === 'already_sent' ? <span className="text-xs">Checklist emailed{row.recordsNudgeSentAt ? ` ${formatPayrollDate(row.recordsNudgeSentAt)}` : ''}.</span> : null}
             {recordNudge.reason === 'check_gmail' ? <span className="text-xs font-semibold">Check Gmail Sent. Delivery is uncertain; no automatic retry.</span> : null}
             {recordNudge.reason === 'unverified_contact' ? <Link className="text-xs underline" href="/admin/finance/payroll/settings">Verify the tutor’s payroll email ↗</Link> : null}
           </div>
-          {recordReadiness.unresolvedNotes.filter((item) => item.attendanceId).length ? (
+          {!autoPending && recordReadiness.unresolvedNotes.filter((item) => item.attendanceId).length ? (
             <details className="mt-3 border-t border-amber-200 pt-2">
               <summary className="cursor-pointer text-xs font-semibold">School-side note exception</summary>
               <p className="mt-2 text-xs">Use only if the note genuinely is not required. This does not mark it complete in MMS.</p>
