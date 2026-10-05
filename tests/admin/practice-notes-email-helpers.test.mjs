@@ -12,8 +12,8 @@ import {
 } from '../../lib/admin/practice-notes-email.js';
 
 test('buildPracticeNoteEmailSubject includes the student name', () => {
-  assert.equal(buildPracticeNoteEmailSubject({ studentName: 'Test Studenty' }), 'Practice notes for Test Studenty');
-  assert.equal(buildPracticeNoteEmailSubject(), 'Practice notes');
+  assert.equal(buildPracticeNoteEmailSubject({ studentName: 'Test Studenty' }), 'Test Studenty’s practice notes · First Chord');
+  assert.equal(buildPracticeNoteEmailSubject(), 'Practice notes · First Chord');
 });
 
 test('buildPracticeNoteEmailContent creates plain text and escaped HTML', () => {
@@ -102,6 +102,26 @@ test('getPracticeNotesEmailConfig can reuse the dashboard Google OAuth client', 
 function decodeRaw(raw = '') {
   return Buffer.from(raw.replace(/-/gu, '+').replace(/_/gu, '/'), 'base64').toString('utf8');
 }
+
+test('Unicode subjects survive MIME encoding, folding and header sanitisation', () => {
+  for (const subject of [
+    buildPracticeNoteEmailSubject({ studentName: 'Alex' }),
+    buildPracticeNoteEmailSubject({ studentName: 'Athena and Sophia' }),
+    buildPracticeNoteEmailSubject({ studentName: 'Élodie 王 🎵 '.repeat(15).trim() }),
+    'Élodie’s notes\r\nBcc: hidden@example.com',
+  ]) {
+    const message = decodeRaw(buildGmailRawMessage({ subject, toEmail: 'parent@example.com' }));
+    const header = message.match(/^Subject: (.*(?:\r\n .*)*)\r\nMIME-Version:/mu)?.[1];
+    assert.ok(header);
+    const words = [...header.matchAll(/=\?UTF-8\?B\?([A-Za-z0-9+/=]+)\?=/gu)];
+    assert.ok(words.length);
+    for (const word of words) assert.ok(word[0].length <= 75);
+    for (const line of `Subject: ${header}`.split('\r\n')) assert.ok(line.length <= 76);
+    assert.equal(words.map(word => Buffer.from(word[1], 'base64').toString('utf8')).join(''), subject.replace(/[\r\n]+/gu, ' '));
+    assert.doesNotMatch(message, /\r\nBcc: hidden/u);
+    assert.doesNotMatch(header, /[^\x20-\x7e\r\n]/u);
+  }
+});
 
 test('a second parent is Bcc\'d, not added to the To line', () => {
   // Calan's parents are separated. Neither address may appear in the other's

@@ -35,8 +35,9 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   The opening is now 30px shorter after reviewing email width/type guidance;
   the fluid 560px card and note spacing are retained. Practice Goals now use
   the same unboxed layout as other sections, and the optional code reminder
-  explains that First Chord set it up. Presentation changes at the email
-  boundary; reviewed notes, recipients, tutor
+  explains that First Chord set it up. Subjects put the student first and
+  retain the school name with a middle-dot separator. Presentation changes at
+  the email boundary; reviewed notes, recipients, tutor
   workflow and delivery identity stay unchanged. Household links are restricted
   to the server-derived students covered by that email. Previous-format rollback:
   `PRACTICE_NOTES_EMAIL_DESIGN_ENABLED=false`. Contract:

@@ -42,6 +42,15 @@ the on-the-day cancellation without sending a parent practice-note email.
 
 ### Email appearance
 
+The subject is `<reviewed student name>’s practice notes · First Chord`, with
+`Practice notes · First Chord` as the missing-name fallback. Household emails
+retain their server-derived covered-student label. The middle dot separates the
+school name; subject presentation never changes recipients or delivery identity.
+Non-ASCII subject text uses folded UTF-8 encoded words under
+[RFC 2047](https://www.rfc-editor.org/rfc/rfc2047), preserving names and punctuation
+while retaining header-injection sanitisation. Printable ASCII subjects keep
+the existing raw representation.
+
 The email adapter applies the warm design after the raw lesson note has been
 reviewed and its unchanged delivery key established. The map illustration is an
 inline MIME part; both HTML and plain-text alternatives remain available.
