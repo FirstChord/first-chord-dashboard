@@ -32,7 +32,9 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
 
 - **Warm practice-note emails — 2026-10-05:** Finn approved the tested design
   and requested a barely off-white card plus supported light-mode override.
-  Presentation changes at the email boundary; reviewed notes, recipients, tutor
+  The opening is now 30px shorter after reviewing email width/type guidance;
+  the fluid 560px card and note spacing are retained. Presentation changes at
+  the email boundary; reviewed notes, recipients, tutor
   workflow and delivery identity stay unchanged. Household links are restricted
   to the server-derived students covered by that email. Previous-format rollback:
   `PRACTICE_NOTES_EMAIL_DESIGN_ENABLED=false`. Contract:

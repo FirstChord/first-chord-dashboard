@@ -63,6 +63,15 @@ A missing image or rendering
 failure uses the previous format before the single Gmail call; provider errors
 still follow the existing manual-follow-up contract below.
 
+The fluid card has a 560px desktop maximum, 28px inner side padding and 16px
+body text with 26px line height. The opening uses 22px top padding, a 72px
+illustration, a 12px title gap and 14px spacing before the introduction. This
+shortens the opening by 30px without tightening the note paragraphs or speaker
+turns. Width is deliberately conservative within the common roughly 600px
+email guidance; vertical spacing is a reviewed design choice, not a universal
+optimum. References: [Campaign Monitor width guidance](https://www.campaignmonitor.com/resources/guides/email-width-and-sizes/)
+and [Mailchimp mobile text guidance](https://templates.mailchimp.com/development/responsive-email/increasing-text-size/).
+
 The near-white card is `#FDFCF9`. A `color-scheme: light only` meta tag asks
 supporting clients, including updated Gmail apps, to preserve it. Other clients
 may still recolour emails, so do not promise identical light-mode appearance.
