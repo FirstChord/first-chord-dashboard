@@ -149,6 +149,15 @@ manual delivery only when actually verified. Never delete a claim to retry.
 
 Rollout and kill switch: [operations runbook](../../operations/runbook.md#scoped-payroll-delivery-rollout).
 
+For Tom: check the saved period and adjustments, choose the optional checkbox
+only when happy for that period to finish without another review, then send the
+consolidated request. Waiting needs no chasing reply or repeat click. A held or
+uncertain result returns to staff; cancel before making school-side changes.
+There is no requirement to use this option for every tutor.
+
+Why these boundaries exist and what real payroll use taught us:
+[scoped payroll delivery](../../architecture/system/scoped-payroll-delivery.md).
+
 ## Private WhatsApp reminders
 
 Use **Remind in WhatsApp** or **Share in WhatsApp** from the selected tutor's

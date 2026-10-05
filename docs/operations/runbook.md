@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-09-02
+last_verified: 2026-10-05
 ---
 # Operations Runbook
 
@@ -63,7 +63,7 @@ students, or mutate MMS/Stripe/Sheets operational truth.
 | System | What it owns | Dashboard dependency |
 | --- | --- | --- |
 | Google Sheets | Operational school truth and dashboard workflow state | Most admin pages, issues, planning, parent understanding, tutor absence, backups |
-| PostgreSQL | Practice Note delivery execution claims plus the rebuildable MMS lesson mirror | Cross-instance duplicate-send protection; daily read-only lesson parity evidence |
+| PostgreSQL | Practice Note delivery claims, rebuildable MMS lesson mirror and exact-period payroll execution coordination | Cross-instance duplicate-send protection; daily lesson parity; scoped approved-period sending. Never payroll/payment truth. |
 | Registry | Portal/dashboard config truth | Student portal routes, registry-vs-Sheets issue checks |
 | MMS | Lesson/scheduling/contact truth | Waiting list, schedule context, onboarding, capacity, tutor absences |
 | Stripe | Payment provider truth | Payment issue checks and student Stripe refreshes |
@@ -218,6 +218,18 @@ evaluate with synthetic/redacted fixtures before re-enabling. If the shared
 restricted AI key may be exposed, rotate it and re-check both AI pilots.
 
 ## Scoped payroll delivery rollout
+
+Finn approved activation on **2026-10-05**. Build `ca49502` passed 1,954 tests,
+GitHub CI and all three Railway deployments. The canonical production endpoint
+returned 401 without its secret and a successful disabled zero-job result with
+the secret. Current pre-activation check found PostgreSQL 17.11, existing
+Practice Note claims, no payroll coordination tables and configured Gmail/cron
+credentials. The feature remains off while the current Neon recovery window is
+being verified; the six-hour window recorded in August is not current evidence.
+No real period has been opted in or tutor email sent by this rollout.
+The current console guide locates **History window** in the project’s
+**Settings → Postgres**. Read its hours/days; do not change it or press Restore
+for this check. Older console layouts called it the restore window.
 
 The build defaults to **off**. Publishing it does not approve periods, create
 database tables or send tutor emails. This is an additive coordination schema,

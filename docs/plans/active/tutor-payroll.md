@@ -1,7 +1,7 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-09-26
+last_verified: 2026-10-05
 ---
 # Tutor Payroll: Phase 3 Pilot And Scheduling
 
@@ -47,8 +47,9 @@ The source contains the manual pilot path:
 - `Payroll_Runs` records the delivery claim/result. A `sending` or `unknown`
   result blocks automatic retry and instructs the admin to check Gmail Sent.
 
-This remains a code and operator pilot until the existing cadence choices and
-verified contact details are populated and the risky rollout checks below pass.
+The manual route has been used with real tutors through the cutover and first
+regular cycles. Verified contact/cadence and settlement evidence remain
+prerequisites per tutor, not assumptions about the whole roster.
 
 ## Calm queue increment — approved for rollout
 
@@ -66,6 +67,22 @@ Monday email cycle. Roll back code first if needed; preserve statement responses
 paid markers and append-only reminder events. Never retry provider payments to
 repair dashboard records.
 
+## Scoped sending increment, approved 5 October 2026
+
+The implementation is deployed. Finn approved activation of the exact-period
+missing-records option, not a general Monday sending schedule. A named admin
+checks one saved period and asks for records; fresh complete MMS records can
+then unlock one recalculated reviewed statement and its existing email sender.
+The ordinary checklist-only/manual flow remains the default. Cancellation,
+14-day expiry, material-scope changes, £0/manual cases and unknown Gmail outcomes
+are explicit boundaries. No payment or tutor confirmation is automated.
+
+Current activation evidence and recovery live in the
+[runbook](../../operations/runbook.md#scoped-payroll-delivery-rollout), operator
+instructions in [paying tutors](../../workflows/finance/paying-tutors.md), and
+real-use lessons in [the scoped-delivery note](../../architecture/system/scoped-payroll-delivery.md).
+Do not infer a live positive send from a deployed build or zero-job smoke check.
+
 ## Remaining Goal
 
 - populate and verify active tutors' payroll contact addresses;
@@ -73,7 +90,7 @@ repair dashboard records.
 - run several manual email cycles across weekly and biweekly tutors;
 - add an admin batch preview only after the one-at-a-time path has representative
   evidence;
-- schedule due-statement email only after delivery, confirmation, dispute,
+- consider broader scheduled due-statement email only after delivery, confirmation, dispute,
   ambiguous-Gmail, and missed-email evidence is understood;
 - exercise the private one-to-one WhatsApp reminder workflow for overdue
   confirmations; never share a payroll link or pay detail in a tutor group.
@@ -100,7 +117,7 @@ repair dashboard records.
 
 - no auto-pay and no Wise API mutation
 - tutor confirmation is a review signal, not payment approval
-- outbound messages remain human-previewed during the pilot
+- outbound messages require immediate preview/approval or the documented exact-period deferred approval; never blanket tutor permission
 - statements contain student names and tutor pay; enforce tutor-scoped access,
   short-lived links, minimal logs, and the data-protection policy
 - Gmail uncertainty is manual follow-up, never a blind retry

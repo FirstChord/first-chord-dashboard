@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-10
+last_verified: 2026-10-05
 ---
 # Disaster Recovery
 
@@ -14,7 +14,7 @@ code, not the state held in Sheets or PostgreSQL.
 | --- | --- | --- |
 | Google Sheet | Students, workflow state, logs, payroll review, assignments | Restore the latest complete local backup to a scratch Sheet, verify, then promote |
 | Railway app | Dashboard, portals, APIs, crons | Redeploy a known-good GitHub commit and restore the canonical service variables |
-| Neon PostgreSQL | Practice Note delivery claims plus the rebuildable MMS lesson mirror | Restore provider backup/snapshot; reconcile claims before enabling delivery; rebuild mirror observations from MMS if necessary |
+| Neon PostgreSQL | Practice Note claims, retained lesson mirror IDs/observations and scoped payroll delivery coordination | Restore provider backup/snapshot; reconcile both delivery-claim lanes before enabling sends; rebuild mirror observations from MMS if necessary |
 | Local Mac | WhatsApp capture, scheduled local backups, local tokens/tools | Rebuild from GitHub, password manager/provider consoles, and launchd templates |
 | Provider credential | Affected integration reads/writes | Reissue with the minimum documented scope and replace it in Railway/local secret storage |
 
@@ -23,6 +23,10 @@ operational records. PostgreSQL owns the narrow Practice Note execution claim
 and First Chord lesson identities/retained MMS observations. The lesson mirror
 does not own current schedule or attendance truth.
 Neither a UI state nor `Issue_Queue` substitutes for those owners.
+
+Payroll adds non-rebuildable approval and email-claim coordination, not a new
+payroll ledger. Sheets retains reviewed statements, responses and payment
+markers; Gmail retains accepted-send evidence and Wise retains payment truth.
 
 ## Proven And Unproven Recovery
 
@@ -79,6 +83,18 @@ re-enabling after a database loss:
 
 Never delete a terminal claim or resend an ambiguous email merely to make the
 stores agree. Record any recovery action.
+
+## Restore Payroll Delivery Coordination
+
+Before any database recovery that could affect payroll claims, set
+`PAYROLL_DEFERRED_SEND_ENABLED=false` and disable its scheduled checker. Restore
+`payroll_deferred_deliveries` and `payroll_email_delivery_claims` from the provider
+backup with Practice Note claims, then reconcile incomplete/ambiguous payroll
+work against Sheets and Gmail. Do not automatically resume waiting approvals
+from an old snapshot, delete email keys to retry, or reconstruct a supposedly
+unsent statement from a missing database claim. A restored older approval may
+have sent after the snapshot. Known payments and tutor responses stay intact.
+See [scoped rollout/recovery](./runbook.md#scoped-payroll-delivery-rollout).
 
 ## Restore The Lesson Mirror
 

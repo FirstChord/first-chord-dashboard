@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-10-02
+last_verified: 2026-10-05
 ---
 # Admin current status
 
@@ -118,21 +118,15 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   student update with stale-state guards. It never changes Stripe and a generic
   Brain/Sheets refresh is deliberately not offered: refresh was not the missing
   operation.
-- **The WhatsApp inbox now backfills after an outage and records the gap —
-  DEPLOYED 2026-09-16:** cancellations were missing because the bridge is a local
-  process that receives live push events and **never catches up** — its README
-  says history is not posted, so a message missed is missed permanently. Five
-  days of logs showed 7% of the period with nothing running, including
-  **20:18–22:53 on Friday 11 Sept**. A refresh button was the wrong fix: Railway
-  has no WhatsApp access, so it would always have truthfully said "nothing new".
-  Instead `catchUpFromHistory` posts the recent part of a reconnect replay
-  (24h/200-message bounds, `BRIDGE_CATCH_UP*`), reusing `maybeAutoCapture` so the
-  confirmed-group gate and dedupe apply by construction. Safe because capture is
-  already idempotent server-side — the bridge comment claiming otherwise had aged
-  out. And because a live health check answers "is the bridge up?" (always yes by
-  morning), a heartbeat arriving >90 min late now writes that window to
-  `Bridge_Status.raw_json` and the inbox shows it **even while healthy**. Ninety
-  minutes = three heartbeats, so ordinary restarts (26 in five days) stay quiet.
+- **Scoped payroll send-when-ready approved, 2026-10-05:** the tested build
+  is deployed; Finn has approved the additive coordination schema and canonical
+  service activation. Staff may approve one checked standard period while asking
+  for missing attendance/notes, then fresh trusted records can unlock its single
+  statement email. This is bounded deferred execution of a human approval, not
+  blanket auto-invoicing or payment. No existing draft is opted in. Activation
+  checks and current state: `docs/operations/runbook.md`. Real cutover, manual
+  payment, corrections and £0-week lessons:
+  `docs/architecture/system/scoped-payroll-delivery.md`.
 
 ## Current operating contracts
 
@@ -148,7 +142,7 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
 | Practice Chat | All registered tutors are enabled unless temporarily constrained. The tutor self-attests, the student must have one clear tutor assignment, the final screen names the server-derived recipient, and PostgreSQL claims the delivery key before MMS/Gmail work. Ambiguous Gmail outcomes require manual follow-up. |
 | Lesson mirror | Neon PostgreSQL holds rebuildable MMS observations and stable First Chord series/event/participation IDs. A daily bounded read populates the mirror; `/admin/lessons` exposes aggregate parity/exception evidence, `/admin/lessons/exceptions` gives a bounded human-readable drill-down, and `/admin/lessons/calendar` renders the latest verified week. Tutor Changes and first-lesson Planning consume the mirror as fail-open shadow context, but no operational workflow depends or acts on it. MMS remains schedule and attendance truth, and absence from a sweep never proves cancellation. |
 | Student portal notes | Profile URLs and non-note resources stay public. Practice Chat notes load through a separate no-store API; families are moved individually to memorable-code protection through the claimed admin rollout queue. A missing rollout row remains legacy-public, while an access-state failure fails closed. The memorable code is a light privacy guard proportionate to what it protects — a child's practice notes — not a defence against a determined attacker, and it is not sized to become one. |
-| Finance | Sheets holds operating estimates/review state; Stripe and Wise remain provider truth. Payroll preparation does not execute Wise payment. |
+| Finance | Sheets holds operating estimates/review state; Stripe and Wise remain provider truth. Exact-period payroll sending can be approved in advance when records are missing; fresh deterministic checks govern execution. Confirmation and payment remain separate human boundaries. PostgreSQL is delivery coordination only, not payroll truth. |
 | Public tutor surfaces | Low-friction tutor identity is not durable authentication. Do not add broader sensitive reads or consequential writes before tutor auth. |
 | Testing | A test that reads source text and asserts a name appears is a lint rule, not coverage — it cannot show the code ran, ran in the right order, or was correct. Guards, verifiers, and write paths get executed instead: inject the impure dependency and run the real function. Source-text checks are legitimate only for architectural absence (module X must not import writer Y) and for server components with no callable handler, and must discover their targets from disk rather than a hardcoded list. Before trusting a new security or money-path test, break the thing it guards and confirm it fails. |
 
@@ -278,11 +272,13 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
   weekly/biweekly choices, Monday–Sunday periods, a confirmation-gated one-off
   cutover through 20 September 2026, an operator progress queue, future-period
   and unresolved-statement guards, and a complete-cadence due guard. Live rollout
-  remains gated by populating verified contact/cadence data and proving the manual pilot;
-  scheduled delivery remains unbuilt. A calmer payroll queue, mandatory
+  requires verified contact/cadence data. Scoped send-after-records delivery is
+  built and its activation was approved on 5 October; blanket scheduled
+  due-statement sending remains out of scope. A calmer payroll queue, mandatory
   confirmation, a direct prefilled WhatsApp reminder handoff, a link-free reply
-  to open tutor queries and a checked Wise batch are built; sending remains a
-  human action. Production rollout and the Wednesday 09:00 UK cutoff were approved by Finn
+  to open tutor queries and a checked Wise batch are built; sending requires
+  either the immediate human press or one exact-period deferred approval.
+  Production rollout and the Wednesday 09:00 UK cutoff were approved by Finn
   on 26 September 2026. Shared cadence starts 21 September: first weekly
   statement 28 September, first fortnightly 5 October; legacy coverage gaps
   remain explicit review blockers. See `docs/plans/active/tutor-payroll.md`.
