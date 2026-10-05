@@ -45,8 +45,9 @@ the on-the-day cancellation without sending a parent practice-note email.
 The email adapter applies the warm design after the raw lesson note has been
 reviewed and its unchanged delivery key established. The map illustration is an
 inline MIME part; both HTML and plain-text alternatives remain available.
-Explicit speaker turns receive separate paragraphs, populated Practice Goals
-receive a quiet panel, and the actual MMS tutor name and lesson date are used.
+Explicit speaker turns receive separate paragraphs. Populated Practice Goals
+use the same heading and list layout as the other note sections, without a
+coloured box. The actual MMS tutor name and lesson date are used.
 The approved introduction is presentation only: it never enters MMS notes,
 the audit's raw note, or the delivery hash.
 
@@ -58,6 +59,9 @@ email gets links only for members that the server's delivery plan includes in
 that email, never for the other households on the lesson. Missing portal
 configuration omits that link. Optional protection state adds a reminder of
 where to find the code, never the code or encrypted credential material.
+The reminder says: “If we’ve set up a code for your practice notes, you’ll find
+it in your First Chord WhatsApp group description.” It appears in both MIME
+alternatives only when protection is enabled for a covered student.
 Unavailable protection state or a lookup taking over two seconds omits the reminder.
 A missing image or rendering
 failure uses the previous format before the single Gmail call; provider errors
