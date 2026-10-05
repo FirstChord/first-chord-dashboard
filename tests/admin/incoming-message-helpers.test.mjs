@@ -427,9 +427,10 @@ test('buildIncomingReplyTemplate produces a per-category parent draft', () => {
     studentName: 'Alex Chang',
     startDate: '2026-07-10',
   });
-  assert.equal(absence, 'No worries at all, that’s noted. We’ll get that date paused 🙂');
+  assert.equal(absence, 'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.');
   // House style: parent drafts never use em-dashes.
   assert.doesNotMatch(absence, /—/u);
+  assert.doesNotMatch(absence, /pause|charge|practice video/iu);
 
   const leaving = buildIncomingReplyTemplate({ category: 'leaving', senderName: 'Laura', studentName: 'Sam Reid' });
   assert.match(leaving, /sorry to see Sam go/u);
@@ -460,7 +461,7 @@ test('buildIncomingPlanningDraft maps a reviewed message into a planning item', 
   assert.equal(draft.area, 'workflow');
   assert.deepEqual(draft.linkedStudentIds, ['sdt_alex']);
   assert.match(draft.notes, /Alex is away for two weeks/u);
-  assert.match(draft.notes, /Suggested reply/u);
+  assert.match(draft.notes, /Initial acknowledgement/u);
   assert.match(draft.notes, /Dates spotted in message: 2 week/u);
 });
 
@@ -487,7 +488,7 @@ test('an extended absence with dates converts to a structured pause plan the for
   assert.match(draft.notes, /Returning from date: 2026-07-21/u);
   // The original message and reply still travel with the plan.
   assert.match(draft.notes, /Alex will be away for holiday/u);
-  assert.match(draft.notes, /Suggested reply/u);
+  assert.match(draft.notes, /Initial acknowledgement/u);
 
   // Round-trip: the pause forecast parses the window from this exact item.
   const { windows, unparsed } = parsePauseWindowsFromPlanning([{
@@ -585,7 +586,7 @@ test('buildIncomingReplyTemplate keeps pause replies short and general', () => {
     startDate: '2026-06-24',
     returnDate: '2026-07-21',
   });
-  assert.equal(dated, 'No worries at all, that’s noted. We’ll get those dates paused 🙂');
+  assert.equal(dated, 'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.');
   assert.doesNotMatch(dated, /Mina|Alex|June|July/u);
 
   const oneOff = buildIncomingReplyTemplate({
@@ -594,16 +595,16 @@ test('buildIncomingReplyTemplate keeps pause replies short and general', () => {
     studentName: 'Alex',
     startDate: '2026-07-03',
   });
-  assert.equal(oneOff, 'No worries at all, that’s noted. We’ll get that date paused 🙂');
+  assert.equal(oneOff, 'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.');
   assert.doesNotMatch(oneOff, /Mina|Alex|July/u);
 
   // The parent's own message carries the detail even when extraction is incomplete.
   const undated = buildIncomingReplyTemplate({ category: 'extended_absence', senderName: 'Mina', studentName: 'Alex' });
-  assert.equal(undated, 'No worries at all, that’s noted. We’ll get those dates paused 🙂');
+  assert.equal(undated, 'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.');
 
   assert.equal(
     buildIncomingReplyTemplate({ category: 'summer_break', senderName: 'Mina', studentName: 'Alex' }),
-    'No worries at all, that’s noted. We’ll get those dates paused 🙂',
+    'Thanks for letting us know 🙂 We’ll take a look and confirm once it’s sorted.',
   );
 });
 

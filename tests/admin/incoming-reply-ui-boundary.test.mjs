@@ -35,8 +35,8 @@ test('Reply + Plan copies one reviewed draft, persists it, and stays in the inbo
   assert.ok(copyIndex >= 0 && convertIndex > copyIndex);
   assert.doesNotMatch(source, /window\.location\.assign\(`\/admin\/planning\?focus=/u);
   assert.match(source, /alreadyResolved: true/u);
-  assert.match(source, /Reply for \$\{label\} is ready/u);
-  assert.match(source, /Open plan/u);
+  assert.match(source, /Send acknowledgement to \$\{label\}/u);
+  assert.match(source, /View plan/u);
   assert.match(source, /advanceAfter\(entry\.incomingId\)/u);
 });
 

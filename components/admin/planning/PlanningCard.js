@@ -62,6 +62,7 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
   const [pauseToolRan, setPauseToolRan] = useState(false);
   const [pauseMessageConfirmed, setPauseMessageConfirmed] = useState(false);
   const [copyState, setCopyState] = useState('');
+  const [finalConfirmationDraft, setFinalConfirmationDraft] = useState('');
   const isPending = pendingId === item.planningId;
   const { press, pendingFor } = usePressedAction(isPending);
   const isPauseReminder = isPausePlanningItem(item);
@@ -105,7 +106,7 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
     : '';
   const incomingPlanningReply = extractIncomingPlanningReply(item);
   const pauseConfirmationMessage = isPauseReminder
-    ? (extractTutorAbsenceCombinedMessage(item) || incomingPlanningReply || buildPauseConfirmationMessage({ item, student: linkedStudent }))
+    ? (extractTutorAbsenceCombinedMessage(item) || buildPauseConfirmationMessage({ item, student: linkedStudent }))
     : '';
   const canCompletePause = Boolean(
     item.linkedStudentId
@@ -163,7 +164,7 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
   }
 
   return (
-    <article className={compact ? '' : 'rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.04)]'}>
+    <article data-planning-id={item.planningId} tabIndex={-1} className={`scroll-mt-24 focus:outline focus:outline-2 focus:outline-blue-400 ${compact ? '' : 'rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_22px_rgba(15,23,42,0.04)]'}`}>
       {/* An already-paused student still gets a card on purpose: the payment
           expectation flag carries no dates, so it cannot prove *this* window is
           covered. That is easy to misread as a duplicate, so say it up front
@@ -354,23 +355,27 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
         </div>
       )}
 
+      {incomingPlanningReply ? <details className="mt-3 text-xs text-slate-500">
+        <summary className="cursor-pointer py-2 font-semibold">Initial acknowledgement · context</summary>
+        <p className="mt-1 whitespace-pre-wrap rounded-lg bg-slate-50 p-3 leading-5">{incomingPlanningReply}</p>
+        <p className="mt-2">This was prepared in the inbox. It is separate from the final confirmation below.</p>
+      </details> : null}
       {incomingPlanningReply && !isPauseReminder ? (
-        <MessageToSend
-          label="Parent reply"
-          message={incomingPlanningReply}
-          actions={(
-            <>
-              <CardButton onClick={() => copyParentReply(incomingPlanningReply, {
-                source: 'incoming_planning_reply',
-                openWhatsApp: true,
-              })}
-              >
-                Copy &amp; open WhatsApp
-              </CardButton>
-              {copyState ? <span className="text-xs font-semibold text-slate-600">{copyState}</span> : null}
-            </>
-          )}
-        />
+        <section className="mt-4 rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+          <label className="block text-xs font-semibold text-slate-600">
+            Final confirmation
+            <textarea value={finalConfirmationDraft} onChange={(event) => setFinalConfirmationDraft(event.target.value)}
+              placeholder="Write what has been sorted and any next steps."
+              rows={3} maxLength={1200} className="mt-2 block w-full rounded-lg border border-slate-200 bg-white p-3 text-sm font-normal leading-6 text-slate-800" />
+          </label>
+          <p className="mt-2 text-xs text-slate-500">Send after the work is done. Review the recipient and outcome before sending.</p>
+          <div className="mt-3 flex items-center gap-2">
+            <CardButton disabled={isPending || !finalConfirmationDraft.trim()} onClick={() => copyParentReply(finalConfirmationDraft.trim(), {
+              source: 'incoming_planning_confirmation', openWhatsApp: true,
+            })}>Copy &amp; open WhatsApp</CardButton>
+            {copyState ? <span className="text-xs text-slate-600">{copyState}</span> : null}
+          </div>
+        </section>
       ) : null}
 
       {/* Tutor-absence cards deliberately have no workflow link: the decision and
@@ -594,13 +599,13 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
               ) : null}
               {pauseConfirmationMessage && pauseToolStepComplete ? (
                 <MessageToSend
-                  label={<StepLabel done={pauseMessageConfirmed || pausePaymentConfirmed}>2. Parent confirmation</StepLabel>}
+                  label={<StepLabel done={pauseMessageConfirmed || pausePaymentConfirmed}>2. Final confirmation</StepLabel>}
                   message={pauseConfirmationMessage}
                   actions={(
                     <>
                       <CardButton onClick={() => copyParentReply(pauseConfirmationMessage, {
                         category: 'pause',
-                        source: incomingPlanningReply ? 'incoming_planning_reply' : 'pause_card',
+                        source: incomingPlanningReply ? 'incoming_planning_confirmation' : 'pause_card',
                         openWhatsApp: Boolean(incomingPlanningReply),
                       })}
                       >

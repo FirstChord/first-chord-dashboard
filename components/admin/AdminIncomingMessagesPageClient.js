@@ -1,6 +1,7 @@
 'use client';
 
 import { planningSaveClientError } from '@/lib/admin/planning-duplicate-helpers.mjs';
+import { buildAcknowledgementProgressPayload, isPlanningAcknowledgement } from '@/lib/admin/incoming-handoff-helpers.mjs';
 import PlanningSaveError from './planning/PlanningSaveError';
 import GroupMapPanel from './IncomingGroupMapPanel';
 import TutorMessageBadge from './TutorMessageBadge';
@@ -123,17 +124,20 @@ function HandoffTray({ handoff, onOpenWhatsapp, onConfirmSent, onDismiss, isPend
   if (!handoff) return null;
   const label = handoff.studentName || handoff.senderName || 'this conversation';
   const hasOpened = Boolean(handoff.openedAt);
+  const isAcknowledgement = isPlanningAcknowledgement(handoff);
 
   return (
     <div aria-live="polite" className="sticky top-2 z-30 rounded-2xl border border-violet-200 bg-violet-50/95 px-4 py-3 text-sm text-violet-950 shadow-lg backdrop-blur">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-semibold">
-            {hasOpened ? `Did that reply go to ${label}?` : `Reply for ${label} is ready.`}
+            {isAcknowledgement
+              ? hasOpened ? `Acknowledgement sent to ${label}?` : `Send acknowledgement to ${label}`
+              : hasOpened ? `Did that reply go to ${label}?` : `Reply for ${label} is ready.`}
           </p>
           <p className="mt-0.5 text-xs text-violet-800/80">
-            {handoff.alreadyResolved
-              ? 'The plan is safe; confirm the WhatsApp handoff or leave the reply with the plan.'
+            {isAcknowledgement
+              ? 'Plan created. Send this now; the work and final confirmation stay in Planning.'
               : 'The inbox will only finish this message when you confirm it was sent.'}
             {handoff.chatName ? ` Choose “${handoff.chatName}” in WhatsApp.` : ''}
           </p>
@@ -146,7 +150,7 @@ function HandoffTray({ handoff, onOpenWhatsapp, onConfirmSent, onDismiss, isPend
               onClick={onConfirmSent}
               className="min-h-10 rounded-full bg-violet-700 px-4 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
             >
-              {isPending ? 'Finishing…' : handoff.alreadyResolved ? 'Sent — done' : 'Sent — finish & next'}
+              {isPending ? 'Recording…' : isAcknowledgement ? 'Acknowledgement sent' : 'Sent — finish & next'}
             </button>
           ) : null}
           <button
@@ -155,22 +159,22 @@ function HandoffTray({ handoff, onOpenWhatsapp, onConfirmSent, onDismiss, isPend
             onClick={onOpenWhatsapp}
             className="min-h-10 rounded-full border border-violet-200 bg-white px-3 text-xs font-semibold text-violet-800 disabled:opacity-60"
           >
-            {hasOpened ? 'Open WhatsApp again' : 'Open WhatsApp'}
+            {hasOpened ? 'Open WhatsApp again' : isAcknowledgement ? 'Copy & open WhatsApp' : 'Open WhatsApp'}
           </button>
-          <button
+          {!isAcknowledgement ? <button
             type="button"
             disabled={isPending}
             onClick={onDismiss}
             className="min-h-10 rounded-full px-3 text-xs font-semibold text-violet-700 disabled:opacity-60"
           >
-            {handoff.alreadyResolved ? 'Leave with plan' : 'Not yet'}
-          </button>
-          {handoff.planningId ? (
+            Not yet
+          </button> : null}
+          {!isAcknowledgement && handoff.planningId ? (
             <Link
-              href={`/admin/planning?focus=${encodeURIComponent(handoff.planningId)}`}
+              href={`/admin/planning?view=${encodeURIComponent(handoff.planningId)}`}
               className="min-h-10 rounded-full px-3 py-2.5 text-xs font-semibold text-violet-700"
             >
-              Open plan
+              View plan
             </Link>
           ) : null}
         </div>
@@ -333,7 +337,7 @@ function PlanPanel({ entry, studentOptions = [], onCorrect, onConvert, isPending
           </div>
         ) : null}
         <label className="block">
-          <span className="text-xs font-semibold text-slate-600">{entry.groupType === 'tutor' ? 'Reply to tutor' : 'Reply to parent'}</span>
+          <span className="text-xs font-semibold text-slate-600">Initial acknowledgement</span>
           <textarea
             value={replyDraft}
             onChange={(event) => {
@@ -345,7 +349,7 @@ function PlanPanel({ entry, studentOptions = [], onCorrect, onConvert, isPending
             className="mt-1 w-full rounded-xl border border-blue-100 bg-white px-3 py-2 text-sm leading-6 text-slate-800 outline-none focus:border-blue-300"
           />
           <span className="mt-1 block text-[11px] leading-5 text-slate-500">
-            {entry.groupType === 'tutor' ? 'Saved with a tutor Action so you can follow up on the agreed next step.' : 'Copied now and saved with the plan, so it is still there after the payment or pause work.'}
+            Send this now. The plan holds the work and a separate final confirmation for later.
           </span>
         </label>
         {copyError ? <p className="text-xs font-semibold text-red-700">{copyError}</p> : null}
@@ -355,7 +359,7 @@ function PlanPanel({ entry, studentOptions = [], onCorrect, onConvert, isPending
           onClick={createPlanWithReply}
           className="min-h-11 rounded-full bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
         >
-          {isPending ? 'Creating plan…' : 'Copy reply & create plan'}
+          {isPending ? 'Creating plan…' : 'Create plan & copy acknowledgement'}
         </button>
         <details className="rounded-xl border border-blue-100 bg-white/70 px-3 py-2">
           <summary className="cursor-pointer text-xs font-semibold text-slate-600">More plan details</summary>
@@ -418,7 +422,7 @@ function PlanPanel({ entry, studentOptions = [], onCorrect, onConvert, isPending
   );
 }
 
-function ReplyPanel({ entry, entries = [entry], initialReply = '', planningId = '', title = 'Reply', onClose = null, onBeginHandoff, source = 'incoming_message_reply' }) {
+function ReplyPanel({ entry, entries = [entry], initialReply = '', planningId = '', title = 'Reply', onClose = null, onBeginHandoff, source = 'incoming_message_reply', blocked = false }) {
   const [reply, setReply] = useState(initialReply);
 
   async function handleWhatsApp() {
@@ -457,10 +461,10 @@ function ReplyPanel({ entry, entries = [entry], initialReply = '', planningId = 
         <div className="flex items-center gap-2">
           {planningId ? (
             <Link
-              href={`/admin/planning?focus=${encodeURIComponent(planningId)}`}
+              href={`/admin/planning?view=${encodeURIComponent(planningId)}`}
               className="rounded-full border border-violet-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-800 shadow-sm"
             >
-              Open plan
+              View plan
             </Link>
           ) : null}
           {onClose ? <ActionButton onClick={onClose} variant="subtle" className="px-2.5 py-1 text-[11px]">Close</ActionButton> : null}
@@ -477,7 +481,7 @@ function ReplyPanel({ entry, entries = [entry], initialReply = '', planningId = 
       />
       <button
         type="button"
-        disabled={!reply.trim()}
+        disabled={blocked || !reply.trim()}
         onClick={handleWhatsApp}
         className="mt-2 min-h-11 rounded-full bg-violet-700 px-4 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
       >
@@ -764,7 +768,7 @@ function MessageQueueItem(props) {
 // `entry` is the burst's lead message — the one that carries the signal, and
 // the one Reply and Reply + Plan work from. `entries` is the whole burst,
 // oldest first; outcome actions apply to all of it so nothing is left behind.
-function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false, resolutionProposal, resolutionAvailable, onAssessResolution, onResolutionFeedback, classificationProposal, classificationAvailable, onCheckMessage, onClassificationReview, assessmentFeedback }) {
+function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSnooze, onDelete, onCorrect, onConvert, onUpdateText, pendingId, replyBlocked = false, replyProposal, decidedReply, replyDraftingAvailable, onDraftReply, onDecideReply, onBeginHandoff, conversationContext = [], contextLoading = false, resolutionProposal, resolutionAvailable, onAssessResolution, onResolutionFeedback, classificationProposal, classificationAvailable, onCheckMessage, onClassificationReview, assessmentFeedback }) {
   const isPending = entries.some((message) => pendingId === message.incomingId);
   // pendingId only says this card is busy; the pressed button alone shows it.
   const { press, pendingFor } = usePressedAction(isPending);
@@ -796,6 +800,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
     || studentNeedsCheck
   ));
   const canDraftReply = replyDraftingAvailable
+    && !replyBlocked
     && entry.groupType !== 'tutor'
     && isOpen
     && !entry.isSnoozed
@@ -803,6 +808,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
     && !decidedReply
     && !isIncomingPlaceholderText(entry.messageText);
   const canQuickReply = isOpen
+    && !replyBlocked
     && !entry.isSnoozed
     && !replyProposal
     && !decidedReply
@@ -920,7 +926,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
           proposal={replyProposal}
           onDecideReply={onDecideReply}
           onBeginHandoff={onBeginHandoff}
-          isPending={isPending}
+          isPending={isPending || replyBlocked}
         />
       ) : null}
 
@@ -944,16 +950,16 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
         ) : null}
         {!entry.isSnoozed && entry.createdPlanningId ? (
           <Link
-            href={`/admin/planning?focus=${encodeURIComponent(entry.createdPlanningId)}`}
+            href={`/admin/planning?view=${encodeURIComponent(entry.createdPlanningId)}`}
             className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm"
           >
-            Open plan
+            View plan
           </Link>
         ) : null}
         {!entry.isSnoozed && planningAction !== 'none' && !entry.createdPlanningId ? (
           <button
             type="button"
-            disabled={isPending}
+            disabled={isPending || replyBlocked}
             onClick={openPlan}
             className="min-h-11 flex-1 rounded-full bg-slate-900 px-3 text-xs font-semibold text-white shadow-sm transition active:scale-[0.98] disabled:opacity-60"
           >
@@ -1088,7 +1094,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
       <PlanPanel
         entry={burstEntry}
         studentOptions={studentOptions}
-        isPending={isPending}
+        isPending={isPending || replyBlocked}
         onCorrect={onCorrect}
         onConvert={(leadEntry, correction) => onConvert(leadEntry, correction, entries)}
         isOpen={isPlanOpen}
@@ -1108,6 +1114,7 @@ function MessageCard({ entry, entries = [entry], studentOptions, onReview, onSno
           })}
           onClose={() => setIsReplyOpen(false)}
           onBeginHandoff={onBeginHandoff}
+          blocked={replyBlocked}
         />
       ) : null}
 
@@ -1156,6 +1163,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   const [conversationContexts, setConversationContexts] = useState({});
   const [contextLoadingId, setContextLoadingId] = useState('');
   const [pendingHandoff, setPendingHandoff] = useState(null);
+  const [recordedAcknowledgement, setRecordedAcknowledgement] = useState(null);
   const [undoAction, setUndoAction] = useState(null);
   const [undoPending, setUndoPending] = useState(false);
   const queueScrollRef = useRef(null);
@@ -1217,6 +1225,11 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   }
 
   function beginHandoff({ entry, entries = [entry], reply = '', planningId = '', alreadyResolved = false, openNow = false }) {
+    if (pendingHandoff) {
+      setSubmitError('Finish the ready reply above before starting another.');
+      return;
+    }
+    setRecordedAcknowledgement(null);
     const handoff = rememberHandoff({
       incomingIds: entries.map((message) => message.incomingId).filter(Boolean),
       leadIncomingId: entry.incomingId,
@@ -1231,18 +1244,23 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
     if (openNow) openWhatsappSurface(handoff.reply);
   }
 
-  function openPendingHandoff() {
+  async function openPendingHandoff() {
     if (!pendingHandoff?.reply) return;
+    try {
+      await navigator.clipboard.writeText(pendingHandoff.reply);
+    } catch {
+      if (isPlanningAcknowledgement(pendingHandoff)) {
+        setSubmitError('Could not copy the acknowledgement. Try again; the plan is saved.');
+        return;
+      }
+    }
+    setSubmitError('');
     rememberHandoff({ ...pendingHandoff, openedAt: new Date().toISOString() });
     openWhatsappSurface(pendingHandoff.reply);
   }
 
   function dismissPendingHandoff() {
     if (!pendingHandoff) return;
-    if (pendingHandoff.alreadyResolved) {
-      clearHandoff();
-      return;
-    }
     rememberHandoff({ ...pendingHandoff, openedAt: '' });
   }
 
@@ -1898,8 +1916,24 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
 
   async function confirmPendingHandoff() {
     if (!pendingHandoff) return;
-    if (pendingHandoff.alreadyResolved) {
-      clearHandoff();
+    if (isPlanningAcknowledgement(pendingHandoff)) {
+      const progress = buildAcknowledgementProgressPayload(pendingHandoff);
+      if (!progress) return;
+      setSubmitError('');
+      setPendingId(`acknowledgement-${pendingHandoff.planningId}`);
+      try {
+        const response = await fetch('/api/admin/planning', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(progress),
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.error || 'Could not record the acknowledgement. Try again.');
+        setRecordedAcknowledgement({ planningId: pendingHandoff.planningId });
+        clearHandoff();
+      } catch (caught) {
+        setSubmitError(caught.message || 'Could not record the acknowledgement. Try again.');
+      } finally {
+        setPendingId('');
+      }
       return;
     }
     const entries = pendingHandoff.incomingIds
@@ -2013,6 +2047,10 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
   }
 
   async function handleConvert(entry, correction, burst = [entry]) {
+    if (pendingHandoff) {
+      setSubmitError('Send the ready acknowledgement above before creating another plan.');
+      return null;
+    }
     setSubmitError('');
     setDuplicatePlanningId('');
     setPendingId(entry.incomingId);
@@ -2024,7 +2062,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         ...correction,
       }, { compact: true });
       beginHandoff({
-        entry,
+        entry: data.updatedMessages?.find((message) => message.incomingId === entry.incomingId) || entry,
         entries: burst,
         reply: data.replyTemplate || correction.replyTemplate || '',
         planningId: data.planningId || '',
@@ -2082,6 +2120,10 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
         onDismiss={dismissPendingHandoff}
         isPending={Boolean(pendingId)}
       />
+      {recordedAcknowledgement ? <p role="status" className="rounded-xl bg-emerald-50 px-4 py-3 text-xs text-emerald-800">
+        Acknowledgement recorded. The work and final confirmation are in Planning.{' '}
+        <Link className="font-semibold underline" href={`/admin/planning?view=${encodeURIComponent(recordedAcknowledgement.planningId)}`}>View plan</Link>
+      </p> : null}
 
       <BridgeStatusStrip bridgeStatus={bridgeStatus} lastAutoCaptureAt={latestAutoCaptureAt} />
       <BridgeCoverageGaps coverageGaps={coverageGaps} />
@@ -2360,6 +2402,7 @@ export default function AdminIncomingMessagesPageClient({ initialInbox = [], ini
             </div>
             {selectedCluster ? (
               <MessageCard
+                replyBlocked={Boolean(pendingHandoff)}
                 key={selectedCluster.clusterId}
                 entry={selectedCluster.lead}
                 entries={selectedCluster.entries}

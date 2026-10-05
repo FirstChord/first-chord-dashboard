@@ -141,19 +141,33 @@ sheet keeps one row per WhatsApp message. One human burst decision is persisted
 as one batched Sheets write and returned to the browser as changed rows only.
 **Reply + Plan** opens one pre-write preview: plan type and student are
 prefilled, extracted first/return dates are visible and editable, and a short
-deterministic parent reply is editable beside them. **Copy reply & create plan**
-copies that exact wording, stores it in the linked Planning item, closes the
+deterministic initial acknowledgement is editable beside them. **Create plan &
+copy acknowledgement** copies that exact wording, stores it as acknowledgement
+context in the linked Planning item, closes the
 inbox burst and advances to the adjacent message only after the write succeeds.
-A persistent **Reply ready** handoff stays at the top of the inbox with the
-reviewed text and optional **Open plan** link. It survives an accidental page
-reload for this browser session. Opening WhatsApp never claims delivery: the
-reviewer either confirms **Sent — finish & next** or deliberately chooses
-**Leave with plan**. Clearing a false date clears it from the draft. A failed
-Planning write cannot create false closure.
-For a structured pause, the saved reply is the card's final **Copy & open
-WhatsApp** handoff after the payment tool. The admin must still confirm it was
-sent before marking the pause complete; clipboard/log evidence alone is not
-delivery evidence.
+A persistent acknowledgement strip now has one job: **Copy & open WhatsApp**,
+then human **Acknowledgement sent**. It survives an accidental page reload for
+this browser session. Opening WhatsApp never claims delivery. The latter press
+adds a note to the exact linked plan via the admin-only Planning progress route;
+it never changes plan status, next action, dates or payment expectation, and it
+does not satisfy the final-confirmation gate. A failed write keeps the strip
+available to retry. Another reply/plan cannot overwrite an outstanding handoff.
+There is no **Leave with plan** or planning shortcut in this acknowledgement strip.
+After recording, **View plan** locates the card without opening its editor
+(`?view=`); explicit editing links (`?focus=`) elsewhere retain their behaviour.
+Clearing a false date clears it from the draft. A failed Planning write cannot
+create false closure.
+
+Planning owns the later outcome confirmation. The initial acknowledgement is
+collapsed context, including legacy **Suggested reply** note blocks. For a
+structured pause, the final message is generated from the reviewed pause dates
+and linked student, never reused from the acknowledgement, and appears after the
+payment-tool step. Existing tutor-absence combined messages retain priority.
+For other incoming plans, **Final confirmation** is an editable, initially empty
+message: write the actual outcome after doing the work. Sending and the existing
+pause-completion gates remain human actions; copied/opened evidence alone never
+proves delivery. New note blocks use **Initial acknowledgement (send now in
+WhatsApp):** followed by **Planning follow-up:**; legacy rows need no migration.
 
 **Reply** is the deliberate per-message boundary. When the bounded pilot is
 enabled, that press sends only this message's redacted, length-bounded text and

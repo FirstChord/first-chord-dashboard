@@ -38,6 +38,7 @@ export default async function AdminPlanningPage({ searchParams }) {
   const requestedFilter = `${resolvedSearchParams?.filter || ''}`.trim();
   const initialFilter = ALLOWED_INITIAL_FILTERS.has(requestedFilter) ? requestedFilter : 'due_now';
   const initialFocusId = `${resolvedSearchParams?.focus || ''}`.trim();
+  const initialViewId = `${resolvedSearchParams?.view || ''}`.trim();
   const studentOptions = students.map((student) => ({
     mmsId: student.mmsId,
     fullName: student.fullName,
@@ -58,6 +59,7 @@ export default async function AdminPlanningPage({ searchParams }) {
       initialPlanning={planning}
       initialFilter={initialFilter}
       initialFocusId={initialFocusId}
+      initialViewId={initialViewId}
       studentOptions={studentOptions}
       tutorOptions={tutorOptions}
     />

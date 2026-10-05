@@ -92,7 +92,7 @@ const EMPTY_SCHOOL_NOTE_FORM = {
 const PAUSE_EXPECTATION_SET_NOTE = 'Set Stripe paused expected from linked pause planning item.';
 const PAUSE_COMPLETED_NOTE = 'Pause completed from Planning: pause tool run, parent confirmation sent, and payment expectation aligned.';
 
-export default function AdminPlanningPageClient({ initialPlanning, initialFilter = 'all', initialFocusId = '', studentOptions = [], tutorOptions = [] }) {
+export default function AdminPlanningPageClient({ initialPlanning, initialFilter = 'all', initialFocusId = '', initialViewId = '', studentOptions = [], tutorOptions = [] }) {
   const [planning, setPlanning] = useState(initialPlanning || { items: [], summary: {} });
   const [quickNote, setQuickNote] = useState('');
   const [quickOptions, setQuickOptions] = useState({});
@@ -154,10 +154,8 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
     return () => window.removeEventListener('keydown', onKey);
   }, [pauseToolPanel, editingItem]);
 
-  // Deep link (?focus=<planningId>, e.g. "Open plan" from the incoming inbox):
-  // open that plan in the side panel. startEdit picks the structured pause editor
-  // for pause items and the general form otherwise, so a pause converted from an
-  // incoming message opens ready to edit its dates.
+  // Explicit editing deep links retain the side panel. Inbox view links below
+  // locate the card without entering the editor.
   const focusHandledRef = useRef(false);
   useEffect(() => {
     if (focusHandledRef.current || !initialFocusId) return;
@@ -169,6 +167,26 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Inbox links show the actual card. Explicit ?focus editing links elsewhere
+  // retain their existing editor behaviour.
+  const viewHandledRef = useRef(false);
+  useEffect(() => {
+    if (!initialViewId || viewHandledRef.current) return;
+    const item = (planning.items || []).find((entry) => entry.planningId === initialViewId);
+    if (!item) return;
+    const wantedFilter = item.status === 'done' ? 'done' : item.status === 'parked' ? 'parked' : 'all';
+    if (filter !== wantedFilter) {
+      setFilter(wantedFilter);
+      return;
+    }
+    const card = [...document.querySelectorAll('[data-planning-id]')]
+      .find((element) => element.dataset.planningId === initialViewId);
+    if (!card) return;
+    viewHandledRef.current = true;
+    card.scrollIntoView({ block: 'center', behavior: 'instant' });
+    card.focus({ preventScroll: true });
+  }, [initialViewId, planning.items, filter]);
 
   // Passive "noticing" aid: which open pause cards sit next to another pause for the
   // same student (so they might be one longer break). Read-only — no merging.
