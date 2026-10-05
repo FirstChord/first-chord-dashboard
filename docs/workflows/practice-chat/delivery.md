@@ -50,7 +50,10 @@ receive a quiet panel, and the actual MMS tutor name and lesson date are used.
 The approved introduction is presentation only: it never enters MMS notes,
 the audit's raw note, or the delivery hash.
 
-Dashboard URLs come from each covered student's registry ID. A shared-household
+Dashboard URLs come from each covered student's registry ID and use the existing
+school-site profile convention (`https://firstchord.co.uk/<friendlyUrl>`).
+Explicit test profiles use the canonical app's friendly route directly because
+the school's `/test` page is an empty placeholder. A shared-household
 email gets links only for members that the server's delivery plan includes in
 that email, never for the other households on the lesson. Missing portal
 configuration omits that link. Optional protection state adds a reminder of
