@@ -148,8 +148,14 @@ absence in the Inbox preview; it then opens the same builder. Tutor messages kee
 their separate reviewed workflow. The legacy conversion service refuses a parent
 absence instead of producing an incomplete generic task.
 
-Opening the builder performs no planning write and leaves the source open. The
-original message/burst is visible, the matched student is preselected for review,
+Opening the guided intake performs no planning write and leaves the source open.
+**1. Acknowledge the message** comes first: edit/copy the draft and send it
+manually in the correct WhatsApp chat, then explicitly confirm
+**Acknowledgement sent**. Copying alone does not unlock planning.
+**Already acknowledged** completes the same step without copying or sending a
+second reply. Confirmation stays on this screen as a visible tick and unlocks
+**2. Create the pause plan**. Editing the acknowledgement resets that gate.
+The original message/burst remains visible, the matched student is preselected for review,
 and extracted dates are suggestions only. A general away-period boundary is
 shown as evidence, not silently treated as a lesson date. Review the actual MMS
 lesson suggestions or enter the dates. Only **Create pause plan** saves a dated
@@ -170,12 +176,23 @@ saved plan ID; a failed post-save dashboard refresh cannot hide the successful
 save. Success and errors are brought into view on narrow screens. The receipt
 provides **View pause plan** and **Return to Inbox** immediately.
 
-The pause intake keeps an editable **Initial acknowledgement**. Its explicit
-**Copy & open WhatsApp** copies the reviewed text and opens the chat chooser;
-the human chooses the correct lesson group and sends. **Acknowledgement sent**
-records progress on the saved pause, without finishing it or satisfying the final
-confirmation gate. That field is read-only after creation so the stored context
-matches what is recorded. No send is automatic.
+The acknowledgement decision and reviewed draft are remembered only in this
+browser tab using source-scoped session storage (seven-day maximum age).
+Reloading or returning to an unchanged source resumes the same step; changed
+source text/student/review state, corrupt or expired storage starts a fresh
+review. This browser memory is not a server receipt or proof of WhatsApp
+sending. Before plan creation, confirmation writes no Sheets or Planning state.
+A blocked browser store is reported locally; the in-memory flow still works.
+
+The admin save requires an explicit bounded human acknowledgement confirmation.
+For **sent now**, its exact reviewed wording must match the draft; for
+**already acknowledged**, the current unsent template is not recorded as a sent
+message. The created plan retains the human decision, confirmation time and
+server-authenticated actor, separate from its later confirmation. Success clears
+the temporary draft and stays on screen with a saved-plan receipt and **View
+pause plan**. Failure retains the confirmation and dates for retry. Neither
+acknowledgement option finishes a plan, satisfies the payment/final-confirmation
+gates or sends automatically.
 
 Other topics retain their reviewed Inbox preview and persistent acknowledgement
 strip. It copies the editable draft, saves only on explicit creation, and survives

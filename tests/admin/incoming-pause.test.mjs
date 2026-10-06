@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { shouldOpenIncomingPause, selectIncomingPauseSource, buildReviewedIncomingPauseDraft } from '../../lib/admin/incoming-pause-helpers.mjs';
+import { extractIncomingPlanningReply } from '../../lib/admin/planning-client-helpers.mjs';
 import { createIncomingPauseSaver } from '../../lib/admin/incoming-pause-save.mjs';
 
 const row = { incomingId: 'incoming_a', status: 'inbox', groupType: 'student', chatId: 'chat', senderPhone: 'synthetic',
@@ -8,6 +9,7 @@ const row = { incomingId: 'incoming_a', status: 'inbox', groupType: 'student', c
   messageText: 'Alex is off for the half term break next week. Thanks', chatName: 'Alex lessons' };
 const student = { mmsId: 'student-a', fullName: 'Alex Morgan' };
 const acknowledgement = 'Thanks for letting us know. We’ll take a look and confirm once it’s sorted.';
+const acknowledgementConfirmation = { mode: 'sent', reply: acknowledgement, openedAt: '2026-10-05T10:00:00Z', confirmedAt: '2026-10-05T10:01:00Z' };
 const pauseDetails = { pauseType: 'single', lessonDate: '2026-10-15' };
 
 function harness(rows = [row], overrides = {}) {
@@ -21,7 +23,7 @@ function harness(rows = [row], overrides = {}) {
     ...overrides,
   });
   return { calls, saver, input: { incomingId: row.incomingId, snapshots: selectIncomingPauseSource(rows, row.incomingId).snapshots,
-    studentId: student.mmsId, pauseDetails, acknowledgement, actorEmail: 'admin@example.com' } };
+    studentId: student.mmsId, pauseDetails, acknowledgement, acknowledgementConfirmation, actorEmail: 'admin@example.com' } };
 }
 
 test('all stored parent absence types and clear absence wording open the pause builder without changing classification', () => {
@@ -51,14 +53,15 @@ test('a linked or settled message never opens a new creation draft', () => {
 });
 
 test('the reviewed draft is always a dated structured pause, retaining source and distinct acknowledgement', () => {
-  const draft = buildReviewedIncomingPauseDraft({ source: row, student, pauseDetails, acknowledgement });
+  const draft = buildReviewedIncomingPauseDraft({ source: row, student, pauseDetails, acknowledgement, acknowledgementConfirmation });
   assert.equal(draft.isPause, true); assert.equal(draft.status, 'active'); assert.equal(draft.linkedStudentId, student.mmsId);
   assert.match(draft.title, /Pause Alex Morgan lesson/);
   assert.match(draft.notes, /Lesson date: 2026-10-15/);
   assert.ok(draft.notes.includes(row.messageText)); assert.ok(draft.notes.includes(acknowledgement));
-  assert.throws(() => buildReviewedIncomingPauseDraft({ source: row, pauseDetails, acknowledgement }), /Choose a student/);
+  assert.equal(extractIncomingPlanningReply(draft), acknowledgement);
+  assert.throws(() => buildReviewedIncomingPauseDraft({ source: row, pauseDetails, acknowledgement, acknowledgementConfirmation }), /Choose a student/);
   for (const invalid of [{ pauseType: 'single' }, { pauseType: 'single', lessonDate: '2026-02-30' }, { pauseType: 'range', firstPauseDate: '2026-10-15', returnDate: '2026-10-12' }]) {
-    assert.throws(() => buildReviewedIncomingPauseDraft({ source: row, student, pauseDetails: invalid, acknowledgement }));
+    assert.throws(() => buildReviewedIncomingPauseDraft({ source: row, student, pauseDetails: invalid, acknowledgement, acknowledgementConfirmation }));
   }
 });
 
@@ -100,4 +103,34 @@ test('burst linking handles only reviewed source messages and reports partial su
   const partial = harness([sibling, row], { batchUpsertIncomingMessageInboxRows: async () => { throw new Error('write failed'); } });
   const result = await partial.saver(partial.input);
   assert.equal(result.planningId, 'planning_incoming_a'); assert.match(result.warning, /pause is saved/);
+});
+
+
+test('the server rejects unconfirmed or changed acknowledgements before any pause or inbox write', async () => {
+  for (const confirmation of [undefined, {mode: 'copied'}, {...acknowledgementConfirmation, reply: 'Different draft'}]) {
+    const { calls, saver, input } = harness();
+    input.acknowledgementConfirmation = confirmation;
+    await assert.rejects(saver(input), /acknowledgement|Confirm/u);
+    assert.deepEqual(calls.map(([type]) => type), ['read']);
+  }
+});
+
+test('already acknowledged saves the human decision without claiming the unsent template was delivered', async () => {
+  const { calls, saver, input } = harness();
+  input.acknowledgementConfirmation = {mode: 'already_acknowledged', confirmedAt: '2026-10-05T10:01:00Z'};
+  await saver(input);
+  const draft = calls.find(([type]) => type === 'plan')[1].item;
+  assert.match(draft.notes, /Already acknowledged in WhatsApp/u);
+  assert.doesNotMatch(draft.notes, /We’ll take a look and confirm/u);
+  assert.match(draft.notes, /admin@example.com/u);
+  assert.equal(draft.status, 'active');
+  assert.equal(draft.paymentExpectation, undefined);
+});
+
+
+test('malformed source snapshots fail before any write', async () => {
+  const {calls,saver,input}=harness();
+  input.snapshots=[null];
+  await assert.rejects(saver(input), error=>error.status===400);
+  assert.deepEqual(calls.map(([type])=>type), ['read']);
 });

@@ -148,3 +148,19 @@ test('group review sends the chosen group type and tutor, not just the student',
   assert.match(handler, /groupType/u);
   assert.match(handler, /mode: 'review_group'/u);
 });
+
+test('the guided pause intake unlocks only on human confirmation and never posts a plan from acknowledgement buttons', async () => {
+  const source = await readFile(new URL('../../components/admin/planning/IncomingPausePlanning.js', import.meta.url), 'utf8');
+  assert.match(source, /1\. Acknowledge the message/u);
+  assert.match(source, /2\. Create the pause plan/u);
+  assert.match(source, /Already acknowledged/u);
+  assert.match(source, /savedId \|\| !acknowledged/u);
+  assert.match(source, /acknowledgementConfirmation: confirmation/u);
+  assert.match(source, /: acknowledged \? <>/u);
+  const confirm = source.slice(source.indexOf('  function confirmAcknowledgement('), source.indexOf('  function editAcknowledgement('));
+  assert.doesNotMatch(confirm, /fetch\(|onCreated|createPause|router\.|window\.open/u);
+  assert.match(confirm, /setConfirmation\(confirmIncomingPauseAcknowledgement/u);
+  assert.doesNotMatch(source, /buildAcknowledgementProgressPayload|fetch\('\/api\/admin\/planning'/u);
+  assert.match(source, /restoreIncomingPauseBrowserDraft/u);
+  assert.match(source, /sessionStorage\.removeItem\(storageKey\)/u);
+});
