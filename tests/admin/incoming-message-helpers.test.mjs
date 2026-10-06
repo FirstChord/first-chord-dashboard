@@ -427,7 +427,7 @@ test('buildIncomingReplyTemplate produces a per-category parent draft', () => {
     studentName: 'Alex Chang',
     startDate: '2026-07-10',
   });
-  assert.equal(absence, 'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.');
+  assert.equal(absence, 'No worries at all, thanks for letting us know. I’ve made a note to pause that date 😀. Cheers!');
   // House style: parent drafts never use em-dashes.
   assert.doesNotMatch(absence, /—/u);
   assert.doesNotMatch(absence, /(?:have|has|is|are) (?:been )?paused|charged?|practice video/iu);
@@ -586,7 +586,7 @@ test('buildIncomingReplyTemplate keeps pause replies short and general', () => {
     startDate: '2026-06-24',
     returnDate: '2026-07-21',
   });
-  assert.equal(dated, 'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.');
+  assert.equal(dated, 'No worries at all, thanks for letting us know. I’ve made a note to pause that date 😀. Cheers!');
   assert.doesNotMatch(dated, /Mina|Alex|June|July/u);
 
   const oneOff = buildIncomingReplyTemplate({
@@ -595,16 +595,16 @@ test('buildIncomingReplyTemplate keeps pause replies short and general', () => {
     studentName: 'Alex',
     startDate: '2026-07-03',
   });
-  assert.equal(oneOff, 'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.');
+  assert.equal(oneOff, 'No worries at all, thanks for letting us know. I’ve made a note to pause that date 😀. Cheers!');
   assert.doesNotMatch(oneOff, /Mina|Alex|July/u);
 
   // The parent's own message carries the detail even when extraction is incomplete.
   const undated = buildIncomingReplyTemplate({ category: 'extended_absence', senderName: 'Mina', studentName: 'Alex' });
-  assert.equal(undated, 'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.');
+  assert.equal(undated, 'No worries at all, thanks for letting us know. I’ve made a note to pause that date 😀. Cheers!');
 
   assert.equal(
     buildIncomingReplyTemplate({ category: 'summer_break', senderName: 'Mina', studentName: 'Alex' }),
-    'No worries at all, thanks for letting us know. I’ve made a note to pause those dates.',
+    'No worries at all, thanks for letting us know. I’ve made a note to pause that date 😀. Cheers!',
   );
 });
 

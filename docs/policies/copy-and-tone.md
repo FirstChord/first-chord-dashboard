@@ -106,7 +106,7 @@ They should still be:
 
 Incoming-inbox pause acknowledgements are the deliberately light exception to
 specificity: use “No worries at all, thanks for letting us know. I’ve made a note
-to pause those dates.” rather than repeating names or interpreted dates. This
+to pause that date 😀. Cheers!” rather than repeating names or interpreted dates. This
 acknowledges the request without claiming the pause has already been actioned.
 The linked Planning card owns the precise details and its later confirmation message can be specific once the
 pause has been actioned.
