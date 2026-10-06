@@ -72,7 +72,12 @@ text is explicitly marked truncated. No embedded quoted transcript, extra phone
 number or raw WhatsApp object is retained. Existing timestamp-only receipts
 remain readable. A duplicate reply is a no-op, including after the request is
 closed; an out-of-order reply never moves the latest receipt backwards. The
-capture path reloads inbox rows before attaching a reply, then patches only the
+inbox adapter reads every existing `school_reply_evidence_json` column on the
+same physical row: a duplicate header with an empty or malformed cell cannot
+hide stored reply text. Valid copies merge by message ID under the same four-reply
+and text-length bounds. This is read compatibility, not a transcript backfill
+or spreadsheet cleanup; legacy timestamp-only receipts still have no text.
+The capture path reloads inbox rows before attaching a reply, then patches only the
 receipt columns so it cannot undo a concurrent human review or Planning link. There is no history
 backfill, AI classification or external model call in this reply-evidence lane.
 Deploy the bridge's `bridge.js` update on the Mac as well as the dashboard:

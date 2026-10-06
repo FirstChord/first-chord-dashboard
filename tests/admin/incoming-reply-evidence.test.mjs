@@ -4,12 +4,53 @@ import {
   selectSchoolReplyTarget, appendSchoolReply, normaliseSchoolReplies,
   serialiseSchoolReplies, getClusterReplyReceipt, collectSchoolReplies,
 } from '../../lib/admin/incoming-reply-evidence-helpers.mjs';
-import { buildIncomingMessageSheetRow, buildIncomingReplySheetUpdates } from '../../lib/admin/sheets/incoming-messages.mjs';
+import { buildIncomingMessageSheetRow, buildIncomingReplySheetUpdates, mapIncomingMessageInboxValues } from '../../lib/admin/sheets/incoming-messages.mjs';
 import { INCOMING_MESSAGE_INBOX_HEADERS } from '../../lib/admin/sheets/core.mjs';
 
 const row = { incomingId: 'request', externalMessageId: 'parent-1', chatId: 'lesson', status: 'inbox', messageAt: '2026-10-01T09:00:00Z' };
 const reply = { externalMessageId: 'reply-1', repliedAt: '2026-10-01T09:01:00Z', repliedBy: 'Tom', role: 'admin', association: 'nearest', text: 'I will check and get back to you.' };
 const options = { chatId: 'lesson', repliedAt: reply.repliedAt };
+
+test('duplicate reply columns cannot hide stored text behind an empty or malformed copy', () => {
+  const headers = ['incoming_id', 'chat_id', 'status', 'school_reply_evidence_json', 'school_reply_evidence_json'];
+  for (const other of ['', '{broken', '{}']) {
+    for (const cells of [[serialiseSchoolReplies([reply]), other], [other, serialiseSchoolReplies([reply])]]) {
+      const mapped = mapIncomingMessageInboxValues([headers, ['request', 'lesson', 'inbox', ...cells]])[0];
+      assert.deepEqual(mapped.schoolReplyEvidence, normaliseSchoolReplies([reply]));
+      assert.equal(mapped.status, 'inbox');
+      assert.equal(mapped.rowNumber, 2);
+    }
+  }
+});
+
+test('reply columns merge by stable message ID and keep the latest four within the same row', () => {
+  const first = Array.from({length: 4}, (_, index) => ({ ...reply, externalMessageId: `r-${index}`,
+    repliedAt: `2026-10-01T09:0${index}:00Z` }));
+  const second = [...first.slice(2), { ...reply, externalMessageId: 'r-4', repliedAt: '2026-10-01T09:04:00Z' }];
+  const mapped = mapIncomingMessageInboxValues([
+    ['incoming_id', 'school_reply_evidence_json', 'school_reply_evidence_json'],
+    ['first', serialiseSchoolReplies(first), serialiseSchoolReplies(second)],
+    [],
+    ['second', '', serialiseSchoolReplies([reply])],
+  ]);
+  assert.deepEqual(mapped[0].schoolReplyEvidence.map(item => item.externalMessageId), ['r-1', 'r-2', 'r-3', 'r-4']);
+  assert.equal(mapped[1].rowNumber, 4);
+  assert.deepEqual(mapped[1].schoolReplyEvidence, normaliseSchoolReplies([reply]));
+});
+
+test('single and missing reply columns keep current and legacy inbox rows readable', () => {
+  const legacy = mapIncomingMessageInboxValues([
+    ['incoming_id', 'school_replied_at', 'school_replied_by'], ['request', reply.repliedAt, 'Tom'],
+  ])[0];
+  assert.deepEqual(legacy.schoolReplyEvidence, []);
+  assert.equal(legacy.schoolRepliedAt, reply.repliedAt);
+  assert.equal(legacy.schoolRepliedBy, 'Tom');
+  const current = mapIncomingMessageInboxValues([
+    ['incoming_id', 'school_reply_evidence_json'], ['request', serialiseSchoolReplies([reply])],
+  ])[0];
+  assert.deepEqual(current.schoolReplyEvidence, normaliseSchoolReplies([reply]));
+  assert.deepEqual(mapIncomingMessageInboxValues([]), []);
+});
 
 test('quotes target a specific request rather than the latest request, including reply threads', () => {
   const older = { ...row, incomingId: 'older', externalMessageId: 'parent-0', messageAt: '2026-10-01T08:00:00Z' };
