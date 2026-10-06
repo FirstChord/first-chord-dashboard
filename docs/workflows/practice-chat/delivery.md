@@ -42,9 +42,16 @@ the on-the-day cancellation without sending a parent practice-note email.
 
 ### Email appearance
 
-The subject is `<reviewed student name>’s practice notes · First Chord`, with
-`Practice notes · First Chord` as the missing-name fallback. Household emails
-retain their server-derived covered-student label. The middle dot separates the
+The subject is `<student first name>’s practice notes · First Chord`, with
+`Practice notes · First Chord` as the missing-name fallback. Email headings and
+dashboard link labels also use first names, without instrument suffixes such as
+`(voice)`. The adapter uses each covered student's structured first name from
+the supplied member or portal registry, preserving compound given names; an
+unmapped student falls back to the first word of their own full name. Household
+labels join these names in the server-derived covered-member order, retaining
+duplicate first names rather than dropping a student. Full names remain in
+review, stored notes, speaker labels and audit; shortening is presentation only.
+The middle dot separates the
 school name; subject presentation never changes recipients or delivery identity.
 Non-ASCII subject text uses folded UTF-8 encoded words under
 [RFC 2047](https://www.rfc-editor.org/rfc/rfc2047), preserving names and punctuation

@@ -5,6 +5,7 @@ import {
   buildGmailRawMessage,
   buildPracticeNoteEmailContent,
   buildPracticeNoteEmailSubject,
+  buildPracticeNoteStudentLabel,
   normaliseEmailList,
 } from '../../lib/admin/practice-notes-email-helpers.mjs';
 import {
@@ -14,6 +15,15 @@ import {
 test('buildPracticeNoteEmailSubject includes the student name', () => {
   assert.equal(buildPracticeNoteEmailSubject({ studentName: 'Test Studenty' }), 'Test Studenty’s practice notes · First Chord');
   assert.equal(buildPracticeNoteEmailSubject(), 'Practice notes · First Chord');
+});
+
+test('first-name email labels use each covered student and preserve given-name punctuation', () => {
+  assert.equal(buildPracticeNoteStudentLabel({studentName:'Tabitha Example (voice)'}),'Tabitha');
+  assert.equal(buildPracticeNoteStudentLabel({students:[{firstName:'Mary Jane (piano)'},{firstName:'Anne-Marie'},{firstName:'Élodie'}]}),'Mary Jane, Anne-Marie and Élodie');
+  assert.equal(buildPracticeNoteStudentLabel({students:[{studentName:'Simon Example'},{studentName:'Simon Other'}]}),'Simon and Simon');
+  assert.equal(buildPracticeNoteStudentLabel({studentName:'Unrelated Person',students:[{studentName:'Simon Example'},{studentName:'Nina Sample'}]}),'Simon and Nina');
+  assert.equal(buildPracticeNoteStudentLabel(), '');
+  assert.equal(buildPracticeNoteEmailSubject({studentName:buildPracticeNoteStudentLabel({studentName:'Tabitha Example (voice)'})}),'Tabitha’s practice notes · First Chord');
 });
 
 test('buildPracticeNoteEmailContent creates plain text and escaped HTML', () => {

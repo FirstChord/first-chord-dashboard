@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-10-05
+last_verified: 2026-10-06
 ---
 # Admin current status
 
@@ -30,13 +30,15 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
-- **Warm practice-note emails — 2026-10-05:** Finn approved the tested design
+- **Warm practice-note emails — 2026-10-06:** Finn approved the tested design
   and requested a barely off-white card plus supported light-mode override.
   The opening is now 30px shorter after reviewing email width/type guidance;
   the fluid 560px card and note spacing are retained. Practice Goals now use
   the same unboxed layout as other sections, and the optional code reminder
   explains that First Chord set it up. Subjects put the student first and
-  retain the school name with a middle-dot separator. Presentation changes at
+  retain the school name with a middle-dot separator. Email headings, subjects
+  and dashboard labels now use each covered student's first name, retaining
+  compound given names and dropping instrument suffixes. Presentation changes at
   the email boundary; reviewed notes, recipients, tutor
   workflow and delivery identity stay unchanged. Household links are restricted
   to the server-derived students covered by that email. Previous-format rollback:

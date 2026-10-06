@@ -37,7 +37,7 @@ test('rollback flag avoids all design reads and preserves the established email'
  const forbid=()=>{throw new Error('Unexpected provider read');};
  for(const options of [{studentMmsId:'sdt_fBg9JN',designEnabled:false},{studentMmsId:'unknown-real-student',designEnabled:false}]){
   const p=await preparePracticeNoteEmail({...base,...options,readProtection:forbid,readIllustration:forbid});
-  assert.deepEqual(p.content,buildPracticeNoteEmailContent(base));assert.equal(p.illustration,null);
+  assert.deepEqual(p.content,buildPracticeNoteEmailContent({...base,studentName:'Test'}));assert.equal(p.illustration,null);
  }
 });
 test('missing optional protection state still produces a styled note',async()=>{
@@ -46,7 +46,7 @@ test('missing optional protection state still produces a styled note',async()=>{
 });
 test('missing illustration falls back to the established email instead of blocking delivery',async()=>{
  const p=await preparePracticeNoteEmail({...base,studentMmsId:'sdt_fBg9JN',readProtection:async()=>null,readIllustration:async()=>{throw new Error('Missing');},warn:()=>{}});
- assert.deepEqual(p.content,buildPracticeNoteEmailContent(base));assert.equal(p.illustration,null);
+ assert.deepEqual(p.content,buildPracticeNoteEmailContent({...base,studentName:'Test'}));assert.equal(p.illustration,null);
 });
 
 test('subtle ivory card declares light-only rendering for supporting mail clients',()=>{
@@ -59,7 +59,7 @@ test('household email links only explicitly covered students, not everyone on th
  const entries=[['sdt_fBg9JN','Test Studenty'],['sdt_test_sibling','Sibling']];
  // An unknown mapping cannot accidentally reuse the first student's URL.
  const p=await preparePracticeNoteEmail({...base,studentMmsId:'sdt_fBg9JN',studentName:'Test Studenty and Sibling',emailStudents:entries.map(([studentMmsId,studentName])=>({studentMmsId,studentName})),readProtection:async()=>({protectionEnabled:true,activeCodeCiphertext:'SECRET-CODE-MATERIAL'}),readIllustration:async()=>image});
- assert.match(p.content.html,/Test Studenty and Sibling’s lesson notes/);
+ assert.match(p.content.html,/Test and Sibling’s lesson notes/);
  assert.equal((p.content.html.match(/href="https:\/\/first-chord-dashbord-production.up.railway.app\/test"/g)||[]).length,1);
  assert.doesNotMatch(p.content.html,/Open Sibling’s dashboard/);
  assert.match(p.content.html,/each student’s dashboard/);
@@ -85,9 +85,39 @@ test('unknown registry student keeps the design but has no invented dashboard li
 test('invalid or empty image gracefully falls back before the Gmail call',async()=>{
  for(const badImage of [null,Buffer.alloc(0),'not-a-buffer']){
   const p=await preparePracticeNoteEmail({...base,studentMmsId:'sdt_fBg9JN',readProtection:async()=>null,readIllustration:async()=>badImage,warn:()=>{}});
-  assert.deepEqual(p.content,buildPracticeNoteEmailContent(base));
+  assert.deepEqual(p.content,buildPracticeNoteEmailContent({...base,studentName:'Test'}));
   assert.equal(p.illustration,null);
  }
+});
+
+test('first-name headings omit surnames and instrument suffixes without rewriting dialogue',async()=>{
+ const noteText='[What we did]\nTabitha Example (voice): I enjoyed the chorus.\nFinn: Keep working on the bridge.';
+ const p=await preparePracticeNoteEmail({...base,studentMmsId:'unknown',studentName:'Tabitha Example (voice)',noteText,readIllustration:async()=>image});
+ assert.equal(p.studentLabel,'Tabitha');
+ assert.match(p.content.html,/<h1[^>]*>Tabitha’s lesson notes<\/h1>/);
+ assert.ok(p.content.plain.startsWith('Tabitha’s lesson notes\n'));
+ assert.match(p.content.html,/Tabitha Example \(voice\):<\/strong> I enjoyed the chorus/);
+ assert.match(p.content.plain,/Tabitha Example \(voice\): I enjoyed the chorus/);
+});
+
+test('covered household first names remain separate, including compound names and duplicate first names',async()=>{
+ const emailStudents=[{studentMmsId:'unknown-one',studentName:'Mary Jane Example',firstName:'Mary Jane (piano)'},{studentMmsId:'unknown-two',studentName:'Simon Sample',firstName:'Simon'},{studentMmsId:'unknown-three',studentName:'Simon Other',firstName:'Simon'}];
+ for(const designEnabled of [true,false]){
+  const p=await preparePracticeNoteEmail({...base,studentName:'Mary Jane Example, Simon Sample and Simon Other',emailStudents,designEnabled,readIllustration:async()=>image});
+  assert.equal(p.studentLabel,'Mary Jane, Simon and Simon');
+  assert.match(p.content.plain,/Mary Jane, Simon and Simon/);
+  assert.doesNotMatch(p.content.html,/Example|Sample|Other|piano/);
+  assert.doesNotMatch(p.content.html,/href=/);
+ }
+});
+
+test('registry first names label the heading and dashboard link without changing the URL',async()=>{
+ const [studentMmsId,entry]=Object.entries(STUDENTS_REGISTRY).find(([,record])=>record.firstName&&record.friendlyUrl&&!isTestStudentRecord(record));
+ const p=await preparePracticeNoteEmail({...base,studentMmsId,studentName:`${entry.firstName} ${entry.lastName}`,noteText:'[What we did]\nPlayed a scale.',readProtection:async()=>null,readIllustration:async()=>image});
+ assert.equal(p.studentLabel,entry.firstName);
+ assert.ok(p.content.plain.startsWith(`${entry.firstName}’s lesson notes`));
+ assert.ok(p.content.plain.includes(`Notes and songs for ${entry.firstName}: https://firstchord.co.uk/${entry.friendlyUrl}`));
+ assert.ok(!p.content.plain.includes(entry.lastName));
 });
 
 test('dashboard URLs reject credentials, foreign paths and code-bearing queries',()=>{
