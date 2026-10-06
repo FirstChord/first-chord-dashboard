@@ -30,6 +30,15 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Practice Chat transcription moves server-side — 2026-10-06:** the PWA
+  no longer fetches the relay's raw OpenAI key. It posts the recorded audio to
+  the dashboard's `POST /api/practice-notes/transcribe` (existing Practice Chat
+  secret + origin gate, 10MB cap, model allow-list) and gets only text back.
+  The dashboard, not the relay, was chosen because it already owns that gate,
+  tests and CI, which lets the relay be retired. A bookmarked PWA (no dashboard
+  context) now says so before recording; typed notes still work. The exposure
+  only ends when the old relay key is **revoked** in OpenAI after rollout.
+  Contract: `docs/plans/active/practice-chat-whisper-hardening.md`.
 - **Warm practice-note emails — 2026-10-06:** Finn approved the tested design
   and requested a barely off-white card plus supported light-mode override.
   The opening is now 30px shorter after reviewing email width/type guidance;
@@ -118,20 +127,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   Deferred: the FC identity layer still knows one parent — `generate_fc_ids.py`
   builds from the Sheets `Students` tab, not MMS, so it needs a source first.
   Plan: `docs/plans/active/two-payer-households.md`.
-- **Payment setup completion now closes the dashboard loop — 2026-09-17:** Alma
-  Freeth remained on Overview after her Stripe setup was fixed because the live
-  `Students` row still explicitly said `payment_expectation = setup_pending`;
-  the Brain/registry does not own that field and the dashboard was correctly
-  preserving the human workflow state. A read-only live check confirmed her
-  customer and active subscription, paid invoice, successful payment and no
-  Stripe issues, then her expectation was changed to
-  `stripe_active_expected` with an `Event_Log` audit row. The setup queue now
-  offers **Verify and mark complete** only when both Stripe IDs exist. The
-  reviewed click reads live Stripe, evaluates the evidence as active-expected,
-  refuses missing/not-billing/problem states, then uses the existing audited
-  student update with stale-state guards. It never changes Stripe and a generic
-  Brain/Sheets refresh is deliberately not offered: refresh was not the missing
-  operation.
 
 ## Current operating contracts
 
@@ -254,9 +249,9 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
   framing with Finn before starting real-family rollout, then update the one
   template helper and its focused assertion listed in the
   [rollout handoff](./workflows/practice-chat/student-notes-access.md).
-- **Practice Chat transcription security:** the current PWA can receive the raw
-  OpenAI key from the relay. Complete the staged server-side transcription
-  cutover, remove `/api-key`, and rotate the exposed key in a no-lessons window.
+- **Practice Chat transcription security:** the server-side route and PWA
+  change are built (2026-10-06). Remaining: add `PRACTICE_CHAT_OPENAI_API_KEY`,
+  deploy dashboard then PWA, and **revoke the old relay key** a day later.
   See [the active hardening checklist](./plans/active/practice-chat-whisper-hardening.md).
 - **Cover test cleanup:** before 22 July, check MMS event `evt_zsGLw6J0` at
   14:00 and restore Tom unless Dean is genuinely covering. This is a manual MMS

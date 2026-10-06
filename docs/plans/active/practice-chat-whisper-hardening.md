@@ -1,13 +1,14 @@
 ---
 status: active-plan
 audience: [human, agent]
-last_verified: 2026-07-20
+last_verified: 2026-10-06
 ---
 # Practice Chat / Whisper Flow — Hardening Checklist
 
-Status: **security remediation awaiting a no-lessons deployment window**. The
-browser-visible OpenAI key is a current confidentiality/cost exposure, not a
-future enhancement. Created 2026-06-18; re-triaged 2026-07-20.
+Status: **code built 2026-10-06; awaiting the new key, deploy, and revocation of
+the old key**. The browser-visible OpenAI key is a current confidentiality/cost
+exposure until the old key is revoked. Created 2026-06-18; re-triaged
+2026-07-20; redesigned 2026-10-06 (dashboard route instead of a relay route).
 
 This is the execute-later checklist for securing the Practice Chat transcription ("Whisper") flow. Investigated 2026-06-18; agreed to defer the code changes so live tutor sessions aren't interrupted.
 
@@ -29,25 +30,46 @@ The PWA fetches the **raw `OPENAI_API_KEY` from the relay's `GET /api-key`** and
 
 ## Do now — zero disruption (no code, no deploy)
 
-- [ ] In the **OpenAI dashboard**, set a **monthly usage limit** + **email alert threshold**. Caps the blast radius if the exposed key is abused, and doubles as the low-credit warning. This is independent of all the code work below.
+- [x] In the **OpenAI dashboard**, set a **monthly usage limit** + **email alert threshold** (Finn, reported done 2026-10-06).
 
 ---
 
 ## Phase 1 — Close the key exposure (staged, zero-downtime)
 
-Do in this order so no tutor mid-session is interrupted. Each push deploys (Railway / Firebase) — verify after each.
+**Design change (2026-10-06):** the server-side call lives in the **dashboard**
+(`POST /api/practice-notes/transcribe`, `lib/admin/practice-chat-transcription.mjs`),
+not in a new relay route. The dashboard already owns the Practice Chat
+secret + origin gate (`lib/admin/practice-chat-auth.mjs`), tests, CI and the
+deploy routine; the relay has none of these, and moving the call means the relay
+can be retired instead of hardened. The key is a **new** dedicated
+`PRACTICE_CHAT_OPENAI_API_KEY`, so "rotation" reduces to revoking the old one.
 
-- [ ] **Relay (additive):** add `POST /transcribe` — accepts the audio blob, calls OpenAI Whisper **server-side** with the key, returns `{ text }`. Add a shared secret (mirror the dashboard's `PRACTICE_CHAT_API_SECRET` pattern) and tighten the CORS/origin allow-list. Do **not** remove `/api-key` yet.
-- [ ] Deploy relay. Confirm old `/api-key` flow still works (old PWA unaffected) **and** `/transcribe` works.
-- [ ] **PWA:** switch `asr-client.js` to POST the recorded blob to `relay/transcribe` (with the shared secret) instead of `getAPIKey()` + direct OpenAI call. Remove `getAPIKey()`.
-- [ ] Deploy PWA. Tutors mid-session on the old PWA keep working until they reload, then get the new path.
-- [ ] **Wait** until everyone is on the new PWA (a day, or confirm no `/api-key` hits in relay logs).
-- [ ] **Relay:** remove the `GET /api-key` endpoint. Deploy.
-- [ ] **Rotate `OPENAI_API_KEY`** — the old key is compromised (exposed in browsers/logs). **Do this in a no-lessons window**, since it instantly invalidates any client still using the old browser-side flow. Update the key in the relay's Railway env only (no other service should hold it).
+That shared secret is coarse (it ships in the dashboard bundle), so the route's
+limits — 10MB audio, `audio/*` only, model allow-list, 1000-char prompt — are
+what bound a leaked secret. It can buy capped transcriptions, never the key.
+
+- [x] **Dashboard:** route + helper + 10 focused tests. Verified locally against
+  a deliberately invalid key: no secret/foreign origin/wrong secret/non-audio
+  rejected; valid request reached OpenAI (401 for the fake key); CORS preflight OK.
+- [x] **PWA:** `asr-client.js` posts the blob to the dashboard; `getAPIKey()`,
+  the relay URL and the browser-side OpenAI call are gone, pinned by
+  `tests/asr-transcription.test.mjs`. Without dashboard context, recording
+  refuses **before** the microphone opens; typed notes still work. Verified in
+  Chrome with a fake microphone against the local route.
+- [ ] Finn: create a new budget-capped OpenAI project key; set
+  `PRACTICE_CHAT_OPENAI_API_KEY` on the canonical admin Railway service.
+- [ ] Deploy dashboard. Smoke: unauthenticated POST → 403; authenticated
+  tiny upload → OpenAI answer rather than 503 "not configured".
+- [ ] Deploy PWA (bump `?v=` + `CACHE_NAME`). Record one real answer.
+- [ ] **Wait** a day (tutors on the old PWA keep working until they reload).
+- [ ] **Revoke the old relay key in OpenAI.** This is what ends the exposure;
+  `/api-key` then hands out a dead key.
+- [ ] Retire the relay Railway service (`enhanced-music-lesson-notes`) and drop
+  its runbook row.
 
 ## Phase 2 — Clear low-credit warnings (in code)
 
-- [ ] In the relay's `/transcribe` handler, detect OpenAI quota/billing failures (`insufficient_quota`, HTTP 429, billing messages) and return a distinct, friendly message — e.g. *"Transcription paused — OpenAI credit needs topping up"* — instead of a generic error.
+- [x] (Done in the dashboard route, 2026-10-06.) Detect OpenAI quota/billing failures (`insufficient_quota`, HTTP 429, billing messages) and return a distinct, friendly message — e.g. *"Transcription paused — OpenAI credit needs topping up"* — instead of a generic error.
 - [ ] (Optional) fire an admin notification (email/log) when that specific error is seen, so a mid-lesson failure surfaces immediately.
 
 ## Phase 3 — Open-source fallback if OpenAI is down
