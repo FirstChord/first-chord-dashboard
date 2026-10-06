@@ -5,8 +5,8 @@ last_verified: 2026-10-06
 ---
 # Practice Chat / Whisper Flow — Hardening Checklist
 
-Status: **code built 2026-10-06; awaiting the new key, deploy, and revocation of
-the old key**. The browser-visible OpenAI key is a current confidentiality/cost
+Status: **both halves live 2026-10-06; awaiting revocation of the old relay
+key**. The browser-visible OpenAI key is a current confidentiality/cost
 exposure until the old key is revoked. Created 2026-06-18; re-triaged
 2026-07-20; redesigned 2026-10-06 (dashboard route instead of a relay route).
 
@@ -56,11 +56,13 @@ what bound a leaked secret. It can buy capped transcriptions, never the key.
   `tests/asr-transcription.test.mjs`. Without dashboard context, recording
   refuses **before** the microphone opens; typed notes still work. Verified in
   Chrome with a fake microphone against the local route.
-- [ ] Finn: create a new budget-capped OpenAI project key; set
+- [x] Finn: create a new budget-capped OpenAI project key; set
   `PRACTICE_CHAT_OPENAI_API_KEY` on the canonical admin Railway service.
-- [ ] Deploy dashboard. Smoke: unauthenticated POST → 403; authenticated
-  tiny upload → OpenAI answer rather than 503 "not configured".
-- [ ] Deploy PWA (bump `?v=` + `CACHE_NAME`). Record one real answer.
+- [x] Deploy dashboard (`0635dfa`, CI green). Live smoke: foreign origin → 403;
+  authenticated 3s synthetic-speech clip → 200 with the exact sentence.
+- [x] Deploy PWA (practice-chat `30896e5`, stamp `20261006-server-transcription`,
+  cache `v31`). Live bundle verified to post to the dashboard route.
+- [ ] Finn: record one real answer through the dashboard quick link.
 - [ ] **Wait** a day (tutors on the old PWA keep working until they reload).
 - [ ] **Revoke the old relay key in OpenAI.** This is what ends the exposure;
   `/api-key` then hands out a dead key.

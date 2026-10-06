@@ -249,9 +249,9 @@ Canonical details live in [state ownership](./architecture/data/ownership.md),
   framing with Finn before starting real-family rollout, then update the one
   template helper and its focused assertion listed in the
   [rollout handoff](./workflows/practice-chat/student-notes-access.md).
-- **Practice Chat transcription security:** the server-side route and PWA
-  change are built (2026-10-06). Remaining: add `PRACTICE_CHAT_OPENAI_API_KEY`,
-  deploy dashboard then PWA, and **revoke the old relay key** a day later.
+- **Practice Chat transcription security:** server-side transcription is live
+  in both dashboard and PWA (2026-10-06). Remaining: **revoke the old relay key**
+  in OpenAI once tutors have reloaded (from 2026-10-07), then retire the relay.
   See [the active hardening checklist](./plans/active/practice-chat-whisper-hardening.md).
 - **Cover test cleanup:** before 22 July, check MMS event `evt_zsGLw6J0` at
   14:00 and restore Tom unless Dean is genuinely covering. This is a manual MMS
