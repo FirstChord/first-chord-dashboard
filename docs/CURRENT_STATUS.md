@@ -30,6 +30,13 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Practice-note wording check widened — 2026-10-07:** after a review of 271
+  recent notes found one with sexual wording sent home, the PWA's send-time
+  check now also covers sexual terms, milder swearing, drugs, insults and
+  possible safeguarding disclosures. Disclosures get their own prompt ("tell the
+  safeguarding lead", not "may have been misheard"). Measured on all 1,179
+  logged notes: 0.7% flagged. Still flag-and-confirm, never a rewrite or block.
+  Contract: `docs/workflows/practice-chat/delivery.md`.
 - **Practice Chat transcription moves server-side — 2026-10-06:** the PWA
   no longer fetches the relay's raw OpenAI key. It posts the recorded audio to
   the dashboard's `POST /api/practice-notes/transcribe` (existing Practice Chat
@@ -100,33 +107,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   all-students read (6h TTL, ~1s cold) feeds both pages and never fails a
   render. Students who predate the form show `—`; typing a DOB into MMS fixes
   them. `lib/admin/student-age.mjs`.
-- **A household can have two parents and two payers — 2026-09-17:** Calan
-  Clacherty's separated parents split his fees. Two flat assumptions surfaced.
-  MMS holds `Family.Parents[]` and `buildPracticeNoteEmailRecipients` was already
-  plural, but four consumers took `[0]`, so adding the second parent in MMS meant
-  one of them silently received nothing. Practice notes now send once with the
-  first MMS parent on `To:` and every other on `Bcc:` — chosen over two separate
-  emails and over both on `To:` so neither separated parent sees the other's
-  address or can reply-all to them — recorded in
-  `Practice_Notes_Log.bcc_recipient_emails`, with Practice Chat naming who is
-  copied before the tutor confirms. Separately, Stripe cannot split a
-  subscription across two cards, so a split household is two subscriptions and
-  `Students` has room for one. New read-only `Split_Billing` tab records the
-  additional payers as **links, not money**; `Students` keeps the primary payer
-  so Payment Pause, pause and issue detection are untouched. The amounts cache is
-  now one row per subscription and `buildStripeAmountsMap` sums them; collected
-  invoices match every payer. That last one is the point: without it a correct
-  arrangement would report Clare's payment as unmatched money every month
-  forever, and a reconciliation gap that is always there is one nobody reads.
-  The household keeps its existing alternating plans — two full-price
-  fortnightly subscriptions — rather than moving to half-weekly:
-  `mapSubscriptionToAmounts` divides by `interval_count`, so both shapes reach
-  the same weekly figure and no code prefers either. The cost is operational —
-  a cancellation falls in one parent's week, and pause reaches the primary
-  subscription only.
-  Deferred: the FC identity layer still knows one parent — `generate_fc_ids.py`
-  builds from the Sheets `Students` tab, not MMS, so it needs a source first.
-  Plan: `docs/plans/active/two-payer-households.md`.
 
 ## Current operating contracts
 
