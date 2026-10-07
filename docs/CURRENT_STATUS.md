@@ -30,6 +30,12 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Practice Chat deploys go through GitHub again — 2026-10-07:** the repo's
+  push-to-`main` workflow (tests, then Firebase deploy) had been bypassed since
+  August: live code sat on an unpushed branch and was deployed by hand. `main`
+  is now what is live; `firebase.json` also runs the tests before any manual
+  deploy. The repo is **public**, so a real student id was removed from tests.
+  Deploy = commit + push from `practice-chat`.
 - **Practice-note wording check widened — 2026-10-07:** after a review of 271
   recent notes found one with sexual wording sent home, the PWA's send-time
   check now also covers sexual terms, milder swearing, drugs, insults and
@@ -98,15 +104,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   unchanged. Policy: a tag must be true of the arrangement — what can't be
   checked is left off. Next: derive metre from the MusicXML scores, which
   already disagree with 36 time-signature tags.
-- **Student records show an age — 2026-09-18:** the student list has an Age
-  column and the record header leads with it. MMS stays the only home for the
-  fact — no new sheet column: an exact `DateOfBirth` set in MMS wins; otherwise
-  the sign-up form's "Students Age" note line is rolled forward by whole years
-  since `DateStarted` and shown as `~12` (hover gives "9 at sign-up (Mar 2024)").
-  A sibling form ("9 and 6") shows nothing rather than a guess. One cached
-  all-students read (6h TTL, ~1s cold) feeds both pages and never fails a
-  render. Students who predate the form show `—`; typing a DOB into MMS fixes
-  them. `lib/admin/student-age.mjs`.
 
 ## Current operating contracts
 
