@@ -30,20 +30,20 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
-- **Practice Chat deploys go through GitHub again — 2026-10-07:** the repo's
+- **Practice Chat deploys go through GitHub again, 2026-10-07:** the repo's
   push-to-`main` workflow (tests, then Firebase deploy) had been bypassed since
   August: live code sat on an unpushed branch and was deployed by hand. `main`
   is now what is live; `firebase.json` also runs the tests before any manual
   deploy. The repo is **public**, so a real student id was removed from tests.
   Deploy = commit + push from `practice-chat`.
-- **Practice-note wording check widened — 2026-10-07:** after a review of 271
+- **Practice-note wording check widened, 2026-10-07:** after a review of 271
   recent notes found one with sexual wording sent home, the PWA's send-time
   check now also covers sexual terms, milder swearing, drugs, insults and
   possible safeguarding disclosures. Disclosures get their own prompt ("tell the
   safeguarding lead", not "may have been misheard"). Measured on all 1,179
   logged notes: 0.7% flagged. Still flag-and-confirm, never a rewrite or block.
   Contract: `docs/workflows/practice-chat/delivery.md`.
-- **Practice Chat transcription moves server-side — 2026-10-06:** the PWA
+- **Practice Chat transcription moves server-side, 2026-10-06:** the PWA
   no longer fetches the relay's raw OpenAI key. It posts the recorded audio to
   the dashboard's `POST /api/practice-notes/transcribe` (existing Practice Chat
   secret + origin gate, 10MB cap, model allow-list) and gets only text back.

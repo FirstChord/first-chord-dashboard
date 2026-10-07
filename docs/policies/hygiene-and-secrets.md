@@ -28,7 +28,7 @@ backups.
   browsers. Treat the key as exposed. The replacement is built: the PWA sends
   audio to the dashboard's `POST /api/practice-notes/transcribe`, which holds a
   new `PRACTICE_CHAT_OPENAI_API_KEY`. Once tutors are on it, **revoke the relay
-  key in OpenAI** — that, not relay code, is what ends the exposure.
+  key in OpenAI**. That, not relay code, is what ends the exposure.
 
 Do not rewrite repository history casually. Rotate affected credentials and
 record the operational decision.

@@ -45,9 +45,9 @@ Before the confirmation, the PWA runs `checkNoteSafety()` (practice-chat
 rewrites**: a hit asks the tutor to re-read, the flagged word is never shown on
 screen, and the tutor can still send. Two prompts:
 
-- **wording** (swearing, slurs, sexual wording, drugs, insults) — "may have been
+- **wording** (swearing, slurs, sexual wording, drugs, insults): "may have been
   misheard", with a safe hint where one is likely (`sex` → sax/six).
-- **safeguarding** (self-harm, suicide, abuse, bullying) — "take it out of the
+- **safeguarding** (self-harm, suicide, abuse, bullying): "take it out of the
   note and tell Finn, our safeguarding lead". An email home is the wrong
   place for a disclosure, and the reviewer may be its only reader.
 

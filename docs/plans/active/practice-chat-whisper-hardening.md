@@ -45,7 +45,7 @@ can be retired instead of hardened. The key is a **new** dedicated
 `PRACTICE_CHAT_OPENAI_API_KEY`, so "rotation" reduces to revoking the old one.
 
 That shared secret is coarse (it ships in the dashboard bundle), so the route's
-limits — 10MB audio, `audio/*` only, model allow-list, 1000-char prompt — are
+limits (10MB audio, `audio/*` only, model allow-list, 1000-char prompt) are
 what bound a leaked secret. It can buy capped transcriptions, never the key.
 
 - [x] **Dashboard:** route + helper + 10 focused tests. Verified locally against
