@@ -39,11 +39,29 @@ test('builds the WhatsApp description and family message with the code and profi
   );
 });
 
+test('introduces the dashboard without assuming prior use or a new privacy change', () => {
+  const message = buildNotesRolloutMessage({ studentName: 'Example Student', code: 'otter-27', friendlyUrl: 'example' });
+  assert.match(message, /^Hi everyone, here’s Example’s First Chord dashboard/);
+  assert.match(message, /practice resources and Practice Chat lesson notes/);
+  assert.match(message, /To open the lesson notes, use the code \*otter-27\*/);
+  assert.match(message, /once on each phone, tablet or computer/);
+  assert.match(message, /code and dashboard link in this WhatsApp group’s description/);
+  assert.doesNotMatch(message, /adding|updated|privacy step|continue|as normal/i);
+});
+
+test('replacement messages still explicitly identify a changed code', () => {
+  const message = buildNotesRolloutMessage({ studentName: 'Example Student', code: 'otter-27', friendlyUrl: 'example', reset: true });
+  assert.match(message, /updated the privacy code/);
+  assert.match(message, /https:\/\/firstchord\.co\.uk\/example/);
+  assert.match(message, /\*otter-27\*/);
+  assert.doesNotMatch(redactNotesCodeFromMessage(message, 'otter-27'), /otter-27/);
+});
+
 test('omits the profile link when the student has no friendly URL', () => {
   assert.equal(buildNotesGroupDescription('otter-27'), 'First Chord notes code: otter-27');
   const message = buildNotesRolloutMessage({ studentName: 'Ayla Smith', code: 'otter-27' });
-  assert.match(message, /Ayla’s First Chord dashboard\. Their/);
-  assert.doesNotMatch(message, /https?:/);
+  assert.match(message, /Ayla’s First Chord dashboard\. You’ll find/);
+  assert.doesNotMatch(message, /https?:|code and dashboard link/);
 });
 
 test('redacts the access code before a copied message is logged', () => {

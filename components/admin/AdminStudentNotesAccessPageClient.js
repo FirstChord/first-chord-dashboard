@@ -183,10 +183,10 @@ export default function AdminStudentNotesAccessPageClient({
   return (
     <div className="space-y-7">
       <section>
-        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Summer rollout</p>
+        <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Student access</p>
         <h2 className="mt-2 fc-display text-3xl text-slate-900">Student Notes Privacy</h2>
         <p className="mt-2 max-w-3xl text-sm text-slate-600">
-          Work through each family, put their code in the WhatsApp group description, explain the change, then activate the notes lock.
+          Add the dashboard link and notes code to the family’s WhatsApp group description, share the access message, then activate notes protection.
         </p>
       </section>
 
@@ -421,7 +421,7 @@ export default function AdminStudentNotesAccessPageClient({
                   </section>
 
                   <section className="rounded-2xl border border-blue-100 bg-white p-5 shadow-sm">
-                    <h3 className="font-semibold text-slate-900">4. Explain the change</h3>
+                    <h3 className="font-semibold text-slate-900">4. Share the dashboard and notes code</h3>
                     {message ? (
                       <>
                         <div className="mt-4 whitespace-pre-wrap rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">{message}</div>

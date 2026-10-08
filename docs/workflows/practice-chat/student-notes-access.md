@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-07-24
+last_verified: 2026-10-08
 ---
 # Student notes access rollout
 
@@ -16,13 +16,15 @@ wrong/right code handling, trusted-device cookie, and manual relock. There has
 been no bulk family activation: the `Student_Portal_Access` row for each student
 is the authority for whether that individual profile is protected.
 
-The current WhatsApp template explains this as “a small privacy step”. Finn
-intends to revisit the angle and wording before the real-family rollout begins.
-Treat that as an open copy decision, not an invitation to change the security
-workflow or automate sending. The template is owned by
-`buildNotesRolloutMessage()` in
-`lib/admin/student-notes-access-helpers.mjs`; update its focused assertion in
-`tests/admin/student-notes-access-helpers.test.mjs` at the same time.
+The WhatsApp access message introduces the student's dashboard, practice
+resources and lesson notes, then explains the notes code and where to find it.
+It works for both new students and families who already use the portal, without
+assuming that notes privacy is a new change. Replacing an existing code keeps
+an explicit code-update message. Staff still copy and send each message
+manually, and confirm the description and send before activating protection.
+The template is owned by `buildNotesRolloutMessage()` in
+`lib/admin/student-notes-access-helpers.mjs`, with focused contracts in
+`tests/admin/student-notes-access-helpers.test.mjs`.
 
 Test Studenty's registry slug is `test`, but `https://firstchord.co.uk/test/` is
 an unrelated WordPress page containing an old WPForms shortcode. For this test
@@ -42,9 +44,9 @@ For the next working session or agent:
 1. Read this document, `docs/CURRENT_STATUS.md`,
    `docs/architecture/data/state-tabs.md`, `docs/operations/runbook.md`, and
    `docs/policies/hygiene-and-secrets.md`.
-2. Ask Finn for the intended parent-facing angle, then revise only the
-   human-facing template and any matching UI guidance unless he requests a
-   broader workflow change.
+2. Preserve the general dashboard introduction and explicit replacement-code
+   wording. Revise only the human-facing template and matching UI guidance
+   unless Finn requests a broader workflow change.
 3. Run the three focused access suites:
 
    ```bash
@@ -83,7 +85,7 @@ Use `/admin/workflows/student-notes-access`.
 3. Put `First Chord notes code: <code>` and the profile link
    (`https://firstchord.co.uk/<friendlyUrl>`) in the WhatsApp group description
    and confirm that step.
-4. Copy and manually send the personalised explanation (profile link included,
+4. Copy and manually send the personalised access message (profile link included,
    code wrapped in `*…*` so WhatsApp shows it bold), then explicitly confirm
    that it was sent.
 5. Activate protection. Activation is unavailable until both confirmations are
