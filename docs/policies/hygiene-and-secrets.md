@@ -24,11 +24,10 @@ backups.
 - `lib/mms-client.js` used to contain an MMS bearer/API-key token. Runtime now
   reads `MMS_BEARER_TOKEN`, but the historical token should be rotated when
   integrations can be smoke-tested safely.
-- the Practice Chat transcription relay currently returns its raw OpenAI key to
-  browsers. Treat the key as exposed. The replacement is built: the PWA sends
-  audio to the dashboard's `POST /api/practice-notes/transcribe`, which holds a
-  new `PRACTICE_CHAT_OPENAI_API_KEY`. Once tutors are on it, **revoke the relay
-  key in OpenAI**. That, not relay code, is what ends the exposure.
+- the Practice Chat transcription relay used to return its raw OpenAI key to
+  browsers. Closed 2026-10-08: transcription runs through the dashboard's
+  `POST /api/practice-notes/transcribe` with `PRACTICE_CHAT_OPENAI_API_KEY`, and
+  the exposed relay key is revoked.
 
 Do not rewrite repository history casually. Rotate affected credentials and
 record the operational decision.

@@ -5,8 +5,8 @@ last_verified: 2026-10-06
 ---
 # Practice Chat / Whisper Flow — Hardening Checklist
 
-Status: **both halves live 2026-10-06; awaiting revocation of the old relay
-key**. The browser-visible OpenAI key is a current confidentiality/cost
+Status: **exposure closed 2026-10-08**: the old relay key is revoked. Only
+retiring the relay service remains. The browser-visible OpenAI key is a current confidentiality/cost
 exposure until the old key is revoked. Created 2026-06-18; re-triaged
 2026-07-20; redesigned 2026-10-06 (dashboard route instead of a relay route).
 
@@ -62,10 +62,13 @@ what bound a leaked secret. It can buy capped transcriptions, never the key.
   authenticated 3s synthetic-speech clip → 200 with the exact sentence.
 - [x] Deploy PWA (practice-chat `30896e5`, stamp `20261006-server-transcription`,
   cache `v31`). Live bundle verified to post to the dashboard route.
-- [ ] Finn: record one real answer through the dashboard quick link.
-- [ ] **Wait** a day (tutors on the old PWA keep working until they reload).
-- [ ] **Revoke the old relay key in OpenAI.** This is what ends the exposure;
-  `/api-key` then hands out a dead key.
+- [x] Real use: 27 sessions on 2026-10-07 ran the new build, 17 by voice, 0
+  transcription errors.
+- [x] **Wait** a day (tutors on the old PWA keep working until they reload).
+- [x] **Revoke the old relay key in OpenAI** (Finn, 2026-10-08; the key ending
+  …FWgA, confirmed different from both dashboard keys first). `/api-key` now
+  hands out a dead key. The old HW Notes Chrome extension, last seen in relay
+  logs on 2026-10-06, loses transcription with it.
 - [ ] Retire the relay Railway service (`enhanced-music-lesson-notes`) and drop
   its runbook row.
 
