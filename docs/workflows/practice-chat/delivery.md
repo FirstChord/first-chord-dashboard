@@ -252,9 +252,11 @@ The model is school-wide configuration, not a per-lesson choice: the useful
 comparison is a week on one model against a week on another, and a tutor should
 never have to remember a setting mid-lesson. Unset is the normal state.
 
-Supported values are allow-listed in `lib/config/practice-chat-asr.mjs` and
-again in the PWA's `asr-client.js`; anything else falls back to the default and
-warns rather than reaching the provider. `gpt-4o-transcribe-diarize` is
+Supported values are allow-listed in `lib/config/practice-chat-asr.mjs`, the
+only list: the transcription route falls back to the default for anything else,
+and the PWA forwards the requested model and records the one the route reports
+using. (A second copy in the PWA was removed on 2026-10-08: it could only
+drift, and a model added here but not there silently cancelled a trial.) `gpt-4o-transcribe-diarize` is
 deliberately excluded — it requires `diarized_json` plus a `chunking_strategy`
 and accepts no `prompt`, so it is a different feature, not a swap.
 

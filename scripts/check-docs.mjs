@@ -295,22 +295,31 @@ for (const warning of snapshotWarnings) console.log(`Snapshot warning: ${warning
 // A warning, never a failure, and skipped when Practice Chat is not here: the
 // same rule as the vault below. A check that cannot run on CI must not gate a
 // build.
-const contractPath = path.join(repositoryRoot, 'tests/fixtures/note-markup-contract.mjs');
-const practiceChatContractPath = process.env.FIRST_CHORD_PRACTICE_CHAT
-  ? path.join(process.env.FIRST_CHORD_PRACTICE_CHAT, 'tests/fixtures/note-markup-contract.mjs')
-  : path.join(process.env.HOME || '', 'Desktop/Tools:Games/FC Admin Tools/practice-chat/tests/fixtures/note-markup-contract.mjs');
+// Every fixture mirrored byte-for-byte into Practice Chat.
+const MIRRORED_CONTRACTS = [
+  ['Note-markup contract', 'note-markup-contract.mjs'],
+  ['Note-sections contract', 'note-sections-contract.mjs'],
+];
+const practiceChatRoot = process.env.FIRST_CHORD_PRACTICE_CHAT
+  || path.join(process.env.HOME || '', 'Desktop/Tools:Games/FC Admin Tools/practice-chat');
 
-if (!fs.existsSync(practiceChatContractPath)) {
-  console.log('Practice Chat not present here; note-markup contract mirror not compared.');
-} else if (!fs.existsSync(contractPath)) {
-  console.log('Note-markup contract missing from this repository.');
-} else if (fs.readFileSync(contractPath, 'utf8') === fs.readFileSync(practiceChatContractPath, 'utf8')) {
-  console.log('Note-markup contract: both copies identical.');
+if (!fs.existsSync(practiceChatRoot)) {
+  console.log('Practice Chat not present here; mirrored contracts not compared.');
 } else {
-  console.log('Note-markup contract warning (not a failure — review, do not gate):');
-  console.log('- the two copies have diverged, so each repository is now testing a different contract.');
-  console.log(`  ${path.relative(repositoryRoot, contractPath)}`);
-  console.log(`  ${practiceChatContractPath}`);
+  for (const [label, file] of MIRRORED_CONTRACTS) {
+    const contractPath = path.join(repositoryRoot, 'tests/fixtures', file);
+    const practiceChatContractPath = path.join(practiceChatRoot, 'tests/fixtures', file);
+    if (!fs.existsSync(contractPath) || !fs.existsSync(practiceChatContractPath)) {
+      console.log(`${label} warning (not a failure): missing from ${fs.existsSync(contractPath) ? 'Practice Chat' : 'this repository'}.`);
+    } else if (fs.readFileSync(contractPath, 'utf8') === fs.readFileSync(practiceChatContractPath, 'utf8')) {
+      console.log(`${label}: both copies identical.`);
+    } else {
+      console.log(`${label} warning (not a failure; review, do not gate):`);
+      console.log('- the two copies have diverged, so each repository is now testing a different contract.');
+      console.log(`  ${path.relative(repositoryRoot, contractPath)}`);
+      console.log(`  ${practiceChatContractPath}`);
+    }
+  }
 }
 
 if (!fs.existsSync(vaultRoot)) {

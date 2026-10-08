@@ -164,6 +164,13 @@ Some source formats are fragile because they come from human-edited external sys
   the two copies locally and warns (never fails; Practice Chat is absent on CI,
   and `FIRST_CHORD_PRACTICE_CHAT` points it elsewhere). Changing the note format
   means editing the fixture in both repositories on purpose.
+- **Practice note section labels are a mirrored contract.** Practice Chat
+  writes `[What we did]`, `[Progress & Challenges]` and `[Practice Goals]`
+  (its `public/src/note-sections.js`); the dashboard splits the parent email,
+  portal and timeline on them (`parsePracticeNoteSections`). Both repositories
+  test against `tests/fixtures/note-sections-contract.mjs`, mirrored
+  byte-for-byte, and `npm run docs:check` warns locally if the copies diverge.
+  Renaming a label means editing the fixture in both on purpose.
 - MMS sign-up form labels `Preferred days` and `Preferred times` feed waiting-list availability matching. If the MMS form wording changes, update the waiting-list parser/tests before relying on capacity hints.
 - **`Schedule_Context.warnings` is a `" | "`-joined string of exact sentences,
   and one of them is matched by code.** `buildLessonDurationIssues` in
