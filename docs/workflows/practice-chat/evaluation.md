@@ -1,11 +1,38 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-08-11
+last_verified: 2026-10-08
 ---
 # Practice Chat six-week evaluation
 
-Live from 2026-08-11. Decide keep/change/stop by 2026-09-22.
+Live from 2026-08-11. The original 2026-09-22 decision date passed without a
+recorded decision.
+
+**Decision, 2026-10-08 (Finn): keep.** The evaluation continues, and its purpose
+widens: as well as "is the ritual worth keeping?", it is the evidence for
+offering Practice Chat to other schools. Re-judge by **2027-03-31** (end of the
+spring term).
+
+### Evidence so far (2026-10-08)
+
+- **1,187 sessions** since 2026-08-12 across **17 tutors**; median tutor active
+  time per note **about 2.5 minutes**.
+- **73% finished** in-session. Of the 317 that were not: 147 were reopened and
+  finished within three hours (107 of those had barely started), 81 had the
+  note saved another way the same day, 67 were opened and closed within five
+  seconds. **22 (under 2%)** genuinely stopped, all at the review screen, none
+  with a transcription error. The unfinished rate fell month on month: 30%,
+  26%, 23%.
+- **No accuracy ratings yet.** The rating card is gated to
+  `NEXT_PUBLIC_PRACTICE_CHAT_EVAL_TUTORS` and no tutor has been enabled, so
+  there is no quality evidence beside the time evidence. Enabling it is
+  Finn's call (it interrupts tutors, at most once a day).
+- **Gaps an outside school would ask about:** a "before" figure for how long
+  notes took without Practice Chat, and how children's voice data is handled
+  (OpenAI processing, retention, the parent privacy notice).
+- **The ritual changed on 2026-10-06 to 10-08** (server-side transcription, new
+  questions, refreshed screens). Every row records `build_version`, so compare
+  by build, never by week across that boundary.
 
 Answers one question: **is the end-of-lesson ritual worth keeping?** It measures
 the ritual; it never changes it. No screen a tutor uses behaves differently
