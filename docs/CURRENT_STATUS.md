@@ -30,6 +30,12 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Practice Chat absence shortcut and sky, 2026-10-08:** a "Student absent?"
+  link on the first screen marks the lesson AbsentNoMakeup with no note and no
+  email, always for one student (the shared-lesson group is never looked up).
+  It replaces typing a placeholder note ("." or ":)") to reach the absent
+  option. The panel also now uses the dashboard's time-of-day sky and greenery.
+  Contract: `docs/workflows/practice-chat/delivery.md`.
 - **Practice Chat questions and screens refreshed, 2026-10-08:** research-led
   wording ("What did we work on today?", "What went well? / What's still
   tricky?", "What's the plan for this week?", each with one lighter follow-up
@@ -92,14 +98,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   stale/uncertain evidence abstains. Synthetic live checks matched 14/14
   classification triples and 10/10 reply labels, with no false no-action or
   answered results. Contract: `docs/architecture/ai/jev-inbox-resolution.md`.
-- **Buttons: only the pressed one speaks — 2026-09-26:** from an admin report.
-  The button blueprint (`a499fda`) existed, but many buttons shared one busy
-  flag, so a whole card or page said "Saving…" at once, and card errors showed
-  in a banner off-screen. `usePressedAction` scopes the spinner to the pressed
-  button; outcomes now show beside it (Issues, Planning, student record,
-  WhatsApp inbox). All buttons get a CSS pressed state; server-action forms use
-  `SubmitButton`; `ui-conventions.md` gained **A Way Back**. Payroll untouched
-  (mid-redesign).
 
 ## Current operating contracts
 

@@ -36,7 +36,11 @@ insufficient. The server revalidates the selection; a model- or client-supplied
 confirmation is never human approval.
 
 Typed notes remain available if speech capture fails. `AbsentNoMakeup` records
-the on-the-day cancellation without sending a parent practice-note email.
+the on-the-day cancellation without sending a parent practice-note email. It
+can also be reached from the first screen ("Student absent?", only with
+dashboard context): that path sends no note text, so the route writes its
+standard absence line, and it never looks up a shared lesson's group, so one
+absent student cannot mark the whole lesson absent.
 
 ### Wording check before send
 
