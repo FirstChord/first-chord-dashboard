@@ -30,6 +30,12 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Practice Chat contracts tightened, 2026-10-08:** the note section labels
+  are a mirrored contract (`tests/fixtures/note-sections-contract.mjs`, in both
+  repos; docs:check warns on divergence), so renaming one can no longer
+  silently strip sections from parent emails. The model allow-list now exists
+  only in `lib/config/practice-chat-asr.mjs`; Practice Chat records the model
+  the transcription route reports. Contract: `docs/architecture/data/state-tabs.md`.
 - **Practice Chat screens are now tested before every deploy, 2026-10-08:**
   11 browser tests (practice-chat `tests/browser/`, `npm run test:browser`)
   drive the real app against a fake dashboard and microphone, and run in the
@@ -87,15 +93,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   to the server-derived students covered by that email. Previous-format rollback:
   `PRACTICE_NOTES_EMAIL_DESIGN_ENABLED=false`. Contract:
   `docs/workflows/practice-chat/delivery.md`.
-- **Automatic attention checks for the existing open inbox — 2026-10-02:**
-  approved by Finn with the current capture filters explicitly preserved.
-  Jev checks quiet open bursts without per-card clicks; confident no-action
-  suggestions appear in a visible Probably nothing group. Uncertainty remains
-  in Needs attention, All stays available, and clearing is human Select/Mark done
-  with Undo. Separate kill switch; bounded background/open-inbox producers never
-  apply details or change status. Expanded synthetic checks: 17/19 triples,
-  10/10 replies, zero false no-action/answered. Contract:
-  `docs/architecture/ai/jev-inbox-resolution.md`.
 
 ## Current operating contracts
 
