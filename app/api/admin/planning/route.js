@@ -7,6 +7,7 @@ import {
   addPlanningProgress,
   getPlanningDashboard,
   savePlanningItem,
+  scheduleFirstLessonReminder,
   updateFirstLessonLoopStep,
   updatePlanningStatus,
 } from '@/lib/admin/planning';
@@ -38,7 +39,13 @@ export async function POST(request) {
   const actorEmail = session.user.email || '';
 
   try {
-    if (mode === 'first_lesson_step') {
+    if (mode === 'first_lesson_reminder') {
+      await scheduleFirstLessonReminder({
+        planningId: `${body?.planningId || ''}`.trim(),
+        targetDate: body?.targetDate,
+        actorEmail,
+      });
+    } else if (mode === 'first_lesson_step') {
       await updateFirstLessonLoopStep({
         planningId: `${body?.planningId || ''}`.trim(),
         step: body?.step || '',

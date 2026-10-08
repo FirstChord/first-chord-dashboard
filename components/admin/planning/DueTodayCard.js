@@ -20,6 +20,8 @@ export default function DueTodayCard({
   onEdit,
   onProgress,
   onFirstLessonStep,
+  onFirstLessonRemind,
+  onFirstLessonRefresh,
   onPauseCompleted,
   sortedEntry = null,
   onRepairPauseDetails,
@@ -41,7 +43,8 @@ export default function DueTodayCard({
   const isTutorAbsenceCapture = !isPause && item.linkedWorkflowId === 'tutor-absence' && Boolean(item.linkedTutorId);
   const canCloseAbsence = canCloseTutorAbsenceCapture(item);
   const [expanded, setExpanded] = useState(false);
-  const story = getPlanningStory(item, studentOptions);
+  const stripeOnly = isFirstLesson && item.firstLessonLoop?.onlyPaymentRemaining && item.firstLessonLoop.progress.paymentDecision === 'continue_weekly';
+  const story = stripeOnly ? `Stripe follow-up — ${studentOptions.find((student) => student.mmsId === item.linkedStudentId)?.fullName || 'Student'}` : getPlanningStory(item, studentOptions);
   const whatToDo = getPlanningWhatToDo(item);
   const due = dueChipLabel(item.targetDate);
   const overdue = due.startsWith('Overdue');
@@ -50,7 +53,7 @@ export default function DueTodayCard({
 
   return (
     <article className={`rounded-2xl border bg-white p-5 shadow-sm ${overdue ? 'border-amber-200' : 'border-slate-200'}`}>
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${overdue ? 'bg-amber-50 text-amber-800' : 'bg-blue-50 text-blue-800'}`}>
             {due}
@@ -83,9 +86,9 @@ export default function DueTodayCard({
       </div>
 
       <h3 className="mt-2 text-base font-semibold text-slate-900">{story}</h3>
-      {!isPause && whatToDo ? <p className="mt-1 text-sm leading-6 text-slate-600">{whatToDo}</p> : null}
+      {!isPause && !isFirstLesson && whatToDo ? <p className="mt-1 text-sm leading-6 text-slate-600">{whatToDo}</p> : null}
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className={isFirstLesson ? 'contents' : 'mt-4 flex flex-wrap gap-2'}>
         {/* The one case where a capture card may be closed by hand: nothing it
             delegated is still open. Without this the card could only wait for a
             server sync that had already decided not to run. */}
@@ -111,7 +114,7 @@ export default function DueTodayCard({
             {item.itemType === 'initiative' && item.openProjectActions?.length ? 'Finish open actions first' : 'Mark done'}
           </ActionButton>
         )}
-        <ActionButton
+        {!isFirstLesson ? <ActionButton
           variant="secondary"
           onClick={press('defer', () => onDefer(item))}
           disabled={isPending}
@@ -119,7 +122,7 @@ export default function DueTodayCard({
           pendingLabel="Deferring…"
         >
           Defer until next meeting
-        </ActionButton>
+        </ActionButton> : null}
         {!isPause && !isFirstLesson && !isTutorAbsenceNotice && (
           <button
             type="button"
@@ -135,7 +138,7 @@ export default function DueTodayCard({
       {/* Pause cards and initial notices show their real action inline; other
           cards reveal the full card under Details. All use compact mode. */}
       {isPause || isFirstLesson || isTutorAbsenceNotice || expanded ? (
-        <div className="mt-4 border-t border-slate-100 pt-4">
+        <div className={isFirstLesson ? 'mt-2' : 'mt-4 border-t border-slate-100 pt-4'}>
           <PlanningCard
             item={item}
             studentOptions={studentOptions}
@@ -145,6 +148,8 @@ export default function DueTodayCard({
             onEdit={onEdit}
             onProgress={onProgress}
             onFirstLessonStep={onFirstLessonStep}
+            onFirstLessonRemind={onFirstLessonRemind}
+            onFirstLessonRefresh={onFirstLessonRefresh}
             onPauseCompleted={onPauseCompleted}
             sortedEntry={sortedEntry}
             onRepairPauseDetails={onRepairPauseDetails}

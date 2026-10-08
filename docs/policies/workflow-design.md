@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-07-20
+last_verified: 2026-10-08
 ---
 # Workflow design principles
 
@@ -188,6 +188,24 @@ Tutors & team, School operations, Finance & administration, and Growth & events.
 Legacy area values remain readable and editable so existing rows round-trip.
 
 ## Existing workflow boundaries
+
+### First-lesson follow-up
+
+The first-lesson card shows unfinished checks. Completed confirmations collapse
+into a review/undo disclosure; lesson evidence and notes remain available as
+reference. Student details open in a side panel without leaving Planning, with
+links to the recorded Stripe subscription or customer. Missing/invalid IDs lead
+to customer lookup, never a fabricated record link. Live Stripe checks are
+manual; a returned trial end is provider evidence, not proof a payment happened.
+
+When only Stripe setup remains for a continuing Stripe student, **Remind me
+later** moves the same card to Waiting on a chosen future date. The admin-gated
+save reloads the current checks, refuses closed cards or changed student links,
+and records the reminder in `Planning_Progress_Log`. It creates no second card
+and preserves every confirmation. The normal dated-work filter brings it back
+to Due today. A reviewed Waiting card can close early if setup is recorded;
+the initial continue/stop decision still cannot be made before its follow-up
+date. Scheduling and closure do not change payment expectation or Stripe.
 
 | Surface | Distinctive boundary | Focused document |
 |---|---|---|

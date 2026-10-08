@@ -23,6 +23,7 @@ import {
 } from '@/lib/admin/planning-helpers.mjs';
 import {
   formatDateTime,
+  formatTargetDate,
   extractPauseDatesFromPlanningItem,
   isPausePlanningItem,
   isTutorAbsenceCapturePlanningItem,
@@ -123,8 +124,8 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
   // queue: one success language across the dashboard, not two.
   const [sortedPauses, setSortedPauses] = useState({});
 
-  function startPauseSortedBeat(planningId, message, apply) {
-    setSortedPauses((current) => ({ ...current, [planningId]: { message, fading: false } }));
+  function startPauseSortedBeat(planningId, message, apply, heading = '') {
+    setSortedPauses((current) => ({ ...current, [planningId]: { message, heading, fading: false } }));
     window.setTimeout(() => {
       setSortedPauses((current) => (
         current[planningId] ? { ...current, [planningId]: { ...current[planningId], fading: true } } : current
@@ -688,6 +689,38 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
     }
   }
 
+  async function handleFirstLessonRemind(item, targetDate) {
+    try {
+      const next = await postPlanning({ mode: 'first_lesson_reminder', planningId: item.planningId, targetDate }, item.planningId, { deferApply: true });
+      startPauseSortedBeat(item.planningId, `Returns to Due today on ${formatTargetDate(targetDate)}. Completed checks are saved.`, () => setPlanning(next), 'Stripe follow-up scheduled');
+      return true;
+    } catch (error) {
+      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      setPendingId('');
+      return false;
+    }
+  }
+
+  async function handleFirstLessonRefresh(item) {
+    setPendingId(item.planningId);
+    setFailedSave({ id: '', message: '' });
+    setSaveState({ pending: true, error: '', savedAt: '' });
+    try {
+      const response = await fetch('/api/admin/planning', { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Follow-up checks could not be refreshed.');
+      setPlanning(data.planning);
+      setSaveState({ pending: false, error: '', savedAt: '' });
+      return true;
+    } catch (error) {
+      setFailedSave({ id: item.planningId, message: error.message });
+      setSaveState({ pending: false, error: error.message, savedAt: '' });
+      return false;
+    } finally {
+      setPendingId('');
+    }
+  }
+
   async function handleRepairPauseDetails(item, { draft, linkedStudentId }) {
     if (!draft?.isComplete) {
       setSaveState({ pending: false, error: 'Add the missing pause date details before saving.', savedAt: '' });
@@ -1054,6 +1087,8 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
                       onEdit={startEdit}
                       onProgress={handleProgress}
                       onFirstLessonStep={handleFirstLessonStep}
+                      onFirstLessonRemind={handleFirstLessonRemind}
+                      onFirstLessonRefresh={handleFirstLessonRefresh}
                       onPauseCompleted={handlePauseCompleted}
                       sortedEntry={sortedPauses[item.planningId] || null}
                       onRepairPauseDetails={handleRepairPauseDetails}
@@ -1099,6 +1134,8 @@ export default function AdminPlanningPageClient({ initialPlanning, initialFilter
                         onEdit={startEdit}
                         onProgress={handleProgress}
                         onFirstLessonStep={handleFirstLessonStep}
+                        onFirstLessonRemind={handleFirstLessonRemind}
+                        onFirstLessonRefresh={handleFirstLessonRefresh}
                         onPauseCompleted={handlePauseCompleted}
                         sortedEntry={sortedPauses[item.planningId] || null}
                         onRepairPauseDetails={handleRepairPauseDetails}

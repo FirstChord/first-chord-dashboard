@@ -12,7 +12,8 @@ export async function GET(request, { params }) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const student = await getAdminStudentByMmsId(params.mmsId);
+  const { mmsId } = await params;
+  const student = await getAdminStudentByMmsId(mmsId);
 
   if (!student) {
     return Response.json({ error: 'Not found' }, { status: 404 });

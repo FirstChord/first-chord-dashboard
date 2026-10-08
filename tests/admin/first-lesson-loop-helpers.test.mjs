@@ -105,3 +105,31 @@ test('stop path requires cancellation handling while completed portal workflow c
   assert.equal(complete.canClose, true);
   assert.equal(complete.studentAccess.source, 'portal_workflow');
 });
+
+test('only outstanding Stripe setup remains after the three human checks, including a note in its ID cell', () => {
+  const context = buildFirstLessonLoopContext({
+    item: { ...item, progress: [step('payment_decision', 'continue_weekly'), step('whatsapp_groups', 'true'), step('student_access', 'true')] },
+    student: { paymentMode: 'stripe', stripeSubscriptionId: 'Starts October?' },
+    now: new Date('2026-08-28T12:00:00Z'),
+  });
+  assert.equal(context.onlyPaymentRemaining, true);
+  assert.equal(context.remainingCount, 1);
+  assert.equal(context.completedCount, 3);
+  assert.equal(context.payment.subscriptionRecorded, false);
+  assert.equal(context.canClose, false);
+});
+
+test('a reviewed waiting follow-up can close early after setup is recorded without redoing confirmations', () => {
+  const progress = [step('payment_decision', 'continue_weekly'), step('whatsapp_groups', 'true'), step('student_access', 'true')];
+  const context = buildFirstLessonLoopContext({
+    item: { ...item, status: 'waiting', targetDate: '2026-09-10', progress },
+    student: { paymentMode: 'stripe', stripeSubscriptionId: 'sub_demo' }, now: new Date('2026-08-28T12:00:00Z'),
+  });
+  assert.equal(context.isDue, false);
+  assert.equal(context.canRecordDecision, true);
+  assert.equal(context.canClose, true);
+  assert.equal(context.remainingCount, 0);
+  const unchecked = buildFirstLessonLoopContext({ item: { ...item, status: 'waiting', targetDate: '2026-09-10' }, now: new Date('2026-08-28T12:00:00Z') });
+  assert.equal(unchecked.canRecordDecision, false);
+  assert.equal(unchecked.canClose, false);
+});

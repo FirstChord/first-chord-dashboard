@@ -234,3 +234,9 @@ test('buildLiveStripeIssues does not flag paused-expected void invoices when the
 
   assert.deepEqual(issues, []);
 });
+
+test('Stripe trial timing is exposed as provider evidence rather than inferred from setup notes', () => {
+  const trialEnd = Math.floor(new Date('2026-10-15T12:00:00Z').getTime() / 1000);
+  assert.equal(buildStripeSnapshot({ subscription: { id: 'sub_demo', status: 'trialing', trial_end: trialEnd } }).trialEndsAt, '2026-10-15T12:00:00.000Z');
+  assert.equal(buildStripeSnapshot({ subscription: { id: 'sub_demo', status: 'active' } }).trialEndsAt, '');
+});
