@@ -22,6 +22,7 @@ test('normalises friendly notes codes without making punctuation significant', (
 test('builds the WhatsApp description and family message with the code and profile link', () => {
   const message = buildNotesRolloutMessage({
     studentName: 'Ayla Smith',
+    parentName: 'Grace Smith',
     code: 'otter-27',
     friendlyUrl: 'ayla',
   });
@@ -29,6 +30,7 @@ test('builds the WhatsApp description and family message with the code and profi
     buildNotesGroupDescription('otter-27', 'ayla'),
     'First Chord notes code: otter-27\nhttps://firstchord.co.uk/ayla',
   );
+  assert.match(message, /^Hi Grace, here’s Ayla’s First Chord dashboard/);
   assert.match(message, /Ayla’s First Chord dashboard \(https:\/\/firstchord\.co\.uk\/ayla\)/);
   assert.match(message, /Practice Chat lesson notes/);
   assert.match(message, /\*otter-27\*/);
@@ -41,7 +43,7 @@ test('builds the WhatsApp description and family message with the code and profi
 
 test('introduces the dashboard without assuming prior use or a new privacy change', () => {
   const message = buildNotesRolloutMessage({ studentName: 'Example Student', code: 'otter-27', friendlyUrl: 'example' });
-  assert.match(message, /^Hi everyone, here’s Example’s First Chord dashboard/);
+  assert.match(message, /^Hi there, here’s Example’s First Chord dashboard/);
   assert.match(message, /practice resources and Practice Chat lesson notes/);
   assert.match(message, /To open the lesson notes, use the code \*otter-27\*/);
   assert.match(message, /once on each phone, tablet or computer/);
@@ -50,11 +52,35 @@ test('introduces the dashboard without assuming prior use or a new privacy chang
 });
 
 test('replacement messages still explicitly identify a changed code', () => {
-  const message = buildNotesRolloutMessage({ studentName: 'Example Student', code: 'otter-27', friendlyUrl: 'example', reset: true });
+  const message = buildNotesRolloutMessage({ studentName: 'Example Student', parentName: 'Grace Parent', code: 'otter-27', friendlyUrl: 'example', reset: true });
+  assert.match(message, /^Hi Grace, we’ve updated the privacy code for Example’s First Chord dashboard/);
   assert.match(message, /updated the privacy code/);
   assert.match(message, /https:\/\/firstchord\.co\.uk\/example/);
   assert.match(message, /\*otter-27\*/);
   assert.doesNotMatch(redactNotesCodeFromMessage(message, 'otter-27'), /otter-27/);
+});
+
+test('addresses an adult student directly in both introduction and replacement messages', () => {
+  for (const reset of [false, true]) {
+    const message = buildNotesRolloutMessage({
+      studentName: '  Alex Example  ',
+      parentName: 'Alex Example',
+      isOwnContact: true,
+      code: 'finch-42',
+      friendlyUrl: 'alex',
+      reset,
+    });
+    assert.match(message, /^Hi Alex, /);
+    assert.match(message, /your First Chord dashboard \(https:\/\/firstchord\.co\.uk\/alex\)/);
+    assert.match(message, reset ? /Your Practice Chat lesson notes/ : /your practice resources/);
+    assert.doesNotMatch(message, /Alex’s|Their|their|everyone/);
+    assert.doesNotMatch(redactNotesCodeFromMessage(message, 'finch-42'), /finch-42/);
+  }
+});
+
+test('missing recipient names produce a usable greeting without leaking placeholders', () => {
+  assert.match(buildNotesRolloutMessage({ studentName: 'Ayla Smith', parentName: '   ' }), /^Hi there, here’s Ayla’s/);
+  assert.match(buildNotesRolloutMessage({ isOwnContact: true }), /^Hi there, here’s your First Chord dashboard/);
 });
 
 test('omits the profile link when the student has no friendly URL', () => {

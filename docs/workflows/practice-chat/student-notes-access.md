@@ -22,6 +22,13 @@ It works for both new students and families who already use the portal, without
 assuming that notes privacy is a new change. Replacing an existing code keeps
 an explicit code-update message. Staff still copy and send each message
 manually, and confirm the description and send before activating protection.
+Both messages greet the recipient by first name. A parent receives “here’s
+<student>’s First Chord dashboard”; a student who is their own contact receives
+“here’s your First Chord dashboard” and “your practice resources”. The server
+uses the shared `isStudentOwnContact()` rule already used by pause messages:
+no recorded parent, or parent details matching the student, means the student
+is the recipient. This is a contact convention, not an age lookup. A missing
+recipient name falls back to “Hi there”.
 The template is owned by `buildNotesRolloutMessage()` in
 `lib/admin/student-notes-access-helpers.mjs`, with focused contracts in
 `tests/admin/student-notes-access-helpers.test.mjs`.

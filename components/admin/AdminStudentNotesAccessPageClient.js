@@ -80,6 +80,8 @@ export default function AdminStudentNotesAccessPageClient({
   const message = selected && code
     ? buildNotesRolloutMessage({
         studentName: selected.student.studentName,
+        parentName: selected.student.parentName,
+        isOwnContact: selected.student.isOwnContact,
         code,
         friendlyUrl: selected.student.friendlyUrl,
         reset: selected.state.protectionEnabled,
