@@ -212,6 +212,12 @@ Prices, and Payment Intents require Read; write permissions stay disabled.
 Missing Payment Intents Read must fail the refresh visibly rather than silently
 classifying partial invoice evidence.
 
+Live student checks trim and validate customer/subscription IDs before building
+Stripe request paths. Notes in those Sheets cells are treated as missing IDs;
+the existing email/customer lookup may recover live evidence. If it cannot,
+the normal missing-record issue remains visible. Provider errors still fail the
+refresh, and the read never repairs Sheets identifiers or changes Stripe.
+
 ## Pause-Expectation Reconciliation
 
 Overview, Issue Queue, and Stripe reads never update
