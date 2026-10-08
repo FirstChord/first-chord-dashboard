@@ -30,6 +30,12 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Practice Chat screens are now tested before every deploy, 2026-10-08:**
+  11 browser tests (practice-chat `tests/browser/`, `npm run test:browser`)
+  drive the real app against a fake dashboard and microphone, and run in the
+  deploy workflow after the unit tests. They pin the October refresh's
+  hand-checked behaviours, including that the absence shortcut never looks up
+  a shared lesson. Each was shown to fail when its behaviour is broken.
 - **Practice Chat absence shortcut and sky, 2026-10-08:** a "Student absent?"
   link on the first screen marks the lesson AbsentNoMakeup with no note and no
   email, always for one student (the shared-lesson group is never looked up).
@@ -90,14 +96,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   apply details or change status. Expanded synthetic checks: 17/19 triples,
   10/10 replies, zero false no-action/answered. Contract:
   `docs/architecture/ai/jev-inbox-resolution.md`.
-- **Jev checks message details and captured replies — 2026-10-02:** manual
-  **Check message** suggests topic, intent and actionability, and adds reply
-  resolution in the same call when captured evidence supports it. Humans edit
-  before **Apply details**; the narrow cell writer preserves open status, reply
-  receipts and Planning links. Both features have separate kill switches;
-  stale/uncertain evidence abstains. Synthetic live checks matched 14/14
-  classification triples and 10/10 reply labels, with no false no-action or
-  answered results. Contract: `docs/architecture/ai/jev-inbox-resolution.md`.
 
 ## Current operating contracts
 
