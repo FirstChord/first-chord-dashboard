@@ -47,11 +47,16 @@ with the four parts shown underneath as small prompts.
 
 ## Proposed wording
 
-| Step | Today | Proposed spoken question | Prompts shown under it |
+Revised 2026-10-08 after Finn's review: prompts as small "chips" read like
+tabs and "Last week's plan" / "When" / "Where" did not make sense on their
+own, so each question has at most **one gentle follow-up line** in lighter
+text, phrased the way a tutor would say it.
+
+| Step | Today | Proposed question | Follow-up line (lighter) |
 |---|---|---|---|
 | 1 | What did we do in the lesson? | **What did we work on today?** | none |
-| 2 | What went well or what was challenging? | **What went well? / What's still tricky?** (two lines) | What helped · Last week's plan |
-| 3 | What will you practise this week, and how, when and where? | **What's your plan for this week?** | What · How · When · Where |
+| 2 | What went well or what was challenging? | **What went well? / What's still tricky?** (two lines) | And what helped? |
+| 3 | What will you practise this week, and how, when and where? | **What's your plan for this week?** | What to play, how to practise it, and a time and place to do it. |
 
 Why each choice:
 
@@ -60,11 +65,13 @@ Why each choice:
   can let the student try to recall it first, which turns the summary into
   retrieval practice.
 - **Q2** becomes two single questions, so both get answered. "Still tricky"
-  is child-friendly and carries a not-yet message. "What helped" steers the
-  student to strategy. "Last week's plan" closes the loop: it asks whether
-  last week's plan happened before making a new one.
+  is child-friendly and carries a not-yet message. "And what helped?" steers
+  the student to strategy. (Closing the loop on last week's plan is still
+  worth doing, but as the actual text of last week's plan, not an abstract
+  prompt. Not in this change.)
 - **Q3** "your plan" makes it the student's and is the implementation-intention
-  word. The four prompts carry the detail without garbling the question.
+  word. The follow-up line carries what, how, when and where in plain
+  speech: "a time and place" is when and where without naming them.
   Tutors can model the if-then form out loud: "So when you get home on
   Tuesday, you'll…"
 
@@ -101,18 +108,18 @@ Proposed, as a subtle refresh in the same colours and typeface:
 
 - **Named steps** instead of numbers: The lesson · How it went · The plan.
   They show the shape of the ritual and match the note's three sections.
-- **One card** per step: the question as the largest text (about 28px, bold),
-  prompts as quiet chips beneath, then the record button.
-- **Recording state inside the button**: a red dot, an elapsed timer, a small
-  live level meter and "Tap to stop". No banner, so nothing moves.
-- **No logo header when embedded** in the dashboard panel; the full-page view
-  keeps it.
+- **Keep the illustration and wordmark** as a smaller welcome above the steps
+  (about 184px wide, no tagline). Finn: the panel "has to feel like a nice
+  place to be" when it opens.
+- **One card** per step: the question as the largest text (about 30px, bold),
+  the follow-up line in lighter grey, then the record button.
+- **Recording state inside the button, kept calm**: a softly breathing dot,
+  "Listening…" and "Tap to stop". No level meter and no timer: the student
+  watches this screen, and a moving meter or a running clock is pressure.
+  The microphone only speaks up when something is wrong: after a few seconds
+  of silence, "Can't hear anything. Check the microphone." appears beneath.
+  No banner, so nothing moves.
 - Back / Type notes instead / Skip stay as quiet links below the card.
-
-**What the refresh risks losing** is some First Chord character: the
-illustration and wordmark carry warmth that a clean card does not. Worth
-deciding whether a small illustration should stay somewhere on the embedded
-screen.
 
 The mock used for the comparison images is a standalone page with no app
 logic; it is a picture of the proposal, not an implementation.
@@ -132,9 +139,10 @@ the same markers about three weeks after each change.
    `lines` and `prompts`, rendered by `updateQuestionDisplay()`.
 2. Question card markup and styles in `index.html` / `css/styles.css`; remove
    the duplicate progress elements.
-3. Recording state moves into `mainActionBtn` (timer, level meter from the
-   live `MediaStream` via an `AnalyserNode`); the `status` banner is no longer
-   used while recording.
-4. Hide the header when `window.self !== window.top`.
+3. Recording state moves into `mainActionBtn` ("Listening…", breathing dot);
+   the `status` banner is no longer used while recording. An `AnalyserNode` on
+   the live `MediaStream` is used only to detect sustained silence, never shown
+   as a meter.
+4. Header shrinks to the illustration and wordmark, without the tagline.
 5. Re-record the demo GIF (`npm run demo:record`), whose captions mention the
    questions.
