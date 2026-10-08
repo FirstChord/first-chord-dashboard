@@ -34,7 +34,7 @@ structure is right and should stay. The work is in the wording and the screen.
 | Students who put setbacks down to **strategy or effort** respond more constructively than those who put them down to ability. | [Attribution research in music](https://ojs.ehu.eus/index.php/psicodidactica/article/download/6942/8175/33795) | Add "What helped?" as a prompt: it steers the student towards strategy, which they control. "Still tricky" also implies progress, not a fixed limit. |
 | A plan that names when and where is followed through far more often than a goal alone (94 studies, d≈0.65); the if-then form ("when X, I'll Y") carries much of the effect. | [Gollwitzer and Sheeran](https://www.thebehavioralscientist.com/glossary/implementation-intentions) | Q3 should produce a plan with a time and place, not just a list of pieces. |
 | Habits form through repetition in a **stable context**: same time, same place, same preceding cue. | [Lally et al. 2010; Wood and Neal](https://www.thebehavioralscientist.com/glossary/habit-formation) | "Where" earns its place: the same spot, with the instrument out, is the cue. |
-| Students practise a piece they chose with markedly more deliberate strategies. Autonomy-supportive teachers ask for the student's view and act on it. | [Renwick and McPherson 2002](https://bulletproofmusician.com/what-changes-when-a-student-selects-their-own-repertoire-a-case-study/); [Reeve](https://www.acu.edu.au/about-acu/faculties-directorates-and-staff/faculty-of-education-and-arts/faculty-research/research-translations/hope-collection/how-can-teachers-effectively-learn-to-become-more-autonomy-supportive-to-enhance-student-motivation-and-wellbeing) | Q3 belongs to the student: "your plan". |
+| Students practise a piece they chose with markedly more deliberate strategies. Autonomy-supportive teachers ask for the student's view and act on it. | [Renwick and McPherson 2002](https://bulletproofmusician.com/what-changes-when-a-student-selects-their-own-repertoire-a-case-study/); [Reeve](https://www.acu.edu.au/about-acu/faculties-directorates-and-staff/faculty-of-education-and-arts/faculty-research/research-translations/hope-collection/how-can-teachers-effectively-learn-to-become-more-autonomy-supportive-to-enhance-student-motivation-and-wellbeing) | Invite the student into Q3 when the lesson allows; the wording must not require it. |
 | Spacing practice out helps verbal memory strongly, but the evidence for complex motor skills like piano is mixed. | [Simmons, lack of spacing effects in piano](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5553926/) | Do **not** build "short and often" into the question. Leave "how much" to the tutor. |
 
 ## The wording problem with today's Q3
@@ -56,7 +56,7 @@ text, phrased the way a tutor would say it.
 |---|---|---|---|
 | 1 | What did we do in the lesson? | **What did we work on today?** | none |
 | 2 | What went well or what was challenging? | **What went well? / What's still tricky?** (two lines) | And what helped? |
-| 3 | What will you practise this week, and how, when and where? | **What's your plan for this week?** | What to play, how to practise it, and a time and place to do it. |
+| 3 | What will you practise this week, and how, when and where? | **What's the plan for this week?** | What to play, how to practise it, and a time and place to do it. |
 
 Why each choice:
 
@@ -69,8 +69,12 @@ Why each choice:
   the student to strategy. (Closing the loop on last week's plan is still
   worth doing, but as the actual text of last week's plan, not an abstract
   prompt. Not in this change.)
-- **Q3** "your plan" makes it the student's and is the implementation-intention
-  word. The follow-up line carries what, how, when and where in plain
+- **Q3** "the plan" is the implementation-intention word, and works whether
+  the student or the tutor is speaking. Many lessons end in tutor guidance
+  rather than conversation (in the 2026-10 sample, only a handful of tutors'
+  notes carried the student's voice), and "your plan" read as if the student
+  must answer. Ownership comes from the tutor asking ("what's your plan?"),
+  which "the plan" still allows. The follow-up line carries what, how, when and where in plain
   speech: "a time and place" is when and where without naming them.
   Tutors can model the if-then form out loud: "So when you get home on
   Tuesday, you'll…"
@@ -123,6 +127,27 @@ Proposed, as a subtle refresh in the same colours and typeface:
 
 The mock used for the comparison images is a standalone page with no app
 logic; it is a picture of the proposal, not an implementation.
+
+## What stays exactly the same
+
+Finn's brief (2026-10-08): the change should feel aesthetic, not functional.
+The flow, controls and their positions are unchanged:
+
+- Start recording, Stop, then the transcribed answer appears **below** the
+  button, which becomes "Next question". The button never moves between
+  states, so after Stop the cursor is already on Next.
+- Back (from question 2 onwards), Type notes instead and Skip question keep
+  their labels and places beneath the card.
+- The fun "processing" messages while transcribing, the review screen, songs,
+  attendance and sending are untouched.
+
+Only two things are not purely visual, and both are optional:
+
+1. The "Recording… Speak naturally" and "Answer recorded!" banners go. The
+   in-button "Listening…" state replaces the first; the answer appearing
+   replaces the second. Removing them is what stops the screen jumping.
+2. The "Can't hear anything" silence warning is new behaviour. It can ship
+   later, separately, so the refresh itself stays a pure reskin.
 
 ## Measuring it
 
