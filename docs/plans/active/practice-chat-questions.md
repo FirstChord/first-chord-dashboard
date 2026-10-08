@@ -8,7 +8,13 @@ last_verified: 2026-10-08
 **Shipped 2026-10-08** (practice-chat `d82d69a`, selector fix `24bd2ad`), as a
 visual change with the flow unchanged. Still open: the optional "Can't hear
 anything" silence warning, and re-measuring goal specificity about three weeks
-after launch (late October). Related baseline:
+after launch (late October).
+
+Follow-ups shipped the same day: all three questions share one space so the
+record button never moves between them; the transcribing line is a small
+italic green shimmer without emojis; the panel takes the dashboard's
+time-of-day sky and header greenery, with frosted strips behind text that sits
+on the sky. Related baseline:
 [Practice Note Quality](./practice-note-quality.md).
 
 ## Why the questions matter more than they look
@@ -57,7 +63,7 @@ text, phrased the way a tutor would say it.
 | Step | Today | Proposed question | Follow-up line (lighter) |
 |---|---|---|---|
 | 1 | What did we do in the lesson? | **What did we work on today?** | none |
-| 2 | What went well or what was challenging? | **What went well? / What's still tricky?** (two lines) | And what helped? |
+| 2 | What went well or what was challenging? | **What went well? / What's still tricky?** (two lines) | Anything that helped make things click. |
 | 3 | What will you practise this week, and how, when and where? | **What's the plan for this week?** | What to play, how to practise it, and a time and place to do it. |
 
 Why each choice:
@@ -67,8 +73,9 @@ Why each choice:
   can let the student try to recall it first, which turns the summary into
   retrieval practice.
 - **Q2** becomes two single questions, so both get answered. "Still tricky"
-  is child-friendly and carries a not-yet message. "And what helped?" steers
-  the student to strategy. (Closing the loop on last week's plan is still
+  is child-friendly and carries a not-yet message. "Anything that helped make
+  things click." steers the student to strategy without a third question
+  mark, and "anything" keeps it optional (Finn, 2026-10-08). (Closing the loop on last week's plan is still
   worth doing, but as the actual text of last week's plan, not an abstract
   prompt. Not in this change.)
 - **Q3** "the plan" is the implementation-intention word, and works whether
