@@ -30,6 +30,15 @@ Bounded at 8 entries and enforced by `npm run docs:check`. When it overflows,
 delete the oldest — do not archive it here. The chronology is `git log` and the
 rationale is already written up in the Obsidian `06 Learning Log/`.
 
+- **Practice Chat questions and screens refreshed, 2026-10-08:** research-led
+  wording ("What did we work on today?", "What went well? / What's still
+  tricky?", "What's the plan for this week?", each with one lighter follow-up
+  line) that works whether the student or the tutor answers. The question is
+  now the largest text, recording shows a calm "Listening..." with no meter or
+  timer, and the date tick sits above the Save button it unlocks. Visual only:
+  all 1,179 logged notes round-trip unchanged, so parent emails are
+  unaffected. Re-measure goal specificity in late October. Plan:
+  `docs/plans/active/practice-chat-questions.md`.
 - **Practice Chat deploys go through GitHub again, 2026-10-07:** the repo's
   push-to-`main` workflow (tests, then Firebase deploy) had been bypassed since
   August: live code sat on an unpushed branch and was deployed by hand. `main`
@@ -91,19 +100,6 @@ rationale is already written up in the Obsidian `06 Learning Log/`.
   WhatsApp inbox). All buttons get a CSS pressed state; server-action forms use
   `SubmitButton`; `ui-conventions.md` gained **A Way Back**. Payroll untouched
   (mid-redesign).
-- **Song cards show three distinctive skills, and the capo tags are gone —
-  2026-09-18:** eight more RSL Acoustic 2026 slices catalogued (Grade 2 ×4,
-  Grade 3 ×4; Surfer Ticket, December, Restless pinned as verified Originals).
-  Looking at the shelf showed two problems. All seven `capo` tags were wrong:
-  the July seeding agents described the original recordings, not the RSL
-  arrangements, and no backed-up score mentions a capo. And cards listed every
-  skill A–Z, so whatever sorted first led and the near-universal ones (steady
-  pulse, dynamics, strumming, open chords — ~35 songs each) filled every card.
-  Cards now show at most three, rarest across the catalogue first
-  (`cardSkillLabelsForSong`), full list on hover; the tags themselves are
-  unchanged. Policy: a tag must be true of the arrangement — what can't be
-  checked is left off. Next: derive metre from the MusicXML scores, which
-  already disagree with 36 time-signature tags.
 
 ## Current operating contracts
 

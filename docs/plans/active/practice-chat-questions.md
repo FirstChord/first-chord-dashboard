@@ -5,8 +5,10 @@ last_verified: 2026-10-08
 ---
 # Practice Chat: The Three Questions and How They Are Shown
 
-Proposal, not yet built. Finn's decision is needed on the wording and on the
-screen refresh before anything ships. Related baseline:
+**Shipped 2026-10-08** (practice-chat `d82d69a`, selector fix `24bd2ad`), as a
+visual change with the flow unchanged. Still open: the optional "Can't hear
+anything" silence warning, and re-measuring goal specificity about three weeks
+after launch (late October). Related baseline:
 [Practice Note Quality](./practice-note-quality.md).
 
 ## Why the questions matter more than they look
