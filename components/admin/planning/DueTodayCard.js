@@ -51,6 +51,11 @@ export default function DueTodayCard({
   const isPending = pendingId === item.planningId;
   const { press, pendingFor } = usePressedAction(isPending);
 
+  // First-lesson work owns its header and compact rows in every Planning view.
+  if (isFirstLesson && !['done', 'parked'].includes(item.status)) {
+    return <PlanningCard item={item} studentOptions={studentOptions} onStatus={onStatus} onArchive={onArchive} onEdit={onEdit} onProgress={onProgress} onFirstLessonStep={onFirstLessonStep} onFirstLessonRemind={onFirstLessonRemind} onFirstLessonRefresh={onFirstLessonRefresh} pendingId={pendingId} errorMessage={errorMessage} sortedEntry={sortedEntry} />;
+  }
+
   return (
     <article className={`rounded-2xl border bg-white p-5 shadow-sm ${overdue ? 'border-amber-200' : 'border-slate-200'}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">

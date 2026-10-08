@@ -191,9 +191,13 @@ Legacy area values remain readable and editable so existing rows round-trip.
 
 ### First-lesson follow-up
 
-The first-lesson card shows unfinished checks. Completed confirmations collapse
-into a review/undo disclosure; lesson evidence and notes remain available as
-reference. Student details open in a side panel without leaving Planning, with
+The first-lesson card leads with the student name and remaining count.
+Unfinished checks stay visible as compact rows with supporting copy and actions
+aligned to the right (stacked on narrow screens). Student details and Refresh
+checks stay visible; Edit and Remove sit under More card actions. Completed
+confirmations collapse into a review/undo disclosure, beside a combined Context
+& history disclosure containing lesson evidence, notes and the progress form.
+Student details open in a side panel without leaving Planning, with
 links to the recorded Stripe subscription or customer. Missing/invalid IDs lead
 to customer lookup, never a fabricated record link. Live Stripe checks are
 manual; a returned trial end is provider evidence, not proof a payment happened.

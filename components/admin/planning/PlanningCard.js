@@ -164,23 +164,16 @@ export default function PlanningCard({ item, studentOptions = [], paymentExpecta
   }
 
   if (isFirstLessonCheckin && !['done', 'parked'].includes(item.status)) {
-    const stripeOnly = item.firstLessonLoop?.onlyPaymentRemaining && item.firstLessonLoop?.progress.paymentDecision === 'continue_weekly';
     return (
-      <article data-planning-id={item.planningId} tabIndex={-1} className={`scroll-mt-24 focus:outline focus:outline-2 focus:outline-blue-400 ${compact ? '' : 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm'}`}>
-        {!compact ? <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0"><h3 className="text-base font-semibold text-slate-900">{stripeOnly ? `Stripe follow-up — ${linkedStudent?.fullName || 'Student'}` : item.title}</h3><p className="mt-1 text-xs text-slate-500">{item.owner} · {item.status === 'waiting' ? 'Reminder' : 'Follow-up'} {formatTargetDate(item.targetDate)}</p></div>
-          <div className="flex gap-2"><ActionButton size="compact" variant="quiet" onClick={() => onEdit(item)}>Edit</ActionButton><ActionButton size="compact" variant="quiet" disabled={isPending} pending={pendingFor('archive')} pendingLabel="Removing…" onClick={press('archive', () => onArchive?.(item))}>Remove</ActionButton></div>
-        </div> : null}
-        <FirstLessonLoopPanel item={item} studentOptions={studentOptions} onStep={onFirstLessonStep} onStatus={onStatus} onRemind={onFirstLessonRemind} onRefresh={onFirstLessonRefresh} isPending={isPending} />
-        <details className="mt-2 text-xs text-slate-500">
-          <summary className="cursor-pointer py-2">Notes and history</summary>
-          {item.notes ? <p className="mt-2 whitespace-pre-wrap leading-5">{item.notes}</p> : null}
-          {item.latestProgress ? <p className="mt-2 leading-5">{item.latestProgress.progressNote} · {formatDateTime(item.latestProgress.createdAt)}</p> : null}
+      <article data-planning-id={item.planningId} tabIndex={-1} className={`scroll-mt-24 focus:outline focus:outline-2 focus:outline-blue-400 ${compact ? '' : 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm'}`}>
+        <FirstLessonLoopPanel item={item} studentOptions={studentOptions} onStep={onFirstLessonStep} onStatus={onStatus} onRemind={onFirstLessonRemind} onRefresh={onFirstLessonRefresh} onEdit={onEdit} onArchive={onArchive} isPending={isPending} history={<>
+          {item.notes ? <p className="mt-3 whitespace-pre-wrap text-sm leading-5">{item.notes}</p> : null}
+          {item.latestProgress ? <p className="mt-3 text-sm leading-5">{item.latestProgress.progressNote} · {formatDateTime(item.latestProgress.createdAt)}</p> : null}
           <form className="mt-3 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); press('note', () => onProgress(item, { progressNote }))(); setProgressNote(''); }}>
             <input aria-label="Progress note" required value={progressNote} onChange={(event) => setProgressNote(event.target.value)} placeholder="Add a progress note" className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900" />
-            <ActionButton type="submit" size="compact" disabled={isPending || !progressNote.trim()} pending={pendingFor('note')} pendingLabel="Saving…">Add note</ActionButton>
+            <ActionButton type="submit" disabled={isPending || !progressNote.trim()} pending={pendingFor('note')} pendingLabel="Saving…">Add note</ActionButton>
           </form>
-        </details>
+        </>} />
         {errorMessage ? <p role="alert" className="mt-3 text-sm text-red-700">{errorMessage}</p> : null}
       </article>
     );
