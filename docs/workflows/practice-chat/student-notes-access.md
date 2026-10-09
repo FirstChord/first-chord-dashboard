@@ -1,7 +1,7 @@
 ---
 status: canonical
 audience: [human, agent]
-last_verified: 2026-10-08
+last_verified: 2026-10-09
 ---
 # Student notes access rollout
 
@@ -29,6 +29,8 @@ uses the shared `isStudentOwnContact()` rule already used by pause messages:
 no recorded parent, or parent details matching the student, means the student
 is the recipient. This is a contact convention, not an age lookup. A missing
 recipient name falls back to “Hi there”.
+Both messages end with a short, separate suggestion to bookmark the page or
+add it to a phone or tablet's home screen for easy access before lessons.
 The template is owned by `buildNotesRolloutMessage()` in
 `lib/admin/student-notes-access-helpers.mjs`, with focused contracts in
 `tests/admin/student-notes-access-helpers.test.mjs`.
